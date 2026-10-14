@@ -1,4 +1,44 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CIA4103 · Live Classroom Board</title><link rel="stylesheet" href="/assets/theme.css"><link rel="stylesheet" href="/assets/dashboard.css"><script defer src="/assets/dashboard.js"></script></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>CIA4103 · Live Classroom Board</title><link rel="stylesheet" href="/assets/theme.css"><link rel="stylesheet" href="/assets/dashboard.css"><script defer src="/assets/dashboard.js"></script><style id="embedded-theme">
+:root{--navy:#12315c;--blue:#253da6;--teal:#0e968a;--orange:#d76a43;--ink:#1a3152;--muted:#577088;--line:#dce5ef;--soft-teal:#e8f7f4;--soft-orange:#fff1e9;font-family:"Segoe UI",Arial,sans-serif;color:var(--ink);background:#f7f9fd}
+*{box-sizing:border-box}body{margin:0}button,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.55;cursor:wait}a{color:var(--blue);text-decoration:none}
+.app-top{background:#fff;border-bottom:1px solid var(--line);padding:17px max(20px,calc((100vw - 1400px)/2));display:flex;align-items:center;justify-content:space-between;gap:15px}
+.brand{color:var(--muted);font-size:.8rem;font-weight:800;letter-spacing:.08em}.brand strong{display:block;font-size:1.08rem;color:var(--navy);padding-top:5px;letter-spacing:0}
+.top-link,.secondary{background:#fff;border:1px solid #b8cadb;border-radius:10px;color:var(--navy);padding:11px 14px;font-weight:750}.top-link{font-size:.88rem}
+main{max-width:1100px;padding:35px 20px 70px;margin:auto}.eyebrow{color:var(--teal);text-transform:uppercase;font-size:.78rem;letter-spacing:.1em;font-weight:850}
+h1{font-size:clamp(2.15rem,5vw,3.4rem);line-height:1.1;color:var(--navy);margin:12px 0 16px}h2{color:var(--navy)}
+.lead{color:var(--muted);font-size:1.12rem;line-height:1.55;max-width:760px}.mini-steps{display:flex;flex-wrap:wrap;gap:9px;margin:24px 0}.mini-steps span{background:#e7edf6;color:var(--navy);border-radius:8px;padding:8px 12px;font-size:.85rem;font-weight:700}
+.panel{background:white;border:1px solid var(--line);border-radius:20px;padding:27px;box-shadow:0 8px 30px #10284c09}.panel h2{margin-top:0}.field{margin:0 0 22px}.label{display:block;font-weight:800;font-size:.9rem;color:var(--navy);margin-bottom:10px}
+.select,textarea{width:100%;border:1px solid #b0c0d5;background:#fcfdff;border-radius:11px;padding:14px;color:var(--ink)}
+textarea{min-height:180px;font:1rem/1.5 Consolas,"Courier New",monospace;resize:vertical}
+.pill-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.choice{border:2px solid var(--line);border-radius:14px;text-align:left;background:white;min-height:95px;display:flex;align-items:center;gap:13px;padding:17px;color:var(--navy);font-weight:800}
+.choice small{display:block;color:var(--muted);font-size:.82rem;font-weight:500;margin-top:4px}.symbol{font-size:1.2rem;font-weight:900;white-space:nowrap}
+.choice.help.active{background:var(--soft-orange);border-color:var(--orange)}.choice.display.active{background:var(--soft-teal);border-color:var(--teal)}
+.inline-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.hint,.micro-footer{color:var(--muted);font-size:.85rem;line-height:1.5}
+.primary{border:none;background:var(--blue);color:white;border-radius:11px;padding:14px 22px;font-weight:800}
+.notice{display:none;margin:18px 0;padding:13px 15px;border-radius:10px}.notice.show{display:block}.notice.ok{background:var(--soft-teal);border:1px solid #86cfc2}.notice.bad{background:var(--soft-orange);border:1px solid #f1b298}
+.micro-footer{margin-top:22px}button:focus-visible,textarea:focus,select:focus{outline:3px solid #a6bafa;outline-offset:2px}
+@media(max-width:650px){.app-top{padding:14px}.top-link{font-size:.73rem}.panel{padding:18px}.pill-row{grid-template-columns:1fr}.choice{min-height:75px}main{padding:25px 13px 45px}}
+
+body{background:#f6f8fd}main.dashboard-main{max-width:1900px;padding:25px 26px 55px}.dash-head{display:flex;align-items:end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}.dash-head h1{margin:7px 0}.meta{font-size:.86rem;color:var(--muted)}
+.filters{display:flex;align-items:center;gap:13px;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px;margin:15px 0}.filters label{font-size:.85rem;font-weight:800;color:var(--navy)}
+.filters select{max-width:250px;border:1px solid #bdcce0;border-radius:8px;padding:10px;background:#fff;color:var(--navy)}.auto{font-size:.82rem;color:var(--teal);margin-left:auto}
+.metrics{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}.metric{min-width:135px;background:white;border:1px solid var(--line);border-radius:12px;padding:12px 18px}.metric strong{display:block;color:var(--navy);font-size:1.7rem}.metric span{font-size:.8rem;color:var(--muted)}
+.board{display:grid;grid-template-columns:1fr 1fr;gap:17px}.board-column{background:white;border:1px solid var(--line);border-radius:18px;overflow:hidden;min-height:440px}
+.board-title{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);padding:18px 21px}.board-title h2{font-size:clamp(1.25rem,2vw,1.85rem);margin:0}
+.board-column.help .board-title{background:var(--soft-orange)}.board-column.display .board-title{background:var(--soft-teal)}.count{background:white;border:1px solid var(--line);border-radius:99px;padding:6px 13px;font-weight:900}
+.cards{padding:15px;display:grid;gap:12px;align-content:start}.post{border:1px solid #d4dfed;border-radius:13px;background:#fff;padding:16px;width:100%;text-align:left;color:var(--ink)}.post:hover{border-color:#89a1c8;box-shadow:0 5px 20px #10284c16}
+.post-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}.part-tag{font-size:.78rem;font-weight:750;color:var(--navy);background:#edf1fa;border-radius:7px;padding:6px 8px}.time-tag{font-size:.75rem;color:var(--muted)}
+.post-text{font:1rem/1.5 Consolas,"Courier New",monospace;white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:6;overflow:hidden}
+.empty{padding:35px 20px;color:var(--muted);text-align:center}.error{margin:10px 0;background:var(--soft-orange);padding:15px;border:1px solid #efa485;border-radius:10px}.hidden{display:none!important}
+.full{position:fixed;inset:0;z-index:20;background:#fff;display:flex;justify-content:center;align-items:center;padding:22px}
+.full-inner{width:min(1100px,100%);max-height:96vh;overflow:auto;border:1px solid var(--line);box-shadow:0 15px 70px #12315c35;background:#fff;border-radius:18px;padding:30px}
+.full-title{display:flex;align-items:center;justify-content:space-between;gap:16px}.full-title h2{font-size:1.7rem;margin:6px 0;color:var(--navy)}
+pre.code{white-space:pre-wrap;overflow-wrap:anywhere;background:#f5f8fe;border:1px solid var(--line);border-radius:12px;padding:24px;max-height:65vh;overflow:auto;color:#122f50;font:clamp(1rem,1.8vw,1.55rem)/1.5 Consolas,"Courier New",monospace}
+body.projector .post-text{font-size:1.15rem}body.projector .post{padding:20px}
+@media(max-width:760px){main.dashboard-main{padding:18px 12px}.board{grid-template-columns:1fr}.filters select{max-width:100%}.board-column{min-height:150px}.auto{display:none}.full{padding:8px}.full-inner{padding:16px}pre.code{padding:14px}}
+
+</style></head><body>
 <header class="app-top"><div class="brand">HIGHER COLLEGES OF TECHNOLOGY<strong>CIA4103 · CLASSROOM DASHBOARD</strong></div><a class="top-link" href="/">Student posting page ↗</a></header>
 <main class="dashboard-main"><div class="dash-head"><div><div class="eyebrow">Chapter 07 · Anonymous classroom discussion</div><h1>Live lab board</h1><div class="meta">Project this screen. Select any card to enlarge an error or code snippet.</div></div><div class="inline-row"><button class="secondary" id="present" type="button">Presentation mode</button><button class="secondary" id="csv" type="button">Export CSV ↓</button></div></div>
 <section class="filters" aria-label="Dashboard filters"><label for="filter-part">Lab part</label><select id="filter-part"><option value="all">All four parts</option><option value="design">1 · Design the data</option><option value="models">2 · C# entity models</option><option value="connect">3 · EF Core configuration</option><option value="migration">4 · Migration & verification</option></select><label for="filter-time">Show</label><select id="filter-time"><option value="fourhours">Last 4 hours</option><option value="hour">Last 1 hour</option><option value="day">Last 24 hours</option><option value="all">All posts</option></select><button class="secondary" id="refresh" type="button">↻ Refresh</button><span class="meta" id="updated">Waiting for updates</span><span class="auto">● Auto-refresh: 5 seconds</span></section>
