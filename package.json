@@ -1,0 +1,12 @@
+{
+  "name": "cia4103-ch07-anonymous-lab-board",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.4"
+  }
+}
