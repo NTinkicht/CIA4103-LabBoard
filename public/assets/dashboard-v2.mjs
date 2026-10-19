@@ -2,12 +2,37 @@ import{LABS}from'./checker.mjs';
 import{renderCode}from'./highlight.mjs';
 const $=id=>document.getElementById(id);const titles=Object.fromEntries(LABS.map(l=>[l.id,`${l.label} · ${l.title}`]));
 let posts=[],busy=false,revealed=false,current=null,lastSuccess=0;
+// Dismissal is browser-only: with no authentication, server-side dismissal would be public.
+const DISMISSED_KEY='cia4103-lab09-lecturer-dismissed-v1';
+function loadDismissed(){
+ try{const saved=JSON.parse(localStorage.getItem(DISMISSED_KEY)||'[]');return new Set(Array.isArray(saved)?saved.filter(id=>typeof id==='string'&&id.length<100).slice(-2000):[]);}
+ catch{return new Set();}
+}
+const dismissed=loadDismissed();
+let showDismissed=false,canPersistDismissals=true;
+function saveDismissed(){
+ try{localStorage.setItem(DISMISSED_KEY,JSON.stringify([...dismissed].slice(-2000)));canPersistDismissals=true;}
+ catch{canPersistDismissals=false;}
+}
+function setDismissed(id,hidden){
+ if(hidden)dismissed.add(id);else dismissed.delete(id);
+ saveDismissed();
+ if(current?.id===id)close();
+ update();
+}
 for(const l of LABS)$('part').add(new Option(`${l.label} — ${l.title}`,l.id));
 function update(){
- $('total').textContent=posts.length;$('help-count').textContent=posts.filter(p=>p.type==='help').length;$('display-count').textContent=posts.filter(p=>p.type==='display').length;
+ const visible=posts.filter(p=>dismissed.has(p.id)===showDismissed);
+ const archived=posts.filter(p=>dismissed.has(p.id)).length;
+ $('total').textContent=visible.length;$('help-count').textContent=visible.filter(p=>p.type==='help').length;$('display-count').textContent=visible.filter(p=>p.type==='display').length;
+ $('dismissed-count').textContent=archived;
+ $('view-label').textContent=showDismissed?'Dismissed submissions':'Active submissions';
+ $('show-dismissed').textContent=showDismissed?'← Back to active':'Show dismissed ('+archived+')';
+ $('show-dismissed').setAttribute('aria-pressed',String(showDismissed));
+ $('dismiss-note').textContent=canPersistDismissals?'Dismissals are saved only in this browser. The original posts remain available in CSV export.':'Browser storage is blocked; dismissed posts may reappear after reload.';
  for(const type of ['help','display']){
-  const group=posts.filter(p=>p.type===type),target=$(type+'-posts');$(type+'-badge').textContent=group.length;target.replaceChildren();
-  if(!group.length){const div=document.createElement('div');div.className='empty';div.textContent=type==='help'?'No help requests for this filter.':'No shared results for this filter.';target.append(div);continue;}
+  const group=visible.filter(p=>p.type===type),target=$(type+'-posts');$(type+'-badge').textContent=group.length;target.replaceChildren();
+  if(!group.length){const div=document.createElement('div');div.className='empty';div.textContent=showDismissed?'No dismissed submissions for this filter.':(type==='help'?'No active help requests for this filter.':'No active shared results for this filter.');target.append(div);continue;}
   group.forEach(p=>{
    const card=document.createElement('button');card.type='button';card.className='cardpost';
    const top=document.createElement('div');top.className='row';const t=document.createElement('strong');t.textContent=titles[p.part]||p.part;const time=document.createElement('time');time.className='meta';time.dateTime=p.submittedAt;time.textContent=new Date(p.submittedAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});top.append(t,time);card.append(top);
@@ -15,7 +40,13 @@ function update(){
    const excerpt=document.createElement('div');excerpt.className='preview';excerpt.textContent=revealed?((p.note||p.code||'Screenshot attached').slice(0,380)):'Preview hidden — click to inspect';card.append(excerpt);
    if(revealed&&p.imageId){const img=document.createElement('img');img.src='/api/posts?image='+encodeURIComponent(p.imageId);img.alt='Submitted screenshot thumbnail';img.loading='lazy';card.append(img);}
    if(p.diagnostics?.issues?.length){const issue=document.createElement('div');issue.className='issues';issue.textContent='✦ '+p.diagnostics.issues.length+' potential issue(s) · verify in Visual Studio';card.append(issue);}
-   card.addEventListener('click',()=>openPost(p));target.append(card);
+   card.addEventListener('click',()=>openPost(p));
+   const wrap=document.createElement('div');wrap.className='post-shell'+(showDismissed?' is-dismissed':'');
+   const action=document.createElement('button');action.type='button';action.className='resolve-button';
+   action.textContent=showDismissed?'↶ Restore to active':'✓ Dismiss — answered';
+   action.setAttribute('aria-label',(showDismissed?'Restore':'Dismiss')+' submission from '+(titles[p.part]||p.part));
+   action.addEventListener('click',()=>setDismissed(p.id,!showDismissed));
+   wrap.append(card,action);target.append(wrap);
   });
  }
 }
@@ -24,9 +55,11 @@ function showChecks(issues){const place=$('detail-analysis');place.replaceChildr
 }
 function openPost(p){current=p;$('detail-title').textContent=p.type==='help'?'I need help with':'I display';$('detail-task').textContent=titles[p.part]||p.part;$('detail-note').textContent=p.note||'';$('detail-lang').textContent=p.lang?.toUpperCase()||'Code';$('detail-code-box').classList.toggle('hidden',!p.code);if(p.code)renderCode($('detail-code'),p.code,p.lang,p.diagnostics?.issues?.map(i=>i.line)||[]);
  $('image-frame').classList.toggle('hidden',!p.imageId);if(p.imageId)$('detail-img').src='/api/posts?image='+encodeURIComponent(p.imageId);else $('detail-img').removeAttribute('src');
- showChecks(p.diagnostics?.issues);$('detail-time').textContent='Anonymous · '+new Date(p.submittedAt).toLocaleString();$('overlay').classList.add('open');$('close').focus();
+ showChecks(p.diagnostics?.issues);$('detail-time').textContent='Anonymous · '+new Date(p.submittedAt).toLocaleString();$('dismiss-current').textContent=dismissed.has(p.id)?'↶ Restore to active':'✓ Dismiss — answered';$('overlay').classList.add('open');$('close').focus();
 }
 function close(){$('overlay').classList.remove('open');current=null;}
+$('dismiss-current').addEventListener('click',()=>{if(current)setDismissed(current.id,!dismissed.has(current.id));});
+$('show-dismissed').addEventListener('click',()=>{showDismissed=!showDismissed;update();});
 $('close').addEventListener('click',close);$('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))close();});document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
 $('copy').addEventListener('click',async()=>{if(!current?.code)return;try{await navigator.clipboard.writeText(current.code);$('copy').textContent='Copied ✓';setTimeout(()=>$('copy').textContent='Copy code',1400);}catch{$('copy').textContent='Could not copy';}});
 // Poll while a code/screenshot dialog is open; show whether live updates succeed.
