@@ -16,3 +16,9 @@ The board is deliberately public and unmoderated, as requested. Do not upload pe
 **Code analysis is a teaching aid, not a Roslyn compiler or actual project build.** It flags likely syntax/form-binding errors but cannot establish whether C# or Razor code compiles, EF Core connects, or an MVC page works. Students must compile/run in Visual Studio to verify functionality.
 
 Before observation, submit one sample from the student page, including a screenshot and C# snippet with a missing semicolon; check dashboard and filter functionality. Runtime integration with live Netlify Blobs still requires deployment testing.
+
+## Live refresh troubleshooting (2026-10-19)
+
+The dashboard checks for new submissions every five seconds, including while a code or screenshot is enlarged. It now shows LIVE after a successful request or OFFLINE with a clear error when polling fails. Background browser tabs may throttle timers; the board catches up automatically when visible again.
+
+Test without installing anything: keep the teacher dashboard visible, submit a test snippet from another browser tab, and check the LIVE time and new card within about 5–10 seconds. If it displays OFFLINE, inspect the Netlify project's **Logs & metrics → Functions → posts**. Visit `/api/posts?part=all&range=4h` to check that the API returns a `posts` array. Make sure the site has published the latest GitHub commit.
