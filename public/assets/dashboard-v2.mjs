@@ -1,7 +1,7 @@
 import{LABS}from'./checker.mjs';
 import{renderCode}from'./highlight.mjs';
 const $=id=>document.getElementById(id);const titles=Object.fromEntries(LABS.map(l=>[l.id,`${l.label} · ${l.title}`]));
-let posts=[],busy=false,revealed=false,current=null;
+let posts=[],busy=false,revealed=false,current=null,lastSuccess=0;
 for(const l of LABS)$('part').add(new Option(`${l.label} — ${l.title}`,l.id));
 function update(){
  $('total').textContent=posts.length;$('help-count').textContent=posts.filter(p=>p.type==='help').length;$('display-count').textContent=posts.filter(p=>p.type==='display').length;
@@ -29,11 +29,43 @@ function openPost(p){current=p;$('detail-title').textContent=p.type==='help'?'I 
 function close(){$('overlay').classList.remove('open');current=null;}
 $('close').addEventListener('click',close);$('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))close();});document.addEventListener('keydown',e=>{if(e.key==='Escape')close();});
 $('copy').addEventListener('click',async()=>{if(!current?.code)return;try{await navigator.clipboard.writeText(current.code);$('copy').textContent='Copied ✓';setTimeout(()=>$('copy').textContent='Copy code',1400);}catch{$('copy').textContent='Could not copy';}});
-async function load(){if(busy||$('overlay').classList.contains('open'))return;busy=true;try{
- const query=new URLSearchParams({part:$('part').value,range:$('range').value});const res=await fetch('/api/posts?'+query,{cache:'no-store'});const data=await res.json();if(!res.ok)throw Error(data.error||'Could not load posts');posts=Array.isArray(data.posts)?data.posts:[];update();$('error').className='notice problem';$('updated').textContent='Updated '+new Date().toLocaleTimeString();
- }catch(e){$('error').className='notice show problem';$('error').textContent='Unable to load board: '+e.message+' — check Netlify deployment.';}finally{busy=false;}}
-$('part').addEventListener('change',load);$('range').addEventListener('change',load);$('refresh').addEventListener('click',load);
+// Poll while a code/screenshot dialog is open; show whether live updates succeed.
+async function load(source='auto'){
+ if(busy)return;
+ if(source==='auto'&&document.hidden)return; // Refresh again when background tab returns.
+ busy=true;
+ const status=$('updated');
+ const part=$('part').value,range=$('range').value;
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),10000);
+ status.textContent='● Checking for new submissions…';
+ try{
+  const query=new URLSearchParams({part,range,_:String(Date.now())});
+  const res=await fetch('/api/posts?'+query,{cache:'no-store',signal:controller.signal,headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
+  const data=await res.json();
+  if(!res.ok)throw Error('Server returned '+res.status+': '+(data.error||res.statusText));
+  if(!Array.isArray(data.posts))throw Error('Unexpected server response: posts list is missing');
+  if(part!==$('part').value||range!==$('range').value)return;
+  const incoming=data.posts;
+  const oldIds=new Set(posts.map(p=>p.id));
+  const added=lastSuccess?incoming.filter(p=>!oldIds.has(p.id)).length:0;
+  posts=incoming;
+  update();
+  lastSuccess=Date.now();
+  $('error').className='notice problem';
+  status.textContent='● LIVE · Checked '+new Date(lastSuccess).toLocaleTimeString()+' · '+posts.length+' post(s)'+(added?' · +'+added+' new':'')+' · Every 5s';
+  status.setAttribute('data-status','online');
+ }catch(e){
+  $('error').className='notice show problem';
+  $('error').textContent='Live refresh failed: '+(e.name==='AbortError'?'Request timed out after 10 seconds':e.message)+'. Press Refresh or check Netlify Functions logs.';
+  status.textContent='● OFFLINE · Last successful check: '+(lastSuccess?new Date(lastSuccess).toLocaleTimeString():'none')+' · Retrying every 5s';
+  status.setAttribute('data-status','offline');
+ }finally{clearTimeout(timeout);busy=false;}
+}
+$('part').addEventListener('change',()=>load('filter'));$('range').addEventListener('change',()=>load('filter'));$('refresh').addEventListener('click',()=>load('manual'));
 $('export').addEventListener('click',()=>{location.href='/api/posts?'+new URLSearchParams({part:$('part').value,range:$('range').value,format:'csv'});});
 $('reveal').addEventListener('click',()=>{revealed=!revealed;$('reveal').textContent='Reveal previews: '+(revealed?'On':'Off');$('reveal').setAttribute('aria-pressed',String(revealed));update();});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{}});
-load();setInterval(load,5000);
+load('initial');setInterval(()=>load('auto'),5000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)load('visible');});
+window.addEventListener('focus',()=>load('focus'));
