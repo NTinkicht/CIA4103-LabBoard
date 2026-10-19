@@ -1,19 +1,18 @@
-# CIA4103 – Anonymous Lab Board
+# CIA4103 — Smart Lab 09 Board
 
-An anonymous, live discussion board for Chapter 07 (.NET 8 / EF Core lab). Students choose a lab part and post either **I need help with** (error/problem) or **I display** (a code example). Lecturer projects `/dashboard/` to see the two columns update automatically.
+Browser-only Netlify deployment for Lab 09a and Lab 09b. Eight exact task checkpoints; C#/ASP.NET Razor code highlighting with line numbers; screenshot paste/file/drop; formative code checks; anonymous submissions; two-column live lecturer dashboard with safe preview mode, screenshot zoom, copy code and CSV export.
 
-## Browser-only Netlify deployment
+## Deploy
 
-1. Open https://app.netlify.com/ and choose **Add new project → Import an existing project → GitHub**.
-2. Select the **NTinkicht/CIA4103-LabBoard** repository. Authorize Netlify for this private repository if prompted.
-3. Netlify reads `netlify.toml`: publish folder **public**, functions folder **netlify/functions**. Leave the build command blank.
-4. Click **Deploy**. No local tools, installers, environment variables or passwords are needed.
-5. Students visit `/`; project `/dashboard/` on your screen.
+If Netlify is already linked to this repository, pushes to main trigger deployment. Otherwise, open https://app.netlify.com/ and select Add new project → Import existing project → GitHub → NTinkicht/CIA4103-LabBoard. Choose main; keep build command empty; publish folder is **public**, functions folder **netlify/functions** (both configured by netlify.toml). Netlify installs dependencies automatically; no computer installation, tokens, logins for students or passwords required.
 
-### Privacy note
+Students: https://YOUR-SITE.netlify.app/
+Instructor: https://YOUR-SITE.netlify.app/dashboard/
 
-Posts contain no required name, account or group identifier. The board is **public, unmoderated, and password-free**; anyone who finds the site could view or submit text. Students must never post personal data, credentials, secrets or private source code. Standard Netlify platform request logs may still contain network metadata.
+## Safety and limits
 
-## Verify before the observation
+The board is deliberately public and unmoderated, as requested. Do not upload personal information, faces, secrets, credentials, connection strings, or confidential material. Default dashboard previews are hidden until revealed. A password-free endpoint cannot reliably prevent malicious or spam submissions. Screenshots are re-encoded to WebP by Sharp on the server to remove metadata, with 2 MB upload, 12 MP pixel and 1600x1200 output limits.
 
-Submit a sample error on the student page, open `/dashboard/`, and confirm it appears on the left within five seconds. Submit a small C# snippet and confirm it appears on the right. Select each of the four mini-labs to filter. Keep the student URL ready for a QR code later.
+**Code analysis is a teaching aid, not a Roslyn compiler or actual project build.** It flags likely syntax/form-binding errors but cannot establish whether C# or Razor code compiles, EF Core connects, or an MVC page works. Students must compile/run in Visual Studio to verify functionality.
+
+Before observation, submit one sample from the student page, including a screenshot and C# snippet with a missing semicolon; check dashboard and filter functionality. Runtime integration with live Netlify Blobs still requires deployment testing.

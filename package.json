@@ -1,12 +1,13 @@
 {
-  "name": "cia4103-ch07-anonymous-lab-board",
-  "version": "1.0.0",
+  "name": "cia4103-week09-smart-lab-board",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "@netlify/blobs": "11.1.4"
+    "@netlify/blobs": "11.1.4",
+    "sharp": "0.34.4"
   }
 }
