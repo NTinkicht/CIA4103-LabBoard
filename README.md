@@ -22,3 +22,11 @@ Before observation, submit one sample from the student page, including a screens
 The dashboard checks for new submissions every five seconds, including while a code or screenshot is enlarged. It now shows LIVE after a successful request or OFFLINE with a clear error when polling fails. Background browser tabs may throttle timers; the board catches up automatically when visible again.
 
 Test without installing anything: keep the teacher dashboard visible, submit a test snippet from another browser tab, and check the LIVE time and new card within about 5–10 seconds. If it displays OFFLINE, inspect the Netlify project's **Logs & metrics → Functions → posts**. Visit `/api/posts?part=all&range=4h` to check that the API returns a `posts` array. Make sure the site has published the latest GitHub commit.
+
+## Lecturer dashboard: dismiss an answered topic
+
+Each classroom submission has a **Dismiss — answered** button. Dismiss it after discussion to remove it from the active **I need help with** or **I display** column; it remains hidden during 5-second auto-refresh and after a page reload. Click **Show dismissed** to review dismissed posts and **Restore to active** to bring one back. Both actions are also available when a post is enlarged. The counter labelled **Dismissed in this filter** changes with the task/time filters.
+
+Dismissal is intentionally **browser-local** (localStorage), because the board has no authentication. It is not a remote delete or classroom-wide status: another computer/browser will still see all posts until dismissed there. Private browsing, cleared browser storage, or blocked localStorage can lose the dismissed view. Original posts and screenshots remain in Netlify Blobs and CSV export, and are not deleted.
+
+Test: submit a screenshot or snippet, open the dashboard, click **Dismiss — answered**, wait for at least two auto-refresh intervals, reload, then click **Show dismissed → Restore to active**. Verify the card reappears in the active view and can still be exported.
