@@ -1,5 +1,5 @@
 import {RoomServiceClient} from 'livekit-server-sdk';
-import {ROOM,configured,teacherAuthorized} from './live-auth.mjs';
+import {ROOM,configured,teacherAuthorized} from '../lib/live-auth.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 const res=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
 export default async function handler(req){
