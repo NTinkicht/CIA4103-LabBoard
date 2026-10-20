@@ -36,6 +36,7 @@ function update(){
   group.forEach(p=>{
    const card=document.createElement('button');card.type='button';card.className='cardpost';
    const top=document.createElement('div');top.className='row';const t=document.createElement('strong');t.textContent=titles[p.part]||p.part;const time=document.createElement('time');time.className='meta';time.dateTime=p.submittedAt;time.textContent=new Date(p.submittedAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});top.append(t,time);card.append(top);
+   if(p.name){const who=document.createElement('div');who.className='meta';who.style.fontWeight='800';who.textContent='Shared by '+p.name;card.append(who);}
    const badges=document.createElement('div');badges.className='pills';badges.style.marginTop='9px';for(const x of [p.lang?.toUpperCase(),p.imageId?'Screenshot':null].filter(Boolean)){const b=document.createElement('span');b.className='pill';b.textContent=x;badges.append(b);}card.append(badges);
    const excerpt=document.createElement('div');excerpt.className='preview';excerpt.textContent=revealed?((p.note||p.code||'Screenshot attached').slice(0,380)):'Preview hidden — click to inspect';card.append(excerpt);
    if(revealed&&p.imageId){const img=document.createElement('img');img.src='/api/posts?image='+encodeURIComponent(p.imageId);img.alt='Submitted screenshot thumbnail';img.loading='lazy';card.append(img);}
@@ -53,7 +54,7 @@ function update(){
 function showChecks(issues){const place=$('detail-analysis');place.replaceChildren();if(!issues?.length){place.textContent='No obvious issues reported. This does not verify compilation.';return;}
  issues.forEach(i=>{const d=document.createElement('div');d.className='check '+(i.severity==='hint'?'hint':'');d.textContent=`Line ${i.line} · ${i.message}`;place.append(d);});
 }
-function openPost(p){current=p;$('detail-title').textContent=p.type==='help'?'I need help with':'I display';$('detail-task').textContent=titles[p.part]||p.part;$('detail-note').textContent=p.note||'';$('detail-lang').textContent=p.lang?.toUpperCase()||'Code';$('detail-code-box').classList.toggle('hidden',!p.code);if(p.code)renderCode($('detail-code'),p.code,p.lang,p.diagnostics?.issues?.map(i=>i.line)||[]);
+function openPost(p){current=p;$('detail-title').textContent=(p.name?p.name+' · ':'Anonymous · ')+(p.type==='help'?'I need help with':'I display');$('detail-task').textContent=titles[p.part]||p.part;$('detail-note').textContent=p.note||'';$('detail-lang').textContent=p.lang?.toUpperCase()||'Code';$('detail-code-box').classList.toggle('hidden',!p.code);if(p.code)renderCode($('detail-code'),p.code,p.lang,p.diagnostics?.issues?.map(i=>i.line)||[]);
  $('image-frame').classList.toggle('hidden',!p.imageId);if(p.imageId)$('detail-img').src='/api/posts?image='+encodeURIComponent(p.imageId);else $('detail-img').removeAttribute('src');
  showChecks(p.diagnostics?.issues);$('detail-time').textContent='Anonymous · '+new Date(p.submittedAt).toLocaleString();$('dismiss-current').textContent=dismissed.has(p.id)?'↶ Restore to active':'✓ Dismiss — answered';$('overlay').classList.add('open');$('close').focus();
 }
