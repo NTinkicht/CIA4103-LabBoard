@@ -9,17 +9,20 @@ export function validatePost(p){
  if(typeof p.code!=='string'||p.code.length>8000)throw Error('Code must be under 8,000 characters.');
  if(typeof p.note!=='string'||p.note.length>800)throw Error('Description must be under 800 characters.');
  const code=p.code.replaceAll('\r\n','\n').trim(),note=p.note.trim();
+ if(p.name!==undefined&&typeof p.name!=='string')throw Error('Name must be text.');
+ const name=(p.name||'').trim();
+ if(name.length>60||/[\x00-\x1f\x7f]/.test(name))throw Error('Name must be 60 characters or fewer, without control characters.');
  if(!code&&!note&&!p.image)throw Error('Add code, a description or a screenshot.');
  let image=null;
  if(p.image!=null){
   if(typeof p.image!=='object'||!['image/png','image/jpeg','image/webp'].includes(p.image.mime)||typeof p.image.base64!=='string'||p.image.base64.length>2750000||!/^[A-Za-z0-9+/]+={0,2}$/.test(p.image.base64))throw Error('Screenshot must be a PNG, JPG or WebP under 2 MB.');
   image={mime:p.image.mime,base64:p.image.base64};
  }
- return {part:p.part,type:p.type,lang:p.lang,code,note,image};
+ return {part:p.part,type:p.type,lang:p.lang,code,note,image,name};
 }
 export function makeRecord(p,imageId=null){
  const diagnostics=p.code?inspect(p.code,p.lang,p.part):{status:'no-code',issues:[],note:'Screenshot or description only.'};
- return {id:randomUUID(),submittedAt:new Date().toISOString(),part:p.part,type:p.type,lang:p.lang,code:p.code,note:p.note,imageId,diagnostics};
+ return {id:randomUUID(),submittedAt:new Date().toISOString(),part:p.part,type:p.type,lang:p.lang,code:p.code,note:p.note,name:p.name||'',imageId,diagnostics};
 }
 export async function listPosts(store,{part='all',range='4h'}={}){
  if(part!=='all'&&!validParts.has(part))throw Error('Unknown lab task.');
@@ -32,6 +35,6 @@ export async function listPosts(store,{part='all',range='4h'}={}){
 }
 export function makeCSV(posts){
  const cell=v=>{let s=String(v??'');if(/^\s*[=+@-]/.test(s))s="'"+s;return '"'+s.replaceAll('"','""')+'"';};
- const rows=[['Time','Lab task','Category','Language','Description','Code','Checks','Screenshot URL'],...posts.map(p=>[p.submittedAt,p.part,p.type,p.lang,p.note,p.code,(p.diagnostics?.issues||[]).map(x=>'L'+x.line+': '+x.message).join(' | '),p.imageId?'/api/posts?image='+p.imageId:''])];
+ const rows=[['Time','Lab task','Category','Name (optional)','Language','Description','Code','Checks','Screenshot URL'],...posts.map(p=>[p.submittedAt,p.part,p.type,p.name||'',p.lang,p.note,p.code,(p.diagnostics?.issues||[]).map(x=>'L'+x.line+': '+x.message).join(' | '),p.imageId?'/api/posts?image='+p.imageId:''])];
  return '\uFEFF'+rows.map(r=>r.map(cell).join(',')).join('\r\n');
 }
