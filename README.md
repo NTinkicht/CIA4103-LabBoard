@@ -30,3 +30,40 @@ Each classroom submission has a **Dismiss — answered** button. Dismiss it afte
 Dismissal is intentionally **browser-local** (localStorage), because the board has no authentication. It is not a remote delete or classroom-wide status: another computer/browser will still see all posts until dismissed there. Private browsing, cleared browser storage, or blocked localStorage can lose the dismissed view. Original posts and screenshots remain in Netlify Blobs and CSV export, and are not deleted.
 
 Test: submit a screenshot or snippet, open the dashboard, click **Dismiss — answered**, wait for at least two auto-refresh intervals, reload, then click **Show dismissed → Restore to active**. Verify the card reappears in the active view and can still be exported.
+
+## Optional names · lab PDFs · live screen sharing (October 2026)
+
+### Students: optional name
+
+Posts under **I need help with** or **I display** have an optional Name field (up to 60 characters). Leaving it blank remains anonymous. Names appear to anyone visiting the public dashboard and in CSV export; students should enter a name only if they want it displayed. Screenshot rules and public privacy warnings remain in effect.
+
+On **/live/** students can voluntarily share their current screen or Visual Studio window. They may optionally enter a name and choose the relevant Lab 09a/09b task. The operating-system picker requires their explicit click and permission every time; the stream stops if they click Stop, stop sharing from the browser or close the page. Other students are granted publish-only connections and cannot subscribe to classmates' video.
+
+### Lecturer: PDFs inside dashboard
+
+Open **/dashboard/** and choose **Lab PDFs**. Choose `Lab09a.pdf` and `Lab09b.pdf` using the two file selectors, **once per browser**. Both PDFs are stored locally in IndexedDB under that browser/site origin (not uploaded or published). Switch between the Lab 09a, Lab 09b, Student submissions and Live Screens tabs without leaving the dashboard. Browser PDF viewer supports built-in zoom, print and page navigation. Browser storage clearing/private mode may erase local copies. This PDF workflow needs **no keys, accounts or software installations**. To make these PDFs available automatically on other computers, static PDF assets must be uploaded to GitHub separately.
+
+### Lecturer: optional protected Live Screens (requires setup)
+
+Live video is **NOT activated until configured**. Create a LiveKit Cloud project or authorized LiveKit deployment, then add the following four variables in **Netlify → Project configuration → Environment variables** and include Functions scope:
+
+| Variable | Value |
+|---|---|
+| `LIVEKIT_URL` | LiveKit WSS URL, such as `wss://<your-project>.livekit.cloud` |
+| `LIVEKIT_API_KEY` | LiveKit API key (server-side secret) |
+| `LIVEKIT_API_SECRET` | LiveKit API secret (server-side secret) |
+| `CIA4103_TEACHER_PIN` | Private, unpredictable lecturer code of **12+ characters** (do not share with students) |
+
+Redeploy after adding variables. Open the **Live Screens** dashboard tab, enter the lecturer PIN and connect. Students open **/live/**, choose their optional display name and task, and click **Share my screen**. Your dashboard receives their streams and lists participant names. All sessions are in one classroom room, and video is not recorded by this application. No LiveKit API secret or lecturer PIN is shipped to the student.
+
+**Security constraints:** The student website and textual board remain public and unmoderated, so avoid identifiable, sensitive or confidential content. Screen viewing is protected by a private lecturer PIN and server-minted short-lived subscribe-only LiveKit tokens. Keep the PIN long and unpredictable. Do not project the PIN or LiveKit credentials. The browser/IT policies of your institution may still block capture or WebRTC. LiveKit cloud usage may incur charges under your chosen plan. Test on the actual HCT network before class. Only screen sharing—not screenshots, code snippets or PDFs—needs the optional LiveKit setup.
+
+**Important:** Remote LiveKit streaming has not been integration-tested against your personal LiveKit deployment; it requires the four environment values and a real student/teacher browser test.
+
+### Checklist
+
+1. Student posts with no name → dashboard displays Anonymous; with a name → name shown and exported.
+2. Lecturer uploads the Lab 09a and Lab 09b PDFs; switches tabs, reloads page and sees both PDFs in the viewer.
+3. Optional LiveKit: student starts a stream only after a real browser picker; lecturer connects with PIN and receives only the selected screen.
+4. Student ends sharing; lecturer video disappears. A wrong PIN must not receive a subscribe token.
+5. HCT security/firewall policies and browser permissions must be tested before class.
