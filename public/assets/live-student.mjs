@@ -4,7 +4,7 @@ let room=null,sharing=false,capture=null;
 for(const l of LABS)$('part').add(new Option(l.label+' · '+l.title,l.id));
 function status(s,error=false){$('status').textContent=s;$('status').style.color=error?'#a94330':'#087f78';}
 async function stop(){
- $('start').disabled=true;
+ $('start').disabled=true;sharing=false;
  // Stop the OS screen-capture indicator immediately, even if network teardown fails.
  const stream=capture;capture=null;stream?.getTracks().forEach(t=>t.stop());
  try{if(room)await room.disconnect();}catch{}
