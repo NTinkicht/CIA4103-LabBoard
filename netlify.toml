@@ -13,6 +13,11 @@
 
 
 [[redirects]]
+  from = "/api/live-status"
+  to = "/.netlify/functions/live-status"
+  status = 200
+
+[[redirects]]
   from = "/api/live-token"
   to = "/.netlify/functions/live-token"
   status = 200
