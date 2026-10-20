@@ -57,11 +57,11 @@ async function send(e){
  if(code.trim()&&!diagnostics)runCheck();
  $('send').disabled=true;$('send').textContent='Sending…';
  try{
-  const payload={part:$('part').value,type,lang:$('lang').value,code,note,image};
+  const payload={part:$('part').value,type,lang:$('lang').value,code,note,image,name:$('name').value.trim()};
   const response=await fetch('/api/posts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const obj=await response.json();if(!response.ok)throw Error(obj.error||'Failed to submit.');
   message('Shared! Your post will appear on the live dashboard in about five seconds. No account needed.');
   $('code').value='';$('note').value='';clearImage();resetCheck();
- }catch(e){message('Not sent: '+e.message,true);}finally{$('send').disabled=false;$('send').textContent='Share anonymously →';}
+ }catch(e){message('Not sent: '+e.message,true);}finally{$('send').disabled=false;$('send').textContent='Share to board →';}
 }
 setup();
