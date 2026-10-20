@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {AccessToken} from 'livekit-server-sdk';
-import {ROOM,configured,teacherAuthorized,publicName,allowedPart} from './live-auth.mjs';
+import {ROOM,configured,teacherAuthorized,publicName,allowedPart} from '../lib/live-auth.mjs';
 const headers={'Cache-Control':'no-store','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff'};
 const res=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
 export default async function handler(req){
