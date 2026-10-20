@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {validatePost,makeRecord,makeCSV} from '../netlify/functions/board-core.mjs';
-import {configured,teacherAuthorized,publicName,allowedPart} from '../netlify/functions/live-auth.mjs';
+import {configured,teacherAuthorized,publicName,allowedPart} from '../netlify/lib/live-auth.mjs';
 const post=(name='')=>({part:'09a-1',type:'display',lang:'razor',note:'Showing my form',code:'<form method="get"></form>',name});
 test('name is optional and an anonymous submission remains anonymous',()=>{
  const p=makeRecord(validatePost(post()));
