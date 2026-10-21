@@ -1,69 +1,67 @@
-# CIA4103 — Smart Lab 09 Board
+# CIA4103 Smart Classroom Board
 
-Browser-only Netlify deployment for Lab 09a and Lab 09b. Eight exact task checkpoints; C#/ASP.NET Razor code highlighting with line numbers; screenshot paste/file/drop; formative code checks; anonymous submissions; two-column live lecturer dashboard with safe preview mode, screenshot zoom, copy code and CSV export.
+An educational, non-commercial classroom discussion board for ASP.NET Core, C#, Razor, and other programming labs. Built for student demonstrations and lecturer-led formative assessment.
 
-## Deploy
+**Student website:** https://cia4103.netlify.app/  
+**Lecturer dashboard:** https://cia4103.netlify.app/dashboard/  
+**Student screen sharing:** https://cia4103.netlify.app/live/
 
-If Netlify is already linked to this repository, pushes to main trigger deployment. Otherwise, open https://app.netlify.com/ and select Add new project → Import existing project → GitHub → NTinkicht/CIA4103-LabBoard. Choose main; keep build command empty; publish folder is **public**, functions folder **netlify/functions** (both configured by netlify.toml). Netlify installs dependencies automatically; no computer installation, tokens, logins for students or passwords required.
+## Student workflow
 
-Students: https://YOUR-SITE.netlify.app/
-Instructor: https://YOUR-SITE.netlify.app/dashboard/
+1. Enter your **name** (required, 1–60 characters).
+2. Enter **any lab or activity** as free text (required, 1–100 characters); it is not limited to CIA4103 or Lab 09.
+3. Select **I need help with** or **I display**.
+4. Paste code, attach one screenshot, or describe the problem or result.
+5. Use **Check My Code** if desired; the board automatically guesses C#, ASP.NET Razor, HTML, CSS or SQL from the snippet.
+6. Click **Share to board**. Code and screenshots appear on the instructor dashboard.
 
-## Safety and limits
+The code checker is a *heuristic teaching aid*, **not** Roslyn, a real compiler, or a guarantee that a project runs. Known Lab 09 task descriptions still trigger task-specific hints.
 
-The board is deliberately public and unmoderated, as requested. Do not upload personal information, faces, secrets, credentials, connection strings, or confidential material. Default dashboard previews are hidden until revealed. A password-free endpoint cannot reliably prevent malicious or spam submissions. Screenshots are re-encoded to WebP by Sharp on the server to remove metadata, with 2 MB upload, 12 MP pixel and 1600x1200 output limits.
+An obvious **Share my screen** button on the student home page opens the voluntary LiveKit screen-sharing page. The name and lab/activity fields are required there too. The browser must explicitly ask the student which tab, window, or screen to share. Clicking Stop sharing (or stopping through the browser) ends the capture. The application does not record screen video.
 
-**Code analysis is a teaching aid, not a Roslyn compiler or actual project build.** It flags likely syntax/form-binding errors but cannot establish whether C# or Razor code compiles, EF Core connects, or an MVC page works. Students must compile/run in Visual Studio to verify functionality.
+### Privacy notice
 
-Before observation, submit one sample from the student page, including a screenshot and C# snippet with a missing semicolon; check dashboard and filter functionality. Runtime integration with live Netlify Blobs still requires deployment testing.
+This classroom board currently has **no login**. Submissions, names, code and screenshot attachments are viewable by anyone with the public dashboard link. Enter a display name only if your instructor has asked you to and you accept that exposure. Do not post names beyond what is required, confidential data, passwords, API keys, personal information, faces or sensitive school information. The screen-stream viewer is separate and requires an authenticated lecturer token.
 
-## Live refresh troubleshooting (2026-10-19)
+## Lecturer dashboard
 
-The dashboard checks for new submissions every five seconds, including while a code or screenshot is enlarged. It now shows LIVE after a successful request or OFFLINE with a clear error when polling fails. Background browser tabs may throttle timers; the board catches up automatically when visible again.
+- **Student submissions:** automatic refresh approximately every 5 seconds; code highlighting, screenshots, copy, filters generated dynamically from submitted activity descriptions, CSV export, presentation mode, and browser-local Dismiss / Restore.
+- **Lab PDFs:** start with one empty document tab. Click **+ Add PDF** to upload any PDF up to 20 MB, creating a new tab labelled by its filename. Repeat as often as needed. Additions are stored in the instructor browser's IndexedDB and survive page reloads, unless browser data is cleared. Existing PDFs saved using the former fixed Lab 09a/09b tabs are preserved and shown as documents. PDFs are **not uploaded to Netlify**.
+- **Live Screens:** lists screen sharers and shows screen video after the lecturer connects using a private PIN; a separate LiveKit account/project and server credentials are required.
 
-Test without installing anything: keep the teacher dashboard visible, submit a test snippet from another browser tab, and check the LIVE time and new card within about 5–10 seconds. If it displays OFFLINE, inspect the Netlify project's **Logs & metrics → Functions → posts**. Visit `/api/posts?part=all&range=4h` to check that the API returns a `posts` array. Make sure the site has published the latest GitHub commit.
+**Dismissed topics** stay hidden only in the same browser, never deleted globally. There is no unauthenticated server-wide deletion endpoint.
 
-## Lecturer dashboard: dismiss an answered topic
+## Deployment without installing anything locally
 
-Each classroom submission has a **Dismiss — answered** button. Dismiss it after discussion to remove it from the active **I need help with** or **I display** column; it remains hidden during 5-second auto-refresh and after a page reload. Click **Show dismissed** to review dismissed posts and **Restore to active** to bring one back. Both actions are also available when a post is enlarged. The counter labelled **Dismissed in this filter** changes with the task/time filters.
+1. Open https://app.netlify.com/ → import this GitHub repository or open the existing connected project.
+2. Keep the default branch \`main\`. Netlify uses the repository's \`netlify.toml\` (\`public\` publish directory and \`netlify/functions\`).
+3. Publish. Open the main student page, teacher dashboard and \`/api/live-status\`.
+4. Confirm the Netlify project visibility is Public if students cannot reach it. **A successful GitHub commit does not mean Netlify deployed it.** Netlify can pause deployments when the team's deploy credits run out.
 
-Dismissal is intentionally **browser-local** (localStorage), because the board has no authentication. It is not a remote delete or classroom-wide status: another computer/browser will still see all posts until dismissed there. Private browsing, cleared browser storage, or blocked localStorage can lose the dismissed view. Original posts and screenshots remain in Netlify Blobs and CSV export, and are not deleted.
+The text board and PDF viewer do **not** require LiveKit credentials.
 
-Test: submit a screenshot or snippet, open the dashboard, click **Dismiss — answered**, wait for at least two auto-refresh intervals, reload, then click **Show dismissed → Restore to active**. Verify the card reappears in the active view and can still be exported.
+### Activate secure LiveKit screen sharing
 
-## Optional names · lab PDFs · live screen sharing (October 2026)
+In **Netlify → Project configuration → Environment variables**, add these values for **Functions** and the **Production** deploy context:
 
-### Students: optional name
-
-Posts under **I need help with** or **I display** have an optional Name field (up to 60 characters). Leaving it blank remains anonymous. Names appear to anyone visiting the public dashboard and in CSV export; students should enter a name only if they want it displayed. Screenshot rules and public privacy warnings remain in effect.
-
-On **/live/** students can voluntarily share their current screen or Visual Studio window. They may optionally enter a name and choose the relevant Lab 09a/09b task. The operating-system picker requires their explicit click and permission every time; the stream stops if they click Stop, stop sharing from the browser or close the page. Other students are granted publish-only connections and cannot subscribe to classmates' video.
-
-### Lecturer: PDFs inside dashboard
-
-Open **/dashboard/** and choose **Lab PDFs**. Choose `Lab09a.pdf` and `Lab09b.pdf` using the two file selectors, **once per browser**. Both PDFs are stored locally in IndexedDB under that browser/site origin (not uploaded or published). Switch between the Lab 09a, Lab 09b, Student submissions and Live Screens tabs without leaving the dashboard. Browser PDF viewer supports built-in zoom, print and page navigation. Browser storage clearing/private mode may erase local copies. This PDF workflow needs **no keys, accounts or software installations**. To make these PDFs available automatically on other computers, static PDF assets must be uploaded to GitHub separately.
-
-### Lecturer: optional protected Live Screens (requires setup)
-
-Live video is **NOT activated until configured**. Create a LiveKit Cloud project or authorized LiveKit deployment, then add the following four variables in **Netlify → Project configuration → Environment variables** and include Functions scope:
-
-| Variable | Value |
+| Variable | Description |
 |---|---|
-| `LIVEKIT_URL` | LiveKit WSS URL, such as `wss://<your-project>.livekit.cloud` |
-| `LIVEKIT_API_KEY` | LiveKit API key (server-side secret) |
-| `LIVEKIT_API_SECRET` | LiveKit API secret (server-side secret) |
-| `CIA4103_TEACHER_PIN` | Private, unpredictable lecturer code of **12+ characters** (do not share with students) |
+| \`LIVEKIT_URL\` | WebSocket URL from LiveKit Cloud, such as \`wss://<project>.livekit.cloud\` |
+| \`LIVEKIT_API_KEY\` | Private API key from the LiveKit project |
+| \`LIVEKIT_API_SECRET\` | Private API secret from the same project |
+| \`CIA4103_TEACHER_PIN\` | Strong private lecturer PIN, **at least 12 characters** |
 
-Redeploy after adding variables. Open the **Live Screens** dashboard tab, enter the lecturer PIN and connect. Students open **/live/**, choose their optional display name and task, and click **Share my screen**. Your dashboard receives their streams and lists participant names. All sessions are in one classroom room, and video is not recorded by this application. No LiveKit API secret or lecturer PIN is shipped to the student.
+Do **not** add actual secrets to GitHub, public PDFs, or screenshots. Redeploy **after** saving all four settings. \`/api/live-status\` responds with \`{"enabled":true}\` only when the deployed Netlify Functions can read all four and the PIN is 12+ characters. If it reports \`false\`, check spelling, the Functions scope, Production context, and the **Published** deployment. A wrong PIN returns an access error; "not configured" means the backend cannot see a complete valid configuration.
 
-**Security constraints:** The student website and textual board remain public and unmoderated, so avoid identifiable, sensitive or confidential content. Screen viewing is protected by a private lecturer PIN and server-minted short-lived subscribe-only LiveKit tokens. Keep the PIN long and unpredictable. Do not project the PIN or LiveKit credentials. The browser/IT policies of your institution may still block capture or WebRTC. LiveKit cloud usage may incur charges under your chosen plan. Test on the actual HCT network before class. Only screen sharing—not screenshots, code snippets or PDFs—needs the optional LiveKit setup.
+The lecturer enters the PIN only in the dashboard. Server-minted LiveKit permissions allow students to publish a screen track but **not** subscribe to another student's video. Never expose API secrets in browser JavaScript. Live screen streaming also depends on the HCT browser/network allowing screen capture and WebRTC; test with two separate computers or browsers.
 
-**Important:** Remote LiveKit streaming has not been integration-tested against your personal LiveKit deployment; it requires the four environment values and a real student/teacher browser test.
+## Implementation and verification
 
-### Checklist
+- Static pages: \`public/\`.
+- Code detection and teaching-aid diagnostics: \`public/assets/checker.mjs\`.
+- Anonymous storage layer: \`netlify/functions/posts.mjs\` and Netlify Blobs.
+- LiveKit auth: \`netlify/lib/live-auth.mjs\` and token/status/participant functions.
+- Local instructor PDF tabs: \`public/assets/lab-pdfs.mjs\`.
+- Regression checks: \`npm test\` in a development environment.
 
-1. Student posts with no name → dashboard displays Anonymous; with a name → name shown and exported.
-2. Lecturer uploads the Lab 09a and Lab 09b PDFs; switches tabs, reloads page and sees both PDFs in the viewer.
-3. Optional LiveKit: student starts a stream only after a real browser picker; lecturer connects with PIN and receives only the selected screen.
-4. Student ends sharing; lecturer video disappears. A wrong PIN must not receive a subscribe token.
-5. HCT security/firewall policies and browser permissions must be tested before class.
+The source is MIT licensed. Please read [LICENSE](LICENSE) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing. The original authors retain ownership of their works; the license does not cover third-party content or students' personal data.
