@@ -23,7 +23,7 @@ const noResults=(txt='Waiting for responses…')=>'<div class="empty"><span clas
 function notices(){return '<div id="notice" class="notice" role="status" aria-live="polite"></div>'}
 function btn(text,cls='primary',id='',extra=''){return '<button class="'+cls+'" '+(id?'id="'+id+'"':'')+' '+extra+'>'+text+'</button>'}
 function welcome(){
- stopPolling();state.role=null;state.snapshot=null;state.lastStudentKey=null;setRoom(null);connected(null);
+ stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;setRoom(null);connected(null);
  app.className='container';
  app.innerHTML='<div class="join-shell"><section class="join-card"><p class="eyebrow">Welcome to your teaching companion</p><h1>Make every voice part of the room.</h1><p style="max-width:515px;margin-top:15px">Live polls, open answers, word clouds and screen sharing. No course setup. No new link for every question.</p><div class="entry-grid"><div class="entry-card"><span class="entry-icon">↗</span><h3>Join as student</h3><p>Enter your room code once, then respond to activities on any device.</p>'+btn('Join classroom →','primary','open-student')+'</div><div class="entry-card"><span class="entry-icon">▦</span><h3>Start as lecturer</h3><p>Create a classroom and choose your teaching tools as you go.</p>'+btn('Start classroom →','secondary','open-teacher')+'</div></div>'+notices()+'</section></div>';
  $('open-student').onclick=joinForm;$('open-teacher').onclick=teacherForm;
@@ -136,7 +136,7 @@ function resultsHtml(snapshot,projector=false){
   return '<p class="eyebrow">'+(snapshot.results?.total||0)+' responses</p><div class="cloud">'+words.map(w=>{
    const size=Math.min(63,18+Math.sqrt(w.count)*13),hash=[...w.word].reduce((a,ch)=>a+ch.codePointAt(0),0);
    return '<span class="cloud-word" style="font-size:'+size+'px;color:'+palette[hash%palette.length]+'" title="'+w.count+' response(s)">'+esc(w.word)+'</span>';
-  }).join('')+'</div>';
+  }).join('')+'</div>'+(!projector&&snapshot.answers?.length?'<div style="border-top:1px solid #e4edf4;margin-top:15px;padding-top:17px"><p class="eyebrow">Review incoming words</p>'+snapshot.answers.map(a=>'<div class="answer-card"><div class="answer-meta" style="margin:0"><span><strong>'+esc(a.value)+'</strong> · '+esc(a.name||'Student')+'</span><button class="secondary" data-answer="'+esc(a.subject)+'" data-hidden="'+a.hidden+'">'+(a.hidden?'Restore word':'Hide word')+'</button></div></div>').join('')+'</div>':'');
  }
  const answers=snapshot.answers||[];
  if(!answers.length)return noResults('Short answers will appear here in a live list.');

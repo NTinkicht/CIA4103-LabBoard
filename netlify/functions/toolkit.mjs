@@ -72,13 +72,13 @@ export function aggregate(round,answers){
 async function snapshot(store,room,claims){
   const round=room.active?await get(store,key('round',claims.code,room.active)):null;
   const result={code:claims.code,roomOpen:!room.ended,active:publicRound(round),serverTime:Date.now()};
+  if(claims.role==='teacher')result.participants=(await entries(store,key('member',claims.code)+'/',250)).length;
   if(!round)return result;
   const answerPrefix=key('response',claims.code,round.id)+'/';
   if(claims.role==='teacher'){
     const items=await entries(store,answerPrefix,250);
     result.answers=items.sort((a,b)=>a.submittedAt.localeCompare(b.submittedAt));
     result.results=aggregate(round,items);
-    result.participants=(await entries(store,key('member',claims.code)+'/',250)).length;
   }else if(claims.role==='display'){
     if(round.revealed){
       const items=await entries(store,answerPrefix,250);
