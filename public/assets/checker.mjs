@@ -98,3 +98,20 @@ export function inspect(code,lang='csharp',task='09a-1') {
   return {status:issues.some(i=>i.severity==='error')?'potential-errors':issues.length?'suggestions':'no-obvious-issues',issues,
     note:'Teaching aid only. This is not Roslyn, a project build or an ASP.NET runtime test; full compilation in Visual Studio is still required.'};
 }
+
+/** Best-effort language detection. It does NOT validate compilation. */
+export function detectLanguage(source=''){
+ const s=String(source||'').trim();
+ if(!s)return 'csharp';
+ if(/@(?:model|using|inject|foreach|if|\{)|\basp-(?:action|controller|route-|items)\b|<\/?(?:form|select|input|a)\b[\s\S]*?@[A-Za-z]/i.test(s))return 'razor';
+ if(/<\/?[A-Za-z][^>]*>/.test(s))return 'html';
+ if(/\b(?:SELECT|INSERT|UPDATE|DELETE)\b[\s\S]*?\b(?:FROM|INTO|SET|WHERE)\b/i.test(s))return 'sql';
+ if(/^(?:\s*[.#]?[a-z][\w\s.#:>+~,-]*\s*\{[^}]+\}\s*)+$/i.test(s) && /(?:color|background|margin|padding|display|font|width|height)\s*:/i.test(s))return 'css';
+ return 'csharp';
+}
+/** Retain Lab 09-specific hints when a student types a recognizable task. */
+export function taskFromText(task=''){
+ if(PARAMS[task])return task;
+ const m=String(task).match(/(?:lab\s*)?0?9\s*([ab])\s*[-·,:]?\s*(?:task|exercise|ex|t)\s*#?\s*([1-5])\b/i);
+ return m?'09'+m[1].toLowerCase()+'-'+m[2]:'';
+}
