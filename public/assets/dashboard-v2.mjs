@@ -1,7 +1,7 @@
 import{LABS}from'./checker.mjs';
 import{renderCode}from'./highlight.mjs';
 const $=id=>document.getElementById(id);const titles=Object.fromEntries(LABS.map(l=>[l.id,`${l.label} · ${l.title}`]));
-let posts=[],busy=false,revealed=false,current=null,lastSuccess=0;
+let posts=[],allPosts=[],busy=false,revealed=false,current=null,lastSuccess=0;
 // Dismissal is browser-only: with no authentication, server-side dismissal would be public.
 const DISMISSED_KEY='cia4103-lab09-lecturer-dismissed-v1';
 function loadDismissed(){
@@ -20,7 +20,19 @@ function setDismissed(id,hidden){
  if(current?.id===id)close();
  update();
 }
-for(const l of LABS)$('part').add(new Option(`${l.label} — ${l.title}`,l.id));
+// Build the filter from actual student submissions; no hard-coded lab list.
+function populateActivities(){
+ const select=$('part'),choice=select.value;
+ const values=[...new Set(allPosts.map(x=>x.part).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+ select.replaceChildren(new Option('All activities','all'));
+ values.forEach(v=>select.add(new Option(titles[v]||v,v)));
+ select.value=values.includes(choice)?choice:'all';
+}
+function filterActivities(){
+ const selection=$('part').value;
+ posts=allPosts.filter(p=>selection==='all'||p.part===selection);
+ update();
+}
 function update(){
  const visible=posts.filter(p=>dismissed.has(p.id)===showDismissed);
  const archived=posts.filter(p=>dismissed.has(p.id)).length;
@@ -56,7 +68,7 @@ function showChecks(issues){const place=$('detail-analysis');place.replaceChildr
 }
 function openPost(p){current=p;$('detail-title').textContent=(p.name?p.name+' · ':'Anonymous · ')+(p.type==='help'?'I need help with':'I display');$('detail-task').textContent=titles[p.part]||p.part;$('detail-note').textContent=p.note||'';$('detail-lang').textContent=p.lang?.toUpperCase()||'Code';$('detail-code-box').classList.toggle('hidden',!p.code);if(p.code)renderCode($('detail-code'),p.code,p.lang,p.diagnostics?.issues?.map(i=>i.line)||[]);
  $('image-frame').classList.toggle('hidden',!p.imageId);if(p.imageId)$('detail-img').src='/api/posts?image='+encodeURIComponent(p.imageId);else $('detail-img').removeAttribute('src');
- showChecks(p.diagnostics?.issues);$('detail-time').textContent='Anonymous · '+new Date(p.submittedAt).toLocaleString();$('dismiss-current').textContent=dismissed.has(p.id)?'↶ Restore to active':'✓ Dismiss — answered';$('overlay').classList.add('open');$('close').focus();
+ showChecks(p.diagnostics?.issues);$('detail-time').textContent=(p.name||'Student')+' · '+new Date(p.submittedAt).toLocaleString();$('dismiss-current').textContent=dismissed.has(p.id)?'↶ Restore to active':'✓ Dismiss — answered';$('overlay').classList.add('open');$('close').focus();
 }
 function close(){$('overlay').classList.remove('open');current=null;}
 $('dismiss-current').addEventListener('click',()=>{if(current)setDismissed(current.id,!dismissed.has(current.id));});
@@ -69,25 +81,26 @@ async function load(source='auto'){
  if(source==='auto'&&document.hidden)return; // Refresh again when background tab returns.
  busy=true;
  const status=$('updated');
- const part=$('part').value,range=$('range').value;
+ const range=$('range').value;
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),10000);
  status.textContent='● Checking for new submissions…';
  try{
-  const query=new URLSearchParams({part,range,_:String(Date.now())});
+  const query=new URLSearchParams({part:'all',range,_:String(Date.now())});
   const res=await fetch('/api/posts?'+query,{cache:'no-store',signal:controller.signal,headers:{'Accept':'application/json','Cache-Control':'no-cache'}});
   const data=await res.json();
   if(!res.ok)throw Error('Server returned '+res.status+': '+(data.error||res.statusText));
   if(!Array.isArray(data.posts))throw Error('Unexpected server response: posts list is missing');
-  if(part!==$('part').value||range!==$('range').value)return;
+  if(range!==$('range').value)return;
   const incoming=data.posts;
-  const oldIds=new Set(posts.map(p=>p.id));
+  const oldIds=new Set(allPosts.map(p=>p.id));
   const added=lastSuccess?incoming.filter(p=>!oldIds.has(p.id)).length:0;
-  posts=incoming;
-  update();
+  allPosts=incoming;
+  populateActivities();
+  filterActivities();
   lastSuccess=Date.now();
   $('error').className='notice problem';
-  status.textContent='● LIVE · Checked '+new Date(lastSuccess).toLocaleTimeString()+' · '+posts.length+' post(s)'+(added?' · +'+added+' new':'')+' · Every 5s';
+  status.textContent='● LIVE · Checked '+new Date(lastSuccess).toLocaleTimeString()+' · '+posts.length+' visible post(s)'+(added?' · +'+added+' new':'')+' · Every 5s';
   status.setAttribute('data-status','online');
  }catch(e){
   $('error').className='notice show problem';
@@ -96,7 +109,7 @@ async function load(source='auto'){
   status.setAttribute('data-status','offline');
  }finally{clearTimeout(timeout);busy=false;}
 }
-$('part').addEventListener('change',()=>load('filter'));$('range').addEventListener('change',()=>load('filter'));$('refresh').addEventListener('click',()=>load('manual'));
+$('part').addEventListener('change',filterActivities);$('range').addEventListener('change',()=>load('filter'));$('refresh').addEventListener('click',()=>load('manual'));
 $('export').addEventListener('click',()=>{location.href='/api/posts?'+new URLSearchParams({part:$('part').value,range:$('range').value,format:'csv'});});
 $('reveal').addEventListener('click',()=>{revealed=!revealed;$('reveal').textContent='Reveal previews: '+(revealed?'On':'Off');$('reveal').setAttribute('aria-pressed',String(revealed));update();});
 $('fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{}});
