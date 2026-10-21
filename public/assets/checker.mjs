@@ -112,6 +112,6 @@ export function detectLanguage(source=''){
 /** Retain Lab 09-specific hints when a student types a recognizable task. */
 export function taskFromText(task=''){
  if(PARAMS[task])return task;
- const m=String(task).match(/(?:lab\s*)?0?9\s*([ab])\s*[-·,:]?\s*(?:task|exercise|ex|t)\s*#?\s*([1-5])\b/i);
+ const m=String(task).match(/(?:lab\s*)?0?9\s*([ab])\s*[-–—·,:]?\s*(?:task|exercise|ex|t)\s*#?\s*([1-5])\b/i);
  return m?'09'+m[1].toLowerCase()+'-'+m[2]:'';
 }
