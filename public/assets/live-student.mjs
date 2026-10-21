@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
-let room=null,capture=null,published=null,leaving=false,approved=false,connecting=false,onAir=false;
+let room=null,capture=null,published=null,publication=null,leaving=false,approved=false,connecting=false,onAir=false;
+let upstreamSyncing=false,upstreamPending=false;
 try{
  const profile=JSON.parse(sessionStorage.getItem('cia4103-share-profile')||'null');
  if(profile){$('name').value=String(profile.name||'').slice(0,60);sessionStorage.removeItem('cia4103-share-profile');}
@@ -11,12 +12,12 @@ function controls(){
  const connected=Boolean(room&&room.state==='connected');
  $('start').disabled=connected||connecting;
  $('leave').disabled=!connected&& !connecting;
- $('share-window').disabled=!connected||!approved||Boolean(capture);
+ $('share-window').disabled=!connected||!approved||!onAir||Boolean(capture);
  $('stop').disabled=!capture;
  $('name').disabled=connected||connecting;
 }
 function stopCapture(){
- const stream=capture;capture=null;
+ const stream=capture;capture=null;publication=null;
  if(stream)stream.getTracks().forEach(t=>t.stop());
  if(published&&room){const track=published;published=null;room.localParticipant.unpublishTrack(track).catch(()=>{});}
  else published=null;
@@ -33,13 +34,54 @@ async function leave(){
 function sharingStatus(){
  if(!room)return;
  if(capture){
-  status(onAir?'● ON SCREEN · The lecturer is showing your application window.':
-   '◌ STANDBY · Your window capture continues, but it is not displayed. You can stop sharing at any time.');
+  if(!onAir){
+   status(publication?.isUpstreamPaused?
+    '◌ STANDBY · Video upload paused. Your application stays captured locally, ready to resume. You can stop at any time.':
+    '◌ STANDBY · Pausing video transmission to LiveKit…');
+  }else{
+   status(publication?.isUpstreamPaused?
+    '● SELECTED · Resuming your application stream…':
+    '● ON SCREEN · Only your selected application is transmitted to the lecturer.');
+  }
  }else if(approved){
-  status(onAir?'✓ Selected by the lecturer. Click Share application window.':
-   '✓ You are approved and in standby. Select your application window when ready.');
+  status(onAir?'✓ Selected by your lecturer. Click Share application window.':
+   '✓ Approved, in standby. Wait to be selected to choose an application window.');
  }else{
   status('● Waiting for lecturer approval. You are not sharing yet.');
+ }
+}
+// Pause/resume the upstream publication without stopping the locally captured
+// MediaStreamTrack: no new getDisplayMedia() or browser permission prompt.
+// Run transitions serially to handle rapid A→B→A selection changes safely.
+async function synchronizeUpstream(){
+ if(upstreamSyncing){upstreamPending=true;return;}
+ upstreamSyncing=true;
+ try{
+  do{
+   upstreamPending=false;
+   const pub=publication;
+   if(!pub||!capture||!room)break;
+   const shouldTransmit=approved&&onAir;
+   if(shouldTransmit&&pub.isUpstreamPaused){
+    await pub.resumeUpstream();
+   }else if(!shouldTransmit&&!pub.isUpstreamPaused){
+    await pub.pauseUpstream();
+   }else{
+    break;
+   }
+   // Recheck state: selection may have changed while awaiting LiveKit.
+  }while(publication&&capture&&room);
+  void synchronizeUpstream();
+  sharingStatus();
+ }catch(error){
+  // Prefer ending local capture over accidentally continuing to transmit
+  // if upstream pausing fails. The student can explicitly share again.
+  console.error('Unable to synchronize student screen upstream',{name:error?.name});
+  stopCapture();
+  status('Could not safely pause or resume video. Capture stopped; please select the application window again when ready.',true);
+ }finally{
+  upstreamSyncing=false;
+  if(upstreamPending){upstreamPending=false;void synchronizeUpstream();}
  }
 }
 function permissionCheck(){
@@ -53,6 +95,7 @@ function permissionCheck(){
  if(!approved&&capture)stopCapture(); // true revocation, not normal standby
  controls();
  if(changed)sharingStatus();
+ if(capture&&publication)void synchronizeUpstream();
 }
 $('start').addEventListener('click',async()=>{
  if(room||connecting)return;
@@ -73,7 +116,7 @@ $('start').addEventListener('click',async()=>{
   });
   room.on(LivekitClient.RoomEvent.Reconnected,permissionCheck);
   room.on(LivekitClient.RoomEvent.Disconnected,()=>{
-   if(!leaving){stopCapture();room=null;approved=false;connecting=false;controls();status('Disconnected. Click Request to share to rejoin.',true);}
+   if(!leaving){stopCapture();room=null;approved=false;onAir=false;connecting=false;controls();status('Disconnected. Click Request to share to rejoin.',true);}
   });
   await room.connect(data.url,data.token,{autoSubscribe:false});
   connecting=false;approved=false;onAir=false;permissionCheck();
@@ -85,7 +128,7 @@ $('start').addEventListener('click',async()=>{
  }
 });
 $('share-window').addEventListener('click',async()=>{
- if(!room||!approved||capture){status('Wait for lecturer approval before choosing an application window.',true);return;}
+ if(!room||!approved||!onAir||capture){status('Wait until the lecturer selects you before choosing an application window.',true);return;}
  if(!navigator.mediaDevices?.getDisplayMedia){status('This browser or institutional policy does not support window sharing.',true);return;}
  let selected=null;
  try{
@@ -102,11 +145,11 @@ $('share-window').addEventListener('click',async()=>{
    status('Only an application window is allowed. Select “Window” (not Entire Screen or browser tab). If your browser cannot identify window capture, use Chrome or Edge.',true);
    return;
   }
-  if(!approved||!room||!room.localParticipant.permissions?.canPublish){
+  if(!approved||!onAir||!room||!room.localParticipant.permissions?.canPublish){
    selected.getTracks().forEach(t=>t.stop());status('Your presenter approval has expired. Please wait for approval.',true);return;
   }
   capture=selected;controls();status('Publishing the selected application window…');
-  await room.localParticipant.publishTrack(track,{source:LivekitClient.Track.Source.ScreenShare});
+  publication=await room.localParticipant.publishTrack(track,{source:LivekitClient.Track.Source.ScreenShare});
   published=track;
   $('preview').srcObject=capture;$('preview').style.display='block';
   track.addEventListener('ended',()=>{
@@ -115,7 +158,7 @@ $('share-window').addEventListener('click',async()=>{
   sharingStatus();
  }catch(error){
   if(selected)selected.getTracks().forEach(t=>t.stop());
-  capture=null;published=null;controls();
+  capture=null;published=null;publication=null;controls();
   status(error?.name==='NotAllowedError'?'Window selection was cancelled or blocked.':('Could not share this application window: '+error.message),true);
  }
 });
