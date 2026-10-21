@@ -155,7 +155,7 @@ export default async function handler(request){
         return updated?.error?fail(409,updated.error):reply({ok:true});
       }
       if(!['close','reveal','hide'].includes(data.control))return fail(400,'Invalid control');
-      if(!room.active)return fail(409,'No active activity');
+      if(!room.active||data.roundId!==room.active)return fail(409,'Activity changed. Refresh the classroom before updating controls');
       const updated=await change(store,key('round',claims.code,room.active),r=>({...r,status:data.control==='close'?'closed':r.status,revealed:data.control==='reveal'?true:data.control==='hide'?false:r.revealed}));
       return updated?.error?fail(409,updated.error):reply({active:publicRound(updated)});
     }
@@ -187,7 +187,7 @@ export default async function handler(request){
     }
     if(data.action==='moderate'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
-      if(typeof data.subject!=='string'||!/^[a-z0-9-]{10,100}$/i.test(data.subject)||!room.active)return fail(400,'Invalid answer');
+      if(typeof data.subject!=='string'||!/^[a-z0-9-]{10,100}$/i.test(data.subject)||!room.active||data.roundId!==room.active)return fail(409,'Activity changed. Refresh before moderating');
       const changed=await change(store,key('response',claims.code,room.active,data.subject),r=>({...r,hidden:!!data.hidden}));
       return changed?.error?fail(409,changed.error):changed?reply({ok:true}):fail(404,'Answer missing');
     }
