@@ -1,0 +1,27 @@
+name: Classroom Toolkit Tests
+on:
+  pull_request:
+    paths:
+      - 'netlify/functions/toolkit.mjs'
+      - 'public/assets/toolkit-app.mjs'
+      - 'public/assets/toolkit.css'
+      - 'public/toolkit/**'
+      - 'tests/**'
+      - 'package.json'
+      - '.github/workflows/toolkit-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: node --check public/assets/toolkit-app.mjs
+      - run: node --check netlify/functions/toolkit.mjs
