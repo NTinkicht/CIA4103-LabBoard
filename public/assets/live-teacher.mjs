@@ -16,7 +16,7 @@ root.innerHTML=`
  </div>
  <aside class="stream-sidebar" aria-label="Student waiting queue">
   <div class="stream-sidebar-head"><h3>Connected students</h3><span id="stream-count">0</span></div>
-  <p class="hint">Switch screens anytime; other students keep capturing in standby.</p>
+  <p class="hint">Switch screens anytime. Standby students keep their window selected, but stop uploading video.</p>
   <div id="stream-list" class="stream-cards">Connect to see the queue.</div>
  </aside>
 </div>`;
@@ -55,7 +55,7 @@ function renderPeople(items){
  for(const student of items){
   const card=document.createElement('div');card.className='stream-student'+(student.presenting?' presenting':'');
   const name=document.createElement('strong');name.textContent=student.name||'Student';
-  const state=document.createElement('small');state.textContent=student.presenting?(student.sharing?'● ON SCREEN':'● Selected · Awaiting window'):(student.approved?(student.sharing?'◌ STANDBY · Capture running':'◌ STANDBY · No window yet'):'Waiting for approval');
+  const state=document.createElement('small');state.textContent=student.presenting?(student.sharing?'● ON SCREEN':student.hasScreenTrack?'● Selected · Resuming video':'● Selected · Awaiting window'):(student.approved?(student.hasScreenTrack?'◌ STANDBY · Upload paused':'◌ STANDBY · No window yet'):'Waiting for approval');
   const button=document.createElement('button');button.type='button';button.className=student.presenting?'secondary':'primary';
   button.disabled=changing;button.textContent=student.presenting?'Put on standby':student.approved?'Show screen':'Approve & show';
   button.addEventListener('click',()=>switchTo(student.presenting?null:student.identity));
@@ -86,7 +86,7 @@ async function refresh(){
 }
 async function switchTo(identity){
  if(!room||changing)return;changing=true;$('stream-stop-all').disabled=true;
- status(identity?'Switching displayed student; other captures stay in standby…':'Putting current screen on standby…');
+ status(identity?'Switching displayed student; others pause their video uploads…':'Pausing the displayed student’s video upload…');
  try{
   const response=await fetch('/api/live-control',{
    method:'POST',headers:{'Content-Type':'application/json'},
