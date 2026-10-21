@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import {AccessToken,RoomServiceClient} from 'livekit-server-sdk';
+import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
 import {ROOM,configured,teacherAuthorized,publicName} from '../lib/live-auth.mjs';
 const headers={'Cache-Control':'no-store','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff'};
 const res=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
@@ -36,7 +36,9 @@ export default async function handler(req){
   const token=new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{
    identity,name:display,ttl:isTeacher?'30m':'15m',metadata:JSON.stringify({role:data.role,part:isTeacher?'':'Screen share'})
   });
-  token.addGrant({roomJoin:true,room:ROOM,canPublish:!isTeacher,canPublishSources:isTeacher?[]:['screen_share'],canSubscribe:isTeacher,canPublishData:false});
+  // SDK expects numeric protobuf enum values, not the client-side 'screen_share' string.
+  // Student may publish only a screen video track; only the lecturer may subscribe.
+  token.addGrant({roomJoin:true,room:ROOM,canPublish:!isTeacher,canPublishSources:isTeacher?[]:[TrackSource.SCREEN_SHARE],canSubscribe:isTeacher,canPublishData:false});
   return res({url:process.env.LIVEKIT_URL,token:await token.toJwt(),identity,display});
   }catch(e){
   const description=String(e?.message||'');
