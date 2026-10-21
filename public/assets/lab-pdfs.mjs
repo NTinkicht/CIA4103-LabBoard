@@ -1,7 +1,7 @@
 // Dynamic instructor-only PDF tabs, stored on this browser (IndexedDB).
 // Previously saved PDFs under the old fixed tabs are preserved and displayed as documents.
 const $=id=>document.getElementById(id);
-const DB='cia4103-local-lab-pdfs-v1',STORE='docs',MAX=20*1024*1024;
+const DB='cia4103-local-lab-pdfs-v1',STORE='docs',MAX=50*1024*1024;
 let dbPromise=null,docs=[],selected=null,viewerUrl=null,requested=0;
 const openDB=()=>dbPromise||(dbPromise=new Promise((resolve,reject)=>{
  if(!('indexedDB'in window)){reject(Error('Your browser does not support local PDF storage.'));return;}
@@ -69,7 +69,7 @@ async function deleteDoc(id){
 }
 async function addDocument(file){
  if(!file)return;
- if(file.size>MAX){status('The PDF must be smaller than 20 MB.',true);return;}
+ if(file.size>MAX){status('The PDF must be smaller than 50 MB.',true);return;}
  if(file.type&&file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf')){status('Choose a PDF document.',true);return;}
  let header;
  try{header=new TextDecoder().decode(await file.slice(0,5).arrayBuffer());}
