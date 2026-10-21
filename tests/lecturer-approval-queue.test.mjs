@@ -84,8 +84,52 @@ test('student maintains capture when lecturer changes the displayed stream',()=>
  const code=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
  assert.match(code,/ParticipantMetadataChanged/);
  assert.match(code,/if\(!approved&&capture\)stopCapture\(\)/);
- assert.match(code,/STANDBY · Your window capture continues/);
+ assert.match(code,/STANDBY · Video upload paused/);
+ assert.match(code,/pauseUpstream\(\)/);
+ assert.match(code,/resumeUpstream\(\)/);
  assert.doesNotMatch(code,/if\(!onAir&&capture\)stopCapture\(\)/);
+});
+test('standby pauses transmission without stopping the captured window',async()=>{
+ const {runInNewContext}=await import('node:vm');
+ const source=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
+ const start=source.indexOf('async function synchronizeUpstream(){');
+ const end=source.indexOf('function permissionCheck(){',start);
+ assert.ok(start>=0&&end>start);
+ const calls=[],capture={getTracks(){throw Error('capture was stopped')}};
+ const pub={
+   isUpstreamPaused:false,
+   async pauseUpstream(){calls.push('pause');this.isUpstreamPaused=true;},
+   async resumeUpstream(){calls.push('resume');this.isUpstreamPaused=false;}
+ };
+ const context={publication:pub,capture,room:{},approved:true,onAir:false,
+   upstreamSyncing:false,upstreamPending:false,
+   sharingStatus(){},stopCapture(){throw Error('standby should not end local capture');},
+   status(){},console};
+ const sync=runInNewContext(source.slice(start,end)+'\nsynchronizeUpstream',context);
+ await sync();
+ assert.equal(pub.isUpstreamPaused,true,'video upload paused');
+ assert.equal(context.capture,capture,'window capture is retained');
+ context.onAir=true;await sync();
+ assert.equal(pub.isUpstreamPaused,false,'same screen stream resumes');
+ assert.deepEqual(calls,['pause','resume']);
+});
+test('rapid switches while pause is pending settle to the newest selection',async()=>{
+ const {runInNewContext}=await import('node:vm');
+ const source=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
+ const start=source.indexOf('async function synchronizeUpstream(){');
+ const end=source.indexOf('function permissionCheck(){',start);
+ const events=[];
+ const context={publication:null,capture:{},room:{},approved:true,onAir:false,upstreamSyncing:false,upstreamPending:false,
+   sharingStatus(){},stopCapture(){throw Error('capture must survive')},status(){},console};
+ context.publication={
+   isUpstreamPaused:false,
+   async pauseUpstream(){events.push('pause');this.isUpstreamPaused=true;context.onAir=true;},
+   async resumeUpstream(){events.push('resume');this.isUpstreamPaused=false;}
+ };
+ const sync=runInNewContext(source.slice(start,end)+'\nsynchronizeUpstream',context);
+ await sync();
+ assert.deepEqual(events,['pause','resume']);
+ assert.equal(context.publication.isUpstreamPaused,false);
 });
 test('window capture is verified, and unauthorized screens are stopped',()=>{
  const code=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
