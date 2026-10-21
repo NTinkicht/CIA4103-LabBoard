@@ -1,6 +1,6 @@
 const $=x=>document.getElementById(x);
 let room=null,sharing=false,capture=null;
-try{const profile=JSON.parse(sessionStorage.getItem('cia4103-share-profile')||'null');if(profile){$('name').value=String(profile.name||'').slice(0,60);$('part').value=String(profile.part||'').slice(0,100);sessionStorage.removeItem('cia4103-share-profile');}}catch{}
+try{const profile=JSON.parse(sessionStorage.getItem('cia4103-share-profile')||'null');if(profile){$('name').value=String(profile.name||'').slice(0,60);sessionStorage.removeItem('cia4103-share-profile');}}catch{}
 function status(s,error=false){$('status').textContent=s;$('status').style.color=error?'#a94330':'#087f78';}
 async function stop(){
  $('start').disabled=true;sharing=false;
@@ -24,7 +24,6 @@ async function readiness(){
 $('start').addEventListener('click',async()=>{
  if(sharing)return;
  if(!$('name').value.trim()){status('Please enter your name first.',true);$('name').focus();return;}
- if(!$('part').value.trim()){status('Please enter the lab or activity first.',true);$('part').focus();return;}
  if(!window.LivekitClient){status('Streaming library did not load. Check your internet connection.',true);return;}
  if(!navigator.mediaDevices?.getDisplayMedia){status('Your browser or school policy does not allow screen sharing.',true);return;}
  // Crucially, invoke getDisplayMedia immediately from the click (transient user activation).
@@ -35,8 +34,8 @@ $('start').addEventListener('click',async()=>{
  capture=selected;
  $('start').disabled=true;status('Connecting securely to the lecturer…');
  try{
-  const response=await fetch('/api/live-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'student',part:$('part').value,name:$('name').value.trim()})});
-  const data=await response.json();if(!response.ok)throw Error(data.error||'Could not create session');
+  const response=await fetch('/api/live-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'student',name:$('name').value.trim()})});
+  const data=await response.json();if(!response.ok)throw Error(data.error||'Could not start screen sharing. Ask the lecturer to check LiveKit configuration.');
   room=new LivekitClient.Room({adaptiveStream:true});
   room.on(LivekitClient.RoomEvent.Disconnected,()=>{if(sharing)stop();});
   await room.connect(data.url,data.token,{autoSubscribe:false});
