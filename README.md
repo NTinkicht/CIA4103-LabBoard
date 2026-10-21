@@ -17,7 +17,7 @@ An educational, non-commercial classroom discussion board for ASP.NET Core, C#, 
 
 The code checker is a *heuristic teaching aid*, **not** Roslyn, a real compiler, or a guarantee that a project runs. Known Lab 09 task descriptions still trigger task-specific hints.
 
-An obvious **Share my screen** button on the student home page opens the voluntary LiveKit screen-sharing page. The name and lab/activity fields are required there too. The browser must explicitly ask the student which tab, window, or screen to share. Clicking Stop sharing (or stopping through the browser) ends the capture. The application does not record screen video.
+An obvious **Share my screen** button on the student home page opens the voluntary LiveKit screen-sharing page. Only the student name is required on the screen-sharing page; no lab/activity field is shown there. The browser must explicitly ask the student which tab, window, or screen to share. Clicking Stop sharing (or stopping through the browser) ends the capture. The application does not record screen video.
 
 ### Privacy notice
 
@@ -52,6 +52,18 @@ In **Netlify → Project configuration → Environment variables**, add these va
 | \`CIA4103_TEACHER_PIN\` | Strong private lecturer PIN, **at least 12 characters** |
 
 Do **not** add actual secrets to GitHub, public PDFs, or screenshots. Redeploy **after** saving all four settings. \`/api/live-status\` responds with \`{"enabled":true}\` only when the deployed Netlify Functions can read all four and the PIN is 12+ characters. If it reports \`false\`, check spelling, the Functions scope, Production context, and the **Published** deployment. A wrong PIN returns an access error; "not configured" means the backend cannot see a complete valid configuration.
+
+### Troubleshooting “invalid API key” or “Unable to initialize secure screen sharing”
+
+These errors indicate **LiveKit credential validation or token creation failed**, not a problem with the student's browser sharing permission. The lecturer connection now checks credentials against LiveKit Cloud before issuing a room token, and reports an actionable error without revealing secrets.
+
+1. Open LiveKit Cloud → **CIA4103-LabBoard → API Keys**. Generate a new **matching API key and API secret pair** in the same project. Do not mix credentials from different projects.
+2. In Netlify → **Project configuration → Environment variables**, confirm `LIVEKIT_URL` is the exact WebSocket URL of that project, `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` match the new pair, and `CIA4103_TEACHER_PIN` is a private value at least 12 characters long.
+3. Check **Functions** scope and **Production** context. Avoid extra spaces, surrounding quotes, and newlines. Secrets belong only in Netlify, not GitHub or the browser.
+4. **Redeploy**; old deployments retain their existing environment. If Netlify production deployments are paused because of billing credits, the fix cannot take effect until deployment resumes.
+5. First open `/api/live-status` (it only confirms variable presence, not whether keys are valid). Then connect from the lecturer dashboard, which performs a real LiveKit authorization check, and finally click Share from the student browser.
+
+If LiveKit still rejects fresh credentials, check LiveKit Project Settings for the exact host and contact LiveKit support; do not send keys or secrets in screenshots.
 
 The lecturer enters the PIN only in the dashboard. Server-minted LiveKit permissions allow students to publish a screen track but **not** subscribe to another student's video. Never expose API secrets in browser JavaScript. Live screen streaming also depends on the HCT browser/network allowing screen capture and WebRTC; test with two separate computers or browsers.
 
