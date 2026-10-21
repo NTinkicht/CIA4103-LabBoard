@@ -31,7 +31,7 @@ const verify=(value)=>{
     return data;
   }catch{return null}
 };
-const validText=(v,max)=>typeof v==='string'&&v.trim().length<=max&& !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(v);
+export const validText=(v,max)=>typeof v==='string'&&v.trim().length<=max&& !/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(v);
 const get=async(store,k)=>store.get(k,{type:'json',consistency:'strong'});
 async function change(store,k,mutate){
   for(let i=0;i<4;i++){
@@ -50,7 +50,7 @@ async function entries(store,prefix,cap=150){
   return (await Promise.all(blobs.map(b=>get(store,b.key).catch(()=>null)))).filter(Boolean);
 }
 const publicRound=r=>r&&({id:r.id,type:r.type,prompt:r.prompt||'',options:r.options||[],unit:r.unit,status:r.status,endsAt:r.endsAt||null,revealed:!!r.revealed});
-function aggregate(round,answers){
+export function aggregate(round,answers){
   const shown=answers.filter(a=>!a.hidden);
   const count=shown.length;
   if(round.type==='poll'){
