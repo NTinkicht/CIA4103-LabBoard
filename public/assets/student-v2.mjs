@@ -9,7 +9,7 @@ function setup(){
  $('part').addEventListener('input',resetCheck);
  $('name').addEventListener('input',()=>{});
  $('share-screen').addEventListener('click',()=>{
-  try{sessionStorage.setItem('cia4103-share-profile',JSON.stringify({name:$('name').value.trim(),part:$('part').value.trim()}));}catch{}
+  try{sessionStorage.setItem('cia4103-share-profile',JSON.stringify({name:$('name').value.trim()}));}catch{}
  });
  $('code').addEventListener('input',()=>{updatePreview();resetCheck();});
  $('type-help').addEventListener('click',()=>setType('help'));
