@@ -25,20 +25,33 @@ function fakeRoom(){
  };
  return {data,api,sequence};
 }
-test('approval revokes prior publisher before approving next',async()=>{
+test('switch A to B preserves A capture and selects B',async()=>{
  const {data,api,sequence}=fakeRoom();
- const result=await switchPresenter(api,'student-bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
- assert.equal(result.active,'student-bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
- assert.deepEqual(sequence.map(x=>x.publish),[false,true]);
- assert.equal(data.filter(x=>x.permission.canPublish).length,1);
- assert.deepEqual(data.find(x=>x.permission.canPublish).permission.canPublishSources,[TrackSource.SCREEN_SHARE]);
- assert.equal(data.find(x=>x.permission.canPublish).permission.canSubscribe,false);
+ const selected='student-bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
+ const result=await switchPresenter(api,selected);
+ assert.equal(result.active,selected);
+ assert.equal(data.filter(x=>x.permission.canPublish).length,2);
+ assert.ok(sequence.every(x=>x.publish),'no existing track permission should be revoked');
+ assert.equal(JSON.parse(data[0].metadata).status,'standby');
+ assert.equal(JSON.parse(data[1].metadata).status,'active');
+ assert.deepEqual(data[1].permission.canPublishSources,[TrackSource.SCREEN_SHARE]);
+ assert.equal(data[1].permission.canSubscribe,false);
 });
-test('stopping shares revokes all student publish permissions',async()=>{
+test('returning to A does not require another screen selection',async()=>{
+ const {data,api,sequence}=fakeRoom();
+ await switchPresenter(api,'student-bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb');
+ sequence.length=0;
+ await switchPresenter(api,'student-aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa');
+ assert.equal(JSON.parse(data[0].metadata).status,'active');
+ assert.equal(JSON.parse(data[1].metadata).status,'standby');
+ assert.ok(sequence.every(x=>x.publish));
+});
+test('hiding screen preserves capture in standby',async()=>{
  const {data,api}=fakeRoom();
  const result=await switchPresenter(api,null);
  assert.equal(result.active,null);
- assert.ok(data.every(x=>x.permission.canPublish===false));
+ assert.equal(data[0].permission.canPublish,true);
+ assert.equal(JSON.parse(data[0].metadata).status,'standby');
 });
 test('never approve a disconnected identity',async()=>{
  const {api,data}=fakeRoom();
@@ -67,6 +80,13 @@ test('distributed lease refuses overlapping lecturer actions',async()=>{
  const c=await acquire(store,1200,'lecturer3');
  assert.ok(c);
 });
+test('student maintains capture when lecturer changes the displayed stream',()=>{
+ const code=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
+ assert.match(code,/ParticipantMetadataChanged/);
+ assert.match(code,/if\(!approved&&capture\)stopCapture\(\)/);
+ assert.match(code,/STANDBY · Your window capture continues/);
+ assert.doesNotMatch(code,/if\(!onAir&&capture\)stopCapture\(\)/);
+});
 test('window capture is verified, and unauthorized screens are stopped',()=>{
  const code=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
  assert.match(code,/monitorTypeSurfaces:'exclude'/);
@@ -82,6 +102,10 @@ test('lecturer viewer uses one large video and a waiting sidebar',()=>{
  assert.match(client,/id="primary-stream-video"/);
  assert.match(client,/Approve & show/);
  assert.match(client,/id="stream-stop-all"/);
+ assert.match(client,/autoSubscribe:false/);
+ assert.match(client,/setSubscribed\(false\)/);
+ assert.match(client,/setSubscribed\(true\)/);
+ assert.match(client,/STANDBY/);
 });
 test('PDF limit is 50MB and green 5Es labels are removed',()=>{
  const pdf=readFileSync(new URL('../public/assets/lab-pdfs.mjs',import.meta.url),'utf8');
