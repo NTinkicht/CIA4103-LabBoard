@@ -18,6 +18,7 @@ export default async function handler(req){
     status:p.permission?.canPublish?(['active','approved'].includes(metadata.status)?'presenting':'standby'):'waiting',
     approved:Boolean(p.permission?.canPublish),
     presenting:Boolean(p.permission?.canPublish&&['active','approved'].includes(metadata.status)),
+    hasScreenTrack:Boolean(p.tracks?.some(t=>t.source===3)),
     sharing:Boolean(p.tracks?.some(t=>t.source===3&&!t.muted))
    }]:[];
   });
