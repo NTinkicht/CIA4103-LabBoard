@@ -54,6 +54,23 @@ test('dynamic PDF viewer persists arbitrary documents locally',()=>{
  assert.match(html,/id="pdf-tabs"/);
  assert.doesNotMatch(html,/id="pdf-09a"/);
 });
+test('student live screen sharing requires a name but no activity field',()=>{
+ const studentPage=readFileSync(new URL('../public/live/index.html',import.meta.url),'utf8');
+ const studentModule=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
+ const liveToken=readFileSync(new URL('../netlify/functions/live-token.mjs',import.meta.url),'utf8');
+ assert.match(studentPage,/id="name"[^>]*required/);
+ assert.doesNotMatch(studentPage,/id="part"/);
+ assert.doesNotMatch(studentModule,/\$\('part'\)/);
+ assert.match(studentModule,/role:'student',name:/);
+ assert.match(liveToken,/part:isTeacher\?'':'Screen share'/);
+ assert.doesNotMatch(liveToken,/allowedPart\(data\.part\)/);
+});
+test('lecturer token preflight validates LiveKit project credentials',()=>{
+ const tokenSource=readFileSync(new URL('../netlify/functions/live-token.mjs',import.meta.url),'utf8');
+ assert.match(tokenSource,/RoomServiceClient/);
+ assert.match(tokenSource,/await api\.listRooms\(\)/);
+ assert.match(tokenSource,/LiveKit rejected the API key or secret/);
+});
 test('live screen selection begins directly from a student click',()=>{
  const s=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
  const click=s.indexOf("$('start').addEventListener('click'");
