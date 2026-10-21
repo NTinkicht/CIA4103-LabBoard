@@ -1,35 +1,22 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Classroom Toolkit · Live teaching tools</title>
-<style>
-:root{font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;color:#172536;background:#f5f7fb;font-synthesis:none}*{box-sizing:border-box}
-body{margin:0}button,input,textarea,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.48;cursor:not-allowed}
-header{background:#142944;color:white;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-header strong{font-size:20px}header small{display:block;color:#bdd2eb;margin-top:3px}header .roomcode{font-weight:800;letter-spacing:2px}
-main{max-width:1300px;margin:24px auto;padding:0 18px}.layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:18px}
-.panel{background:white;border:1px solid #dce5ef;border-radius:15px;padding:22px;box-shadow:0 4px 14px rgba(19,42,70,.04);min-width:0}.card{background:#f6f9fc;border-radius:12px;padding:16px;margin:12px 0}
-h1,h2,h3{margin:0 0 12px;letter-spacing:-.02em}h1{font-size:28px}h2{font-size:21px}h3{font-size:17px}
-p{line-height:1.5;margin:9px 0;color:#40536a}.muted,.hint{color:#607189;font-size:13px}label{display:block;font-weight:700;margin:14px 0 7px}
-input,textarea,select{display:block;width:100%;border:1px solid #b7c5d7;border-radius:9px;padding:12px;color:#152941;background:white}
-input:focus,textarea:focus,select:focus,button:focus-visible{outline:3px solid #96c5ff;outline-offset:2px}
-button{border:0;border-radius:9px;background:#1764b0;color:white;font-weight:700;padding:11px 15px}
-button.alt{background:#ecf3fc;color:#17466e}button.danger{background:#a22f3c}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}.actions button{flex:0 0 auto}
-nav button{display:block;width:100%;text-align:left;margin-bottom:7px;background:transparent;color:#34485e;border:1px solid transparent}
-nav button.active,nav button:hover{background:#e9f1fb;border-color:#d8e5f6;color:#145fa7}
-.split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}.big{font-size:44px;font-weight:800;line-height:1.1}
-.barouter{width:100%;height:23px;background:#edf2f8;border-radius:7px;overflow:hidden;margin:7px 0 13px}.bar{height:100%;border-radius:7px;background:#267bc6;transition:width .3s}
-.answer{border:1px solid #dfE7f1;border-radius:10px;padding:14px;margin:10px 0;overflow-wrap:anywhere}
-.answer.hidden{opacity:.55}.count{background:#e6f3ed;color:#116346;padding:4px 9px;border-radius:99px;font-size:12px;font-weight:700}
-.cloud{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:14px;min-height:200px}
-.cloud span{font-weight:800;color:#286caa;word-break:break-word}
-.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.choice{display:flex;align-items:center;gap:10px;background:#f3f7fc;border:1px solid #dbe6f1;border-radius:10px;padding:14px;margin:8px 0}
-.choice input{width:auto}.notice{background:#eaf5ff;border-radius:9px;padding:12px 14px;color:#164d77;font-size:14px}
-.error{background:#fff0f0;color:#9a2734}.ok{background:#ecfaf1;color:#145e39}
-.hidden-element{display:none!important}.displaymode{max-width:1500px}.displaymode .panel{min-height:65vh}.displaymode .big{font-size:clamp(52px,9vw,110px)}
-footer{padding:22px;text-align:center;color:#758397;font-size:12px}a{color:#1161a6}
-@media(max-width:700px){.layout{grid-template-columns:1fr}nav{display:flex;overflow-x:auto;gap:4px}nav button{min-width:125px}.split{grid-template-columns:1fr}.panel{padding:17px}h1{font-size:23px}}
-</style></head>
-<body><header><div><strong>◉ Classroom Toolkit</strong><small>Live tools for any subject</small></div><div id="top-room" class="roomcode">Join once · Interact live</div></header>
-<main id="app"><section class="panel"><h1>Welcome</h1><p>Connecting…</p></section></main><footer>Course-independent classroom tools · Separate preview implementation · No video recording</footer>
-<script type="module" src="/assets/toolkit-app.mjs"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f4f7fb">
+<title>Classroom Toolkit — Live teaching tools</title>
+<meta name="description" content="Live polls, answers, word clouds, timers and classroom interactions. No course setup required.">
+<link rel="stylesheet" href="/assets/toolkit.css">
+<script defer type="module" src="/assets/toolkit-app.mjs"></script>
+</head>
+<body>
+<header class="shell-header">
+ <div class="brand"><span class="brand-mark" aria-hidden="true">✳</span>
+  <div><div class="brand-name">Classroom Toolkit</div><div class="brand-note">Every course. One classroom.</div></div>
+ </div>
+ <div class="header-right"><span id="connection" class="connection" role="status">Not connected</span><span class="room-chip" id="top-room">Live classroom</span></div>
+</header>
+<main id="app" class="container"><section class="surface"><h1>Welcome</h1><p>Opening Classroom Toolkit…</p></section></main>
+<footer>Fast, focused classroom participation · Screen capture is always controlled by the student</footer>
+<div class="sr-only" id="announcement" aria-live="polite"></div>
+</body></html>
