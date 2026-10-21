@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {TrackSource,TokenVerifier} from 'livekit-server-sdk';
 import handler from '../netlify/functions/live-token.mjs';
 
-test('student token uses the LiveKit protobuf screen-share source and cannot subscribe',async()=>{
+test('student joins waiting room without publishing or subscribing',async()=>{
   // Synthetic credentials; no external LiveKit request and no real secrets.
   const names=['LIVEKIT_URL','LIVEKIT_API_KEY','LIVEKIT_API_SECRET','CIA4103_TEACHER_PIN'];
   const prior=Object.fromEntries(names.map(k=>[k,process.env[k]]));
@@ -25,7 +25,7 @@ test('student token uses the LiveKit protobuf screen-share source and cannot sub
     assert.ok(body.token,'must return a JWT');
     const grants=await new TokenVerifier(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET).verify(body.token);
     assert.equal(grants.video.roomJoin,true);
-    assert.equal(grants.video.canPublish,true);
+    assert.equal(grants.video.canPublish,false);
     assert.deepEqual(grants.video.canPublishSources,['screen_share']);
     assert.equal(grants.video.canSubscribe,false);
     assert.equal(grants.video.canPublishData,false);
