@@ -23,6 +23,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/live-control"
+  to = "/.netlify/functions/live-control"
+  status = 200
+
+[[redirects]]
   from = "/api/live-participants"
   to = "/.netlify/functions/live-participants"
   status = 200
