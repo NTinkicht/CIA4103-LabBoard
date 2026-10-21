@@ -159,14 +159,29 @@ test('lecturer viewer uses one large video and a waiting sidebar',()=>{
 test('compact lecturer roster supports 30 students without tall cards',()=>{
  const html=readFileSync(new URL('../public/dashboard/index.html',import.meta.url),'utf8');
  const client=readFileSync(new URL('../public/assets/live-teacher.mjs',import.meta.url),'utf8');
- assert.match(html,/\.stream-student\{display:grid;grid-template-columns:8px minmax\(0,1fr\) 34px/);
+ assert.match(html,/\.stream-student\{display:grid;grid-template-columns:8px minmax\(0,1fr\) 36px/);
  assert.match(html,/min-height:46px/);
- assert.match(html,/\.stream-icon-action\{display:grid/);
+ assert.match(html,/\.stream-student button\.stream-icon-action\{/);
+ assert.match(html,/place-items:center!important/);
+ assert.match(html,/width:34px!important;height:34px!important/);
+ assert.match(html,/padding:0!important;margin:0!important;line-height:0!important/);
+ assert.doesNotMatch(html,/\.stream-student button\{padding:10px!important/,'old large-button padding must not override icon alignment');
  assert.match(html,/#stream-list\{flex:1;min-height:0;overflow-y:auto/);
  assert.match(client,/const term=\$\('stream-filter'\)/);
  assert.match(client,/button\.title=action/);
  assert.match(client,/button\.setAttribute\('aria-label',action\)/);
  assert.match(client,/panel\.scrollTop=scroll/);
+});
+test('play and pause icons use same centered SVG canvas and accessible icon labels',()=>{
+ const html=readFileSync(new URL('../public/dashboard/index.html',import.meta.url),'utf8');
+ const client=readFileSync(new URL('../public/assets/live-teacher.mjs',import.meta.url),'utf8');
+ assert.match(html,/\.stream-student button\.stream-icon-action svg\{/);
+ assert.match(html,/width:18px!important;height:18px!important/);
+ assert.match(html,/justify-self:end/);
+ assert.match(client,/viewBox="0 0 24 24"/);
+ assert.match(client,/focusable="false"/);
+ assert.match(client,/button\.setAttribute\('aria-label',action\)/);
+ assert.match(client,/button\.addEventListener\('click',\(\)=>switchTo\(showing\?null:student\.identity\)\)/);
 });
 test('an approved standby student resumes without a new screen picker',()=>{
  const student=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
