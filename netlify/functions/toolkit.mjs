@@ -124,7 +124,7 @@ export default async function handler(request){
       if(!name)return fail(400,'Enter a display name');
       const id=randomUUID(),subject=team?'team-'+createHash('sha256').update(team.toLocaleLowerCase()).digest('hex').slice(0,24):'student-'+id;
       await store.setJSON(key('member',code,id),{id,name,team,joinedAt:Date.now()});
-      return reply({code,token:signed({role:'student',code,id,name,team:team?subject:null,exp:room.expiresAt})},201);
+      return reply({code,token:signed({role:'student',code,id,name,team:team?subject:null,teamLabel:team,exp:room.expiresAt})},201);
     }
     const claims=verify(data.token);
     if(!claims)return fail(401,'Session token invalid or expired');
@@ -163,7 +163,7 @@ export default async function handler(request){
       if(claims.role!=='student')return fail(403,'Student only');
       if(!room.active)return fail(409,'No active activity');
       const round=await get(store,key('round',claims.code,room.active));
-      if(!round||round.status!=='open'||round.type==='timer')return fail(409,'Activity not accepting answers');
+      if(!round||round.status!=='open'||round.type==='timer'||data.roundId!==round.id)return fail(409,'Activity changed or is no longer accepting answers');
       let value=data.value;
       if(round.type==='poll'){
         if(!Number.isInteger(value)||value<0||value>=round.options.length)return fail(400,'Invalid option');
@@ -180,7 +180,7 @@ export default async function handler(request){
       const old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
       const expected=Number(data.revision||0);
       if((old?.data?.revision||0)!==expected)return fail(409,'Answer changed on another device. Refresh before resubmitting');
-      const answer={subject,value,revision:expected+1,submittedAt:new Date().toISOString(),name:round.unit==='pair'?'Pair '+(claims.team||'').slice(0,12):claims.name,hidden:old?.data?.hidden||false};
+      const answer={subject,value,revision:expected+1,submittedAt:new Date().toISOString(),name:round.unit==='pair'?'Pair '+claims.teamLabel:claims.name,hidden:old?.data?.hidden||false};
       const saved=await store.setJSON(path,answer,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
       if(!saved.modified)return fail(409,'Simultaneous edit. Refresh and retry');
       return reply({ok:true,revision:answer.revision});
