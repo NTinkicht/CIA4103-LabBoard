@@ -1,7 +1,6 @@
-import{LABS}from'/assets/checker.mjs';
 const $=x=>document.getElementById(x);
 let room=null,sharing=false,capture=null;
-for(const l of LABS)$('part').add(new Option(l.label+' · '+l.title,l.id));
+try{const profile=JSON.parse(sessionStorage.getItem('cia4103-share-profile')||'null');if(profile){$('name').value=String(profile.name||'').slice(0,60);$('part').value=String(profile.part||'').slice(0,100);sessionStorage.removeItem('cia4103-share-profile');}}catch{}
 function status(s,error=false){$('status').textContent=s;$('status').style.color=error?'#a94330':'#087f78';}
 async function stop(){
  $('start').disabled=true;sharing=false;
@@ -24,6 +23,8 @@ async function readiness(){
 }
 $('start').addEventListener('click',async()=>{
  if(sharing)return;
+ if(!$('name').value.trim()){status('Please enter your name first.',true);$('name').focus();return;}
+ if(!$('part').value.trim()){status('Please enter the lab or activity first.',true);$('part').focus();return;}
  if(!window.LivekitClient){status('Streaming library did not load. Check your internet connection.',true);return;}
  if(!navigator.mediaDevices?.getDisplayMedia){status('Your browser or school policy does not allow screen sharing.',true);return;}
  // Crucially, invoke getDisplayMedia immediately from the click (transient user activation).
