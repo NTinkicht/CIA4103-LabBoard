@@ -9,4 +9,4 @@ export function teacherAuthorized(candidate,env=process.env){
  return timingSafeEqual(hash(candidate),hash(env.CIA4103_TEACHER_PIN));
 }
 export const publicName=x=>typeof x==='string'?x.trim().slice(0,60).replace(/[\x00-\x1f\x7f]/g,''):'';
-export const allowedPart=x=>typeof x==='string'&&/^(09a-[1-5]|09b-[1-3])$/.test(x);
+export const allowedPart=x=>typeof x==='string'&&x.trim().length>0&&x.trim().length<=100&&!/[\x00-\x1f\x7f]/.test(x);
