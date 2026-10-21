@@ -13,8 +13,13 @@ export default async function handler(req){
   let people=[];try{people=await api.listParticipants(ROOM);}catch(e){if(/not found|does not exist|404/i.test(String(e)))return res({streams:[]});throw e;}
   const streams=people.flatMap(p=>{
    let metadata={};try{metadata=JSON.parse(p.metadata||'{}');}catch{}
-   return metadata.role==='student'?[{identity:p.identity,name:p.name||'Anonymous student',part:metadata.part||'',connected:true}]:[];
+   return metadata.role==='student'?[{
+    identity:p.identity,name:p.name||'Student',connected:true,
+    status:p.permission?.canPublish?'approved':'waiting',
+    approved:Boolean(p.permission?.canPublish),
+    sharing:Boolean(p.tracks?.some(t=>t.source===3&&!t.muted))
+   }]:[];
   });
-  return res({streams});
+  return res({streams,active:streams.find(s=>s.approved)?.identity||null});
  }catch(e){console.error('LiveKit participants',e);return res({error:'Could not list screen sharers.'},502);}
 }
