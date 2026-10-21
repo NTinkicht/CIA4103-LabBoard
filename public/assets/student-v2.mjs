@@ -1,13 +1,16 @@
-import{inspect,LABS}from'./checker.mjs';
+import{inspect,detectLanguage,taskFromText}from'./checker.mjs';
 import{renderCode}from'./highlight.mjs';
 const $=id=>document.getElementById(id);
 let type='help',image=null,diagnostics=null,checking=false;
 function message(text,problem=false){const el=$('feedback');el.className='notice show'+(problem?' problem':'');el.textContent=text;}
 function setup(){
- LABS.forEach(l=>$('part').add(new Option(`${l.label} — ${l.title}`,l.id)));
- const url=new URL(location.href);const part=url.searchParams.get('task');if(LABS.some(x=>x.id===part))$('part').value=part;
- $('part').addEventListener('change',()=>{updateTask();resetCheck();});
- $('lang').addEventListener('change',()=>{updatePreview();resetCheck();});
+ const qs=new URLSearchParams(location.search);
+ const part=qs.get('task');if(part)$('part').value=part.slice(0,100);
+ $('part').addEventListener('input',resetCheck);
+ $('name').addEventListener('input',()=>{});
+ $('share-screen').addEventListener('click',()=>{
+  try{sessionStorage.setItem('cia4103-share-profile',JSON.stringify({name:$('name').value.trim(),part:$('part').value.trim()}));}catch{}
+ });
  $('code').addEventListener('input',()=>{updatePreview();resetCheck();});
  $('type-help').addEventListener('click',()=>setType('help'));
  $('type-display').addEventListener('click',()=>setType('display'));
@@ -23,11 +26,15 @@ function setup(){
   if(entry){e.preventDefault();await processImage(entry.getAsFile());}
  });
  $('post-form').addEventListener('submit',send);
- updateTask();updatePreview();
+ updatePreview();
 }
 function setType(next){type=next;for(const key of ['help','display']){$('type-'+key).classList.toggle('active',key===next);$('type-'+key).setAttribute('aria-pressed',String(key===next));}}
-function updateTask(){const lab=LABS.find(x=>x.id===$('part').value);$('task-hint').textContent='Checkpoint: '+(lab?.hint||'');$('lang').value=(lab?.id==='09a-4'||lab?.id==='09a-3'||lab?.id==='09a-1'||lab?.id==='09a-2'||lab?.id.startsWith('09b'))?'razor':'csharp';updatePreview();}
-function updatePreview(){const code=$('code').value;const lang=$('lang').value;$('counter').textContent=code.length.toLocaleString()+' / 8,000';$('code-title').textContent=lang==='csharp'?'Controller.cs · C#':lang==='razor'?'View.cshtml · Razor':lang.toUpperCase();renderCode($('preview'),code||'// Paste code to see highlighted preview',lang,diagnostics?.issues?.map(x=>x.line)||[]);}
+function updatePreview(){
+ const code=$('code').value,lang=detectLanguage(code);
+ $('counter').textContent=code.length.toLocaleString()+' / 8,000';
+ $('code-title').textContent=lang==='csharp'?'C# (detected)':lang==='razor'?'ASP.NET Razor (detected)':lang.toUpperCase()+' (detected)';
+ renderCode($('preview'),code||'// Paste code to preview',lang,diagnostics?.issues?.map(x=>x.line)||[]);
+}
 function resetCheck(){diagnostics=null;$('check-status').textContent='· not checked';$('analysis').textContent='Press “Check My Code” to examine this snippet.';updatePreview();}
 function showChecks(info,where){where.replaceChildren();
  if(info.status==='no-code'){where.textContent='Paste C# or Razor code first. Screenshots cannot be checked automatically.';return;}
@@ -35,7 +42,7 @@ function showChecks(info,where){where.replaceChildren();
  for(const i of info.issues||[]){const div=document.createElement('div');div.className='check '+(i.severity==='hint'?'hint':'');const label=document.createElement('strong');label.textContent=`${i.severity==='error'?'Possible error':'Check this'} · Line ${i.line}`;div.append(label,document.createElement('br'),document.createTextNode(i.message));where.append(div);}
  const p=document.createElement('p');p.className='hint';p.textContent=info.note;where.append(p);
 }
-function runCheck(){diagnostics=inspect($('code').value,$('lang').value,$('part').value);showChecks(diagnostics,$('analysis'));$('check-status').textContent='· '+(diagnostics.issues.length?diagnostics.issues.length+' finding(s)':'no obvious issues');updatePreview();}
+function runCheck(){diagnostics=inspect($('code').value,detectLanguage($('code').value),taskFromText($('part').value));showChecks(diagnostics,$('analysis'));$('check-status').textContent='· '+(diagnostics.issues.length?diagnostics.issues.length+' finding(s)':'no obvious issues');updatePreview();}
 function clearImage(){image=null;$('file').value='';$('thumb').classList.remove('show');$('thumb-img').removeAttribute('src');}
 async function processImage(file){
  if(!file||!['image/png','image/jpeg','image/webp'].includes(file.type)){message('Choose a PNG, JPG or WebP screenshot.',true);return;}
@@ -53,14 +60,16 @@ async function processImage(file){
 }
 async function send(e){
  e.preventDefault();const code=$('code').value,note=$('note').value.trim();
+ if(!$('name').value.trim()){message('Please enter your name.',true);$('name').focus();return;}
+ if(!$('part').value.trim()){message('Please enter the lab or activity.',true);$('part').focus();return;}
  if(!code.trim()&&!note&&!image){message('Add code, a screenshot, or a description before submitting.',true);return;}
  if(code.trim()&&!diagnostics)runCheck();
  $('send').disabled=true;$('send').textContent='Sending…';
  try{
-  const payload={part:$('part').value,type,lang:$('lang').value,code,note,image,name:$('name').value.trim()};
+  const payload={part:$('part').value,type,code,note,image,name:$('name').value.trim()};
   const response=await fetch('/api/posts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const obj=await response.json();if(!response.ok)throw Error(obj.error||'Failed to submit.');
-  message('Shared! Your post will appear on the live dashboard in about five seconds. No account needed.');
+  message('Shared! Your post will appear on the teacher dashboard shortly.');
   $('code').value='';$('note').value='';clearImage();resetCheck();
  }catch(e){message('Not sent: '+e.message,true);}finally{$('send').disabled=false;$('send').textContent='Share to board →';}
 }
