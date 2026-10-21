@@ -61,8 +61,8 @@ test('student live screen sharing requires a name but no activity field',()=>{
  assert.match(studentPage,/id="name"[^>]*required/);
  assert.doesNotMatch(studentPage,/id="part"/);
  assert.doesNotMatch(studentModule,/\$\('part'\)/);
- assert.match(studentModule,/role:'student',name:/);
- assert.match(liveToken,/part:isTeacher\?'':'Screen share'/);
+ assert.match(studentModule,/body:JSON\.stringify\(\{role:'student',name\}\)/);
+ assert.doesNotMatch(liveToken,/data\.part/);
  assert.doesNotMatch(liveToken,/allowedPart\(data\.part\)/);
 });
 test('lecturer token preflight validates LiveKit project credentials',()=>{
@@ -71,10 +71,12 @@ test('lecturer token preflight validates LiveKit project credentials',()=>{
  assert.match(tokenSource,/await api\.listRooms\(\)/);
  assert.match(tokenSource,/LiveKit rejected the API key or secret/);
 });
-test('live screen selection begins directly from a student click',()=>{
+test('screen selection requires a fresh approved student click after joining',()=>{
  const s=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
- const click=s.indexOf("$('start').addEventListener('click'");
- const capture=s.indexOf('navigator.mediaDevices.getDisplayMedia({video:true,audio:false})',click);
- const token=s.indexOf("fetch('/api/live-token'",click);
- assert.ok(click>=0&&capture>click&&token>capture);
+ const join=s.indexOf("$('start').addEventListener('click'");
+ const token=s.indexOf("fetch('/api/live-token'",join);
+ const approveToShare=s.indexOf("$('share-window').addEventListener('click'",join);
+ const capture=s.indexOf('navigator.mediaDevices.getDisplayMedia(',approveToShare);
+ assert.ok(join>=0&&token>join&&approveToShare>token&&capture>approveToShare,
+  'students join first, and only a separate approved student click opens the browser screen picker');
 });
