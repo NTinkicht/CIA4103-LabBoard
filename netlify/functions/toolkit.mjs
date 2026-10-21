@@ -92,7 +92,7 @@ async function snapshot(store,room,claims){
   return result;
 }
 const bodyMax=12000;
-export default async function handler(request){
+export async function handleToolkit(request,storeProvider=getStore){
   if(request.method!=='POST')return fail(405,'POST only');
   if(Number(request.headers.get('content-length')||0)>bodyMax)return fail(413,'Payload too large');
   if(!request.headers.get('content-type')?.startsWith('application/json'))return fail(415,'JSON required');
@@ -101,7 +101,7 @@ export default async function handler(request){
   try{const raw=await request.text();if(raw.length>bodyMax)return fail(413,'Payload too large');data=JSON.parse(raw)}catch{return fail(400,'Invalid JSON')}
   if(!data||typeof data!=='object'||Array.isArray(data))return fail(400,'Invalid request');
   try{
-    const store=getStore({name:STORE,consistency:'strong'});
+    const store=storeProvider({name:STORE,consistency:'strong'});
     if(data.action==='create'){
       if(!pinOk(data.pin))return fail(403,'Lecturer authentication failed');
       for(let i=0;i<12;i++){
@@ -197,3 +197,5 @@ export default async function handler(request){
     return fail(503,'Classroom service unavailable. Retry.');
   }
 }
+
+export default function handler(request){return handleToolkit(request)}
