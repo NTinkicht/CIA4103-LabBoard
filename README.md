@@ -77,3 +77,29 @@ The lecturer enters the PIN only in the dashboard. Server-minted LiveKit permiss
 - Regression checks: \`npm test\` in a development environment.
 
 The source is MIT licensed. Please read [LICENSE](LICENSE) and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before contributing. The original authors retain ownership of their works; the license does not cover third-party content or students' personal data.
+
+## Lecturer-controlled, single-presenter screen sharing
+
+The Live Screens tab now gives the lecturer a large 72vh application-window viewer and a right-hand queue of connected students. Students select **Request to share** to join the queue. Their default LiveKit token has **no permission to publish or subscribe**. Names are required, and no lab/activity field is shown on the live screen-sharing page.
+
+The lecturer connects with their PIN, sees connected students, and presses **Approve & show** next to one. The server revokes all existing student publish permissions before granting **screen-share-only** publishing permission to the chosen participant. LiveKit unpublishes previous screen tracks on permission revocation. **Stop current share** revokes publishing from everyone. The server uses a short-lived Netlify Blobs distributed lease to serialize lecturer approvals; if it cannot establish an exclusive permission state, it fails closed. Only one student should be authorized at once. The backend action is `POST /api/live-control` and requires the lecturer PIN; never publish that PIN.
+
+After approval, **the student must click Share application window**. Browsers require direct user activation for screen capture. The application requests a Window capture with `monitorTypeSurfaces: 'exclude'`, then checks the actual `MediaStreamTrack.getSettings().displaySurface`. Only **window** is accepted; monitor, browser-tab and unknown surface results are stopped without being published. Note that the browser may still show additional choices in its native picker; the application rejects them afterward. Some browsers do not expose the surface value and will therefore be unable to share under this strict policy.
+
+Multiple students remain connected in the waiting list. Switching to another student automatically revokes the previous presenter, stops their stream, and authorizes the selected student. The new student must click their button to select an application window. Switching between the lecturer app's **Student submissions**, **Lab PDFs**, and **Live Screens** tabs does not disconnect the room. Student screen-sharing stays active when switching browser tabs or working in the shared application **while the sharing page remains open**. Closing the shared app window, closing the sharing tab, browser security prompts or HCT policies can still end a stream; background tab operation depends on browser policies.
+
+The green CBE 5Es badges were removed from the student and lecturer dashboard pages. The local PDF viewer now accepts PDF files **up to 50 MB**, subject to browser IndexedDB quota. Files remain local.
+
+### Quick smoke test
+
+1. Confirm Netlify published the latest GitHub commit. Keep student, lecturer and application windows open.
+2. In a student browser, enter a name, click **Request to share**. The student stays waiting and **Share application window** remains disabled.
+3. On the lecturer dashboard, connect with PIN. The student appears in the waiting queue. Press **Approve & show**.
+4. Student sees authorization, clicks **Share application window**, selects the Visual Studio window in the browser picker. Verify video in the large lecturer panel.
+5. Try to select Entire Screen or a browser tab — this must be rejected (share immediately stopped).
+6. Connect a second student. The first remains visible while the second waits. The lecturer clicks **Approve & show** for the second student; the first stops publishing. Second student selects their own window and becomes the sole active presenter.
+7. Switch the lecturer dashboard to PDFs and back, and switch the student to the shared application. The live stream should remain connected while the page stays open.
+8. Click **Stop current share**. Both students remain connected but none can publish until authorized again.
+9. Upload a PDF close to 50 MB from the lecturer viewer. This is a browser-local upload; it may fail if the school's browser quota is smaller.
+
+Real LiveKit and Netlify integration is not exercised by source-code tests; verify with two student browser sessions and the actual teaching environment before relying on it in a class observation.
