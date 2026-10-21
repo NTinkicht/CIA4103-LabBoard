@@ -1,55 +1,123 @@
-const $=x=>document.getElementById(x);
-let room=null,sharing=false,capture=null;
-try{const profile=JSON.parse(sessionStorage.getItem('cia4103-share-profile')||'null');if(profile){$('name').value=String(profile.name||'').slice(0,60);sessionStorage.removeItem('cia4103-share-profile');}}catch{}
-function status(s,error=false){$('status').textContent=s;$('status').style.color=error?'#a94330':'#087f78';}
-async function stop(){
- $('start').disabled=true;sharing=false;
- // Stop the OS screen-capture indicator immediately, even if network teardown fails.
- const stream=capture;capture=null;stream?.getTracks().forEach(t=>t.stop());
- try{if(room)await room.disconnect();}catch{}
- room=null;sharing=false;
- $('preview').srcObject=null;$('preview').style.display='none';$('start').disabled=false;$('stop').disabled=true;
- status('Sharing stopped. Your screen is no longer transmitted.');
+const $=id=>document.getElementById(id);
+let room=null,capture=null,published=null,leaving=false,approved=false,connecting=false;
+try{
+ const profile=JSON.parse(sessionStorage.getItem('cia4103-share-profile')||'null');
+ if(profile){$('name').value=String(profile.name||'').slice(0,60);sessionStorage.removeItem('cia4103-share-profile');}
+}catch{}
+function status(message,error=false){
+ $('status').textContent=message;$('status').style.color=error?'#ac4936':'#087f78';
 }
-$('stop').addEventListener('click',stop);
-async function readiness(){
- $('start').disabled=true;
- try{
-  const r=await fetch('/api/live-status',{cache:'no-store'});
-  const d=await r.json();
-  if(!d.enabled){status('Live streaming is not yet configured by your lecturer. Screenshots and code sharing remain available.',true);return;}
-  $('start').disabled=false;status('Screen sharing is available. Click Share when ready.');
- }catch{status('Could not check screen-sharing readiness. Retry when connected.',true);}
+function controls(){
+ const connected=Boolean(room&&room.state==='connected');
+ $('start').disabled=connected||connecting;
+ $('leave').disabled=!connected&& !connecting;
+ $('share-window').disabled=!connected||!approved||Boolean(capture);
+ $('stop').disabled=!capture;
+ $('name').disabled=connected||connecting;
+}
+function stopCapture(){
+ const stream=capture;capture=null;
+ if(stream)stream.getTracks().forEach(t=>t.stop());
+ if(published&&room){const track=published;published=null;room.localParticipant.unpublishTrack(track).catch(()=>{});}
+ else published=null;
+ $('preview').srcObject=null;$('preview').style.display='none';
+ controls();
+}
+async function leave(){
+ leaving=true;stopCapture();
+ const prev=room;room=null;approved=false;connecting=false;
+ try{if(prev)await prev.disconnect();}catch{}
+ $('name').disabled=false;leaving=false;controls();
+ status('You have left the classroom sharing queue.');
+}
+function permissionCheck(){
+ if(!room||leaving)return;
+ // Server updates participant permissions in real time.
+ const allowed=Boolean(room.localParticipant.permissions?.canPublish);
+ const changed=allowed!==approved;approved=allowed;
+ if(!approved&&capture)stopCapture(); // lecturer switched to another student.
+ controls();
+ if(changed){
+  status(approved?'✓ Approved by your lecturer. Click “Share application window” and select the app.':
+   'You are in the waiting list. The lecturer controls who can present.');
+ }
 }
 $('start').addEventListener('click',async()=>{
- if(sharing)return;
- if(!$('name').value.trim()){status('Please enter your name first.',true);$('name').focus();return;}
- if(!window.LivekitClient){status('Streaming library did not load. Check your internet connection.',true);return;}
- if(!navigator.mediaDevices?.getDisplayMedia){status('Your browser or school policy does not allow screen sharing.',true);return;}
- // Crucially, invoke getDisplayMedia immediately from the click (transient user activation).
- // Do not await network token creation or LiveKit room connection before the picker.
- let selected;
- try{selected=await navigator.mediaDevices.getDisplayMedia({video:true,audio:false});}
- catch(e){status('Screen selection was cancelled or blocked: '+e.message,true);return;}
- capture=selected;
- $('start').disabled=true;status('Connecting securely to the lecturer…');
+ if(room||connecting)return;
+ const name=$('name').value.trim();
+ if(!name){status('Enter your name to join the waiting list.',true);$('name').focus();return;}
+ if(!window.LivekitClient){status('LiveKit did not load. Check the network and reload.',true);return;}
+ connecting=true;controls();status('Joining the classroom waiting list…');
  try{
-  const response=await fetch('/api/live-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'student',name:$('name').value.trim()})});
-  const data=await response.json();if(!response.ok)throw Error(data.error||'Could not start screen sharing. Ask the lecturer to check LiveKit configuration.');
+  const response=await fetch('/api/live-token',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({role:'student',name})
+  });
+  const data=await response.json();if(!response.ok)throw Error(data.error||'Could not join waiting room.');
   room=new LivekitClient.Room({adaptiveStream:true});
-  room.on(LivekitClient.RoomEvent.Disconnected,()=>{if(sharing)stop();});
+  room.on(LivekitClient.RoomEvent.ParticipantPermissionsChanged,permissionCheck);
+  room.on(LivekitClient.RoomEvent.Reconnected,permissionCheck);
+  room.on(LivekitClient.RoomEvent.Disconnected,()=>{
+   if(!leaving){stopCapture();room=null;approved=false;connecting=false;controls();status('Disconnected. Click Request to share to rejoin.',true);}
+  });
   await room.connect(data.url,data.token,{autoSubscribe:false});
-  const track=selected.getVideoTracks()[0];if(!track||track.readyState==='ended')throw Error('Screen capture ended before it could be published.');
-  await room.localParticipant.publishTrack(track,{source:LivekitClient.Track.Source.ScreenShare});
-  sharing=true;$('stop').disabled=false;
-  $('preview').srcObject=selected;$('preview').style.display='block';
-  track.addEventListener('ended',()=>{if(sharing)stop();},{once:true});
-  status('● LIVE · Only the lecturer can subscribe. Click Stop sharing when finished.');
- }catch(err){
-  selected.getTracks().forEach(t=>t.stop());capture=null;
-  if(room){await room.disconnect().catch(()=>{});room=null;}
-  sharing=false;$('stop').disabled=true;$('start').disabled=false;status(err.message||'Unable to share this screen.',true);
+  connecting=false;approved=false;permissionCheck();
+  status('● Connected to the waiting list. Your lecturer will approve the next presenter.');
+ }catch(error){
+  if(room)await room.disconnect().catch(()=>{});
+  room=null;connecting=false;approved=false;controls();
+  status('Could not join the sharing queue: '+error.message,true);
  }
 });
+$('share-window').addEventListener('click',async()=>{
+ if(!room||!approved||capture){status('Wait for lecturer approval before choosing an application window.',true);return;}
+ if(!navigator.mediaDevices?.getDisplayMedia){status('This browser or institutional policy does not support window sharing.',true);return;}
+ let selected=null;
+ try{
+  // Screen picker must be called immediately from the student's click.
+  // "exclude" is a browser hint; we ALSO inspect the actual chosen track.
+  selected=await navigator.mediaDevices.getDisplayMedia({
+   video:{displaySurface:'window'},audio:false,
+   monitorTypeSurfaces:'exclude',preferCurrentTab:false
+  });
+  const track=selected.getVideoTracks()[0];
+  const surface=track?.getSettings?.().displaySurface;
+  if(surface!=='window'){
+   selected.getTracks().forEach(t=>t.stop());
+   status('Only an application window is allowed. Select “Window” (not Entire Screen or browser tab). If your browser cannot identify window capture, use Chrome or Edge.',true);
+   return;
+  }
+  if(!approved||!room||!room.localParticipant.permissions?.canPublish){
+   selected.getTracks().forEach(t=>t.stop());status('Your presenter approval has expired. Please wait for approval.',true);return;
+  }
+  capture=selected;controls();status('Publishing the selected application window…');
+  await room.localParticipant.publishTrack(track,{source:LivekitClient.Track.Source.ScreenShare});
+  published=track;
+  $('preview').srcObject=capture;$('preview').style.display='block';
+  track.addEventListener('ended',()=>{
+   if(capture){stopCapture();if(approved)status('Window sharing stopped. You may share a window again while approved.');}
+  },{once:true});
+  status('● LIVE · Sharing your application window. You may switch browser tabs or work in the application; keep this sharing page open.');
+ }catch(error){
+  if(selected)selected.getTracks().forEach(t=>t.stop());
+  capture=null;published=null;controls();
+  status(error?.name==='NotAllowedError'?'Window selection was cancelled or blocked.':('Could not share this application window: '+error.message),true);
+ }
+});
+$('stop').addEventListener('click',()=>{
+ stopCapture();status(approved?'Window sharing stopped. You remain approved and connected.':'Window sharing stopped. You remain in the waiting list.');
+});
+$('leave').addEventListener('click',leave);
+setInterval(()=>{if(room)permissionCheck();},1500);
+window.addEventListener('visibilitychange',()=>{if(room)permissionCheck();});
+window.addEventListener('focus',()=>{if(room)permissionCheck();});
 window.addEventListener('pagehide',()=>{capture?.getTracks().forEach(t=>t.stop());room?.disconnect();});
+controls();
+async function readiness(){
+ try{
+  const response=await fetch('/api/live-status',{cache:'no-store'});
+  const data=await response.json();
+  if(!data.enabled){status('Live sharing is not yet configured. Ask the lecturer to check Netlify LiveKit environment variables.',true);$('start').disabled=true;}
+ }catch{status('Unable to check LiveKit readiness. Reload when connected.',true);$('start').disabled=true;}
+}
 readiness();
