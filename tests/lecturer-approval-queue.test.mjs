@@ -144,12 +144,37 @@ test('lecturer viewer uses one large video and a waiting sidebar',()=>{
  const client=readFileSync(new URL('../public/assets/live-teacher.mjs',import.meta.url),'utf8');
  assert.match(html,/grid-template-columns:minmax\(0,1fr\) 295px/);
  assert.match(client,/id="primary-stream-video"/);
- assert.match(client,/Approve & show/);
+ assert.match(client,/Approve and show /);
+ assert.match(client,/Resume /);
+ assert.match(client,/stream-icon-action/);
+ assert.match(client,/aria-label/);
+ assert.match(client,/stream-filter/);
+ assert.doesNotMatch(client,/button\.textContent=student\.presenting\?/);
  assert.match(client,/id="stream-stop-all"/);
  assert.match(client,/autoSubscribe:false/);
  assert.match(client,/setSubscribed\(false\)/);
  assert.match(client,/setSubscribed\(true\)/);
  assert.match(client,/STANDBY/);
+});
+test('compact lecturer roster supports 30 students without tall cards',()=>{
+ const html=readFileSync(new URL('../public/dashboard/index.html',import.meta.url),'utf8');
+ const client=readFileSync(new URL('../public/assets/live-teacher.mjs',import.meta.url),'utf8');
+ assert.match(html,/\.stream-student\{display:grid;grid-template-columns:8px minmax\(0,1fr\) 34px/);
+ assert.match(html,/min-height:46px/);
+ assert.match(html,/\.stream-icon-action\{display:grid/);
+ assert.match(html,/#stream-list\{flex:1;min-height:0;overflow-y:auto/);
+ assert.match(client,/const term=\$\('stream-filter'\)/);
+ assert.match(client,/button\.title=action/);
+ assert.match(client,/button\.setAttribute\('aria-label',action\)/);
+ assert.match(client,/panel\.scrollTop=scroll/);
+});
+test('an approved standby student resumes without a new screen picker',()=>{
+ const student=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
+ assert.match(student,/room\.localParticipant\.on\(LivekitClient\.ParticipantEvent\.ParticipantMetadataChanged,permissionCheck\)/);
+ assert.match(student,/await pub\.resumeUpstream\(\)/);
+ assert.match(student,/if\(!room\|\|!approved\|\|!onAir\|\|capture\)/);
+ const method=student.slice(student.indexOf('async function synchronizeUpstream(){'),student.indexOf('function permissionCheck(){'));
+ assert.doesNotMatch(method,/void synchronizeUpstream\(\);\s*sharingStatus\(\);/,'do not recurse while synchronizing');
 });
 test('PDF limit is 50MB and green 5Es labels are removed',()=>{
  const pdf=readFileSync(new URL('../public/assets/lab-pdfs.mjs',import.meta.url),'utf8');
