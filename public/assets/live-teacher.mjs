@@ -81,8 +81,8 @@ function renderPeople(items){
     'Approve and show '+(student.name||'Student');
   button.title=action;button.setAttribute('aria-label',action);
   button.innerHTML=showing
-   ?'<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>'
-   :'<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M8 5.1c0-.8.9-1.3 1.6-.9l10 7c.6.4.6 1.2 0 1.6l-10 7c-.7.5-1.6 0-1.6-.9V5.1z"/></svg>';
+   ?'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><rect x="7" y="5" width="3.5" height="14" rx="1.15"/><rect x="13.5" y="5" width="3.5" height="14" rx="1.15"/></svg>'
+   :'<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="currentColor"><path d="M8 5.3a.65.65 0 0 1 .99-.56l10.07 6.7a.68.68 0 0 1 0 1.12L8.99 19.26A.65.65 0 0 1 8 18.7V5.3Z"/></svg>';
   button.addEventListener('click',()=>switchTo(showing?null:student.identity));
   card.append(dot,info,button);panel.append(card);
  }
