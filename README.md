@@ -103,3 +103,23 @@ The green CBE 5Es badges were removed from the student and lecturer dashboard pa
 9. Upload a PDF close to 50 MB from the lecturer viewer. This is a browser-local upload; it may fail if the school's browser quota is smaller.
 
 Real LiveKit and Netlify integration is not exercised by source-code tests; verify with two student browser sessions and the actual teaching environment before relying on it in a class observation.
+
+## Standby screen switching (proposed release)
+
+When the lecturer selects Student B after Student A has begun sharing, Student A remains connected **with the application window capture and LiveKit publication active**. Student A's status changes to **STANDBY**, but their capture does not end. Selecting Student A again displays that existing screen immediately, without another browser permission prompt, provided the student hasn't stopped sharing and the selected application window remains open.
+
+The lecturer dashboard maintains **exactly one displayed/subscribed screen** through LiveKit `autoSubscribe:false` and `RemoteTrackPublication.setSubscribed()`. It unsubscribes prior students before subscribing to the selected one. The sidebar distinguishes **ON SCREEN**, **STANDBY · Capture running**, **STANDBY · No window yet**, and **Waiting for approval**. The lecturer's *Put on standby* control only hides a screen; it does not stop the student's capture. Students retain their own **Stop sharing** control.
+
+The server stores the selected presenter in participant metadata (`active` vs `standby`), changes presentation selection under a Netlify Blobs distributed lease, and only grants screen-only publishing permission on a student's first approval. It never revokes publishing permission during ordinary presenter switching. Students cannot subscribe to each other's streams.
+
+**Privacy and resource usage:** Standby means **not shown on the lecturer dashboard**, not disconnected. The student's window is still captured and transmitted to LiveKit; the screen-sharing indicator remains visible, and uploading the video continues to use bandwidth and potentially LiveKit usage. No video is recorded by the application. The student can stop capture at any moment. The HCT/browser restrictions still apply: changing tabs usually preserves sharing while the sharing page and selected application window stay open, but closing either or revoking permission ends the capture.
+
+### Manual acceptance checklist before deploying
+
+1. A joins and requests authorization, the lecturer approves A, and A selects an application window.
+2. B joins and requests authorization; the lecturer approves B. **A's browser capture icon stays on**, A sees **STANDBY**, and only B is displayed after B selects a window.
+3. Switch to A: A's *existing window* reappears immediately, without a new picker. B remains on standby.
+4. Select *Put on standby*: no student stream is displayed, but captured windows remain running.
+5. A or B clicks **Stop sharing**: only that student's capture ends. They must click **Share application window** and choose a window again to restart.
+6. Changing lecturer or student tabs does not interrupt an ongoing stream when the sharing page and selected window stay open.
+7. Confirm only one remote video track is subscribed in the lecturer dashboard at a time, and the student cannot subscribe to anyone else's stream.
