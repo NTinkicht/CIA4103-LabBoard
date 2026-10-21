@@ -33,7 +33,7 @@ async function refresh(){
   if(!lastList.length){$('stream-list').textContent='No students are sharing at the moment.';}
   else for(const student of lastList){
    const item=document.createElement('div');item.style.cssText='background:#e8f7f0;padding:12px;border-radius:10px;margin:7px 0';
-   item.textContent='● '+(student.name||'Anonymous student')+' · '+student.part;
+   item.textContent='● '+(student.name||'Student')+' · Screen sharing';
    $('stream-list').append(item);
   }
   status('● CONNECTED · '+lastList.length+' student screen session(s). Updates every five seconds.');
@@ -54,7 +54,14 @@ $('stream-connect').addEventListener('click',async()=>{
   room.on(LivekitClient.RoomEvent.ParticipantDisconnected,p=>{document.getElementById('stream-'+CSS.escape(p.identity))?.remove();});
   await room.connect(data.url,data.token,{autoSubscribe:true});
   $('stream-leave').disabled=false;await refresh();
- }catch(e){status(e.message||'Streaming setup failed.',true);$('stream-connect').disabled=false;room?.disconnect().catch(()=>{});room=null;pin='';}
+ }catch(e){
+  const problem=String(e?.message||'');
+  status(/invalid.api.key|unauthoriz|invalid.token/i.test(problem)
+   ?'LiveKit rejected the configured API key or secret. Generate a matching pair in the LiveKit project, update Netlify environment variables, and redeploy.'
+   :(problem||'Streaming setup failed.'),true);
+  $('stream-connect').disabled=false;
+  room?.disconnect().catch(()=>{});room=null;pin='';
+ }
 });
 $('stream-leave').addEventListener('click',async()=>{
  await room?.disconnect();room=null;pin='';$('stream-list').replaceChildren();$('stream-videos').replaceChildren();
