@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
-import {AccessToken} from 'livekit-server-sdk';
-import {ROOM,configured,teacherAuthorized,publicName,allowedPart} from '../lib/live-auth.mjs';
+import {AccessToken,RoomServiceClient} from 'livekit-server-sdk';
+import {ROOM,configured,teacherAuthorized,publicName} from '../lib/live-auth.mjs';
 const headers={'Cache-Control':'no-store','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff'};
 const res=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
 export default async function handler(req){
@@ -13,15 +13,36 @@ export default async function handler(req){
   if(data.role!=='teacher'&&data.role!=='student')return res({error:'Invalid role'},400);
   const isTeacher=data.role==='teacher';
   if(isTeacher&&!teacherAuthorized(data.pin))return res({error:'Invalid lecturer PIN'},403);
-  if(!isTeacher&&!allowedPart(data.part))return res({error:'Enter the lab or activity before sharing.'},400);
-  if(!isTeacher&&(!data.name||!publicName(data.name).trim()))return res({error:'Enter your name before sharing.'},400);
+  if(!isTeacher&&(typeof data.name!=='string'||!publicName(data.name).trim()))return res({error:'Enter your name before sharing.'},400);
+  // Verify that the configured API key, secret, and URL actually work for
+  // the lecturer before issuing room tokens. Merely having env vars is not
+  // sufficient to establish valid LiveKit authentication.
+  if(isTeacher){
+   try{
+    const host=process.env.LIVEKIT_URL.replace(/^wss:\/\//,'https://');
+    const api=new RoomServiceClient(host,process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET);
+    await api.listRooms();
+   }catch(err){
+    const msg=String(err?.message||'');
+    if(/401|unauthoriz|invalid.api.key|invalid.token|signature/i.test(msg))
+      return res({error:'LiveKit rejected the API key or secret for this project URL. In LiveKit Cloud, create a NEW API key/secret pair for the project, replace both matching variables in Netlify, verify LIVEKIT_URL and redeploy. Do not share the secret.'},502);
+    console.error('LiveKit credential preflight', {name:err?.name,kind:'upstream-connection-error'});
+    return res({error:'Could not verify the LiveKit Cloud connection. Check the project URL, LiveKit service status and the Netlify Function logs.'},502);
+   }
+  }
   // Never put a person's name in participant identity or room name.
   const identity=(isTeacher?'lecturer-':'student-')+randomUUID();
   const display=isTeacher?'Lecturer':publicName(data.name);
   const token=new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{
-   identity,name:display,ttl:isTeacher?'30m':'15m',metadata:JSON.stringify({role:data.role,part:isTeacher?'':data.part.trim()})
+   identity,name:display,ttl:isTeacher?'30m':'15m',metadata:JSON.stringify({role:data.role,part:isTeacher?'':'Screen share'})
   });
   token.addGrant({roomJoin:true,room:ROOM,canPublish:!isTeacher,canPublishSources:isTeacher?[]:['screen_share'],canSubscribe:isTeacher,canPublishData:false});
   return res({url:process.env.LIVEKIT_URL,token:await token.toJwt(),identity,display});
- }catch(e){console.error('LiveKit token issue',e);return res({error:'Unable to initialize secure screen sharing.'},500);}
+  }catch(e){
+  const description=String(e?.message||'');
+  // Never send key material, JWTs or raw SDK exceptions to the browser.
+  console.error('LiveKit token initialization failed',{name:e?.name,category:/secret|api.key|credential/i.test(description)?'credential-configuration':'unexpected'});
+  const credentials=/secret|api.key|credential|length|sign/i.test(description);
+  return res({error:credentials?'LiveKit token setup failed. Ask the lecturer to verify the project API key and matching API secret in Netlify and redeploy.':'The screen-sharing session could not start. Ask the lecturer to check Netlify Functions logs.'},500);
+ }
 }
