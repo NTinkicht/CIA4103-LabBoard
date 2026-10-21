@@ -57,7 +57,9 @@ async function synchronizeUpstream(){
  if(upstreamSyncing){upstreamPending=true;return;}
  upstreamSyncing=true;
  try{
+  let transitions=0;
   do{
+   if(++transitions>8)throw Error('LiveKit upstream did not settle');
    upstreamPending=false;
    const pub=publication;
    if(!pub||!capture||!room)break;
@@ -74,8 +76,10 @@ async function synchronizeUpstream(){
   void synchronizeUpstream();
   sharingStatus();
  }catch(error){
-  // Prefer ending local capture over accidentally continuing to transmit
-  // if upstream pausing fails. The student can explicitly share again.
+  // Stop may have been initiated intentionally while an async pause was in flight.
+  if(!capture||!room)return;
+  // On a pause failure, fail closed: stop local capture rather than accidentally
+  // continuing to transmit a standby stream.
   console.error('Unable to synchronize student screen upstream',{name:error?.name});
   stopCapture();
   status('Could not safely pause or resume video. Capture stopped; please select the application window again when ready.',true);
