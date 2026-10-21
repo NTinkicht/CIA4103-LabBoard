@@ -66,14 +66,18 @@ function setupTool(){
  }
  const units='<label for="unit">Responses from</label><select id="unit"><option value="individual">Individuals</option><option value="pair">Pairs (one answer per pair)</option></select>';
  let content='<p class="muted">Open this tool at any point in your lesson. Questions are optional.</p>';
- if(state.tool==='poll')content+='<label for="prompt">Question (optional)</label><input id="prompt" maxlength="240" placeholder="You can ask verbally or show on PowerPoint"><div class="grid2">'+[0,1,2,3].map(i=>'<div><label for="o'+i+'">Option '+(i+1)+'</label><input id="o'+i+'" value="Option '+(i+1)+'" maxlength="60"></div>').join('')+'</div>'+units;
+ if(state.tool==='poll')content+='<label for="prompt">Question (optional)</label><input id="prompt" maxlength="240" placeholder="You can ask verbally or show on PowerPoint"><div id="options" class="grid2">'+[0,1,2,3].map(i=>'<div><label for="o'+i+'">Option '+(i+1)+'</label><input class="poll-option" id="o'+i+'" value="Option '+(i+1)+'" maxlength="60"></div>').join('')+'</div><div class="actions"><button id="add-option" class="alt" type="button">+ Add option</button><button id="remove-option" class="alt" type="button">− Remove last</button></div>'+units;
  if(state.tool==='answers')content+='<label for="prompt">Question (optional)</label><input id="prompt" maxlength="240" placeholder="Ask verbally or display in PowerPoint">'+units;
  if(state.tool==='cloud')content+='<label for="prompt">Prompt (optional)</label><input id="prompt" maxlength="240" placeholder="e.g. One word that describes…">'+units;
  if(state.tool==='timer')content+='<label for="duration">Countdown duration (seconds)</label><input id="duration" inputmode="numeric" type="number" min="10" max="7200" value="300">';
  $('setup').innerHTML=content+'<div class="actions"><button id="start-tool">Start '+esc(names[state.tool])+'</button></div>';
+ if(state.tool==='poll'){
+  $('add-option').onclick=()=>{const n=document.querySelectorAll('.poll-option').length;if(n>=8)return;const el=document.createElement('div');el.innerHTML='<label for="o'+n+'">Option '+(n+1)+'</label><input class="poll-option" id="o'+n+'" value="Option '+(n+1)+'" maxlength="60">';$('options').append(el);};
+  $('remove-option').onclick=()=>{const a=document.querySelectorAll('.poll-option');if(a.length>2)a[a.length-1].parentElement.remove();};
+ }
  $('start-tool').onclick=async()=>{
   const type=state.tool,params={token:state.token,type,prompt:$('prompt')?.value||'',unit:$('unit')?.value||'individual'};
-  if(type==='poll')params.options=[0,1,2,3].map(i=>$('o'+i).value.trim()).filter(Boolean);
+  if(type==='poll')params.options=[...document.querySelectorAll('.poll-option')].map(e=>e.value.trim()).filter(Boolean);
   if(type==='timer')params.duration=Number($('duration').value);
   $('start-tool').disabled=true;
   try{await call('start',params);notify('Tool started. Student screens update automatically.');await refresh();}catch(e){notify(e.message,true)}finally{$('start-tool').disabled=false}
@@ -118,8 +122,8 @@ async function control(action){try{await call('control',{token:state.token,contr
 function renderStudent(snap){
  const r=snap.active,container=$('student-work');
  if(!r){container.innerHTML='<div class="card">Waiting for an activity…</div>';state.lastRoundId=null;return;}
- if(r.id!==state.lastRoundId){
-  state.lastRoundId=r.id;
+ if(r.id+':'+r.status!==state.lastRoundId){
+  state.lastRoundId=r.id+':'+r.status;
   let inner='<h2>'+({poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer'}[r.type])+'</h2>'+(r.prompt?'<p>'+esc(r.prompt)+'</p>':'');
   if(r.type==='timer')inner+='<div class="big" data-timer="'+r.endsAt+'">--:--</div>';
   else if(r.status==='closed')inner+='<div class="notice">This activity is closed.</div>';
@@ -133,7 +137,7 @@ function renderStudent(snap){
    const value=r.type==='poll'?Number(document.querySelector('input[name="vote"]:checked')?.value):$('answer').value;
    if(r.type==='poll'&&!document.querySelector('input[name="vote"]:checked'))return notify('Choose an option.',true);
    $('send-answer').disabled=true;
-   try{const result=await call('submit',{token:state.token,value,revision:state.snapshot?.mine?.revision||0});notify('Answer submitted successfully.');await refresh();}catch(e){notify(e.message,true)}finally{if($('send-answer'))$('send-answer').disabled=false}
+   try{const result=await call('submit',{token:state.token,value,roundId:r.id,revision:state.snapshot?.mine?.revision||0});notify('Answer submitted successfully.');await refresh();}catch(e){notify(e.message,true)}finally{if($('send-answer'))$('send-answer').disabled=false}
   };
  }
  if(snap.mine && r.type!=='timer'){
