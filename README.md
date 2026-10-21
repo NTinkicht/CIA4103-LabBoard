@@ -104,22 +104,25 @@ The green CBE 5Es badges were removed from the student and lecturer dashboard pa
 
 Real LiveKit and Netlify integration is not exercised by source-code tests; verify with two student browser sessions and the actual teaching environment before relying on it in a class observation.
 
-## Standby screen switching (proposed release)
+## Low-bandwidth standby screen switching (proposed release)
 
-When the lecturer selects Student B after Student A has begun sharing, Student A remains connected **with the application window capture and LiveKit publication active**. Student A's status changes to **STANDBY**, but their capture does not end. Selecting Student A again displays that existing screen immediately, without another browser permission prompt, provided the student hasn't stopped sharing and the selected application window remains open.
+The lecturer selects exactly one student screen to display. When A is switched to standby and B is selected, **A's LiveKit video publication calls `pauseUpstream()`**. A's browser capture track remains alive in A's browser, but **video frames stop being uploaded to LiveKit** once the pause completes. The lecturer unsubscribes from A before subscribing to B. Switching back to A triggers `resumeUpstream()` on A's existing publication, with **no new browser `getDisplayMedia()` prompt**, provided the student hasn't stopped the capture, closed the sharing page/window, or revoked permission.
 
-The lecturer dashboard maintains **exactly one displayed/subscribed screen** through LiveKit `autoSubscribe:false` and `RemoteTrackPublication.setSubscribed()`. It unsubscribes prior students before subscribing to the selected one. The sidebar distinguishes **ON SCREEN**, **STANDBY · Capture running**, **STANDBY · No window yet**, and **Waiting for approval**. The lecturer's *Put on standby* control only hides a screen; it does not stop the student's capture. Students retain their own **Stop sharing** control.
+The lecturer list shows **ON SCREEN**, **Selected · Resuming video**, **STANDBY · Upload paused**, **STANDBY · No window yet**, and **Waiting for approval**. `Put on standby` hides the selected presenter and causes them to pause upstream. The application still limits viewing to one screen at a time, and students cannot subscribe to each other.
 
-The server stores the selected presenter in participant metadata (`active` vs `standby`), changes presentation selection under a Netlify Blobs distributed lease, and only grants screen-only publishing permission on a student's first approval. It never revokes publishing permission during ordinary presenter switching. Students cannot subscribe to each other's streams.
+**Important privacy boundary:** The student's chosen application remains captured **locally**, and the browser screen-sharing indicator remains visible during standby. The selected application is **not uploaded to LiveKit while pauseUpstream is in effect**. This is not equivalent to closing/stopping screen capture. The student can stop sharing at any time; if they stop it entirely, a new window selection and permission prompt are required (browsers do not permit invisible reauthorization). If the LiveKit pause operation fails, the app stops the capture rather than continuing an unapproved standby transmission. The selected application and sharing tab must stay open. Some browsers suspend inactive tabs, so test on the HCT PCs.
 
-**Privacy and resource usage:** Standby means **not shown on the lecturer dashboard**, not disconnected. The student's window is still captured and transmitted to LiveKit; the screen-sharing indicator remains visible, and uploading the video continues to use bandwidth and potentially LiveKit usage. No video is recorded by the application. The student can stop capture at any moment. The HCT/browser restrictions still apply: changing tabs usually preserves sharing while the sharing page and selected application window stay open, but closing either or revoking permission ends the capture.
+The LiveKit room and student publish permission remain active through selection changes; server metadata selects the presenter, then each student client serializes its own pause/resume operations. The lecturer joins with `autoSubscribe:false` and subscribes only to the selected stream. **Metadata propagation is asynchronous:** the student pause and resumed stream may have a short transition delay. A strict frame-level guarantee that no two upstream connections ever overlap would need an explicit pause acknowledgement protocol, not just metadata state changes. Only **one stream is displayed** in the lecturer UI.
 
-### Manual acceptance checklist before deploying
+### Manual acceptance checks before merging
 
-1. A joins and requests authorization, the lecturer approves A, and A selects an application window.
-2. B joins and requests authorization; the lecturer approves B. **A's browser capture icon stays on**, A sees **STANDBY**, and only B is displayed after B selects a window.
-3. Switch to A: A's *existing window* reappears immediately, without a new picker. B remains on standby.
-4. Select *Put on standby*: no student stream is displayed, but captured windows remain running.
-5. A or B clicks **Stop sharing**: only that student's capture ends. They must click **Share application window** and choose a window again to restart.
-6. Changing lecturer or student tabs does not interrupt an ongoing stream when the sharing page and selected window stay open.
-7. Confirm only one remote video track is subscribed in the lecturer dashboard at a time, and the student cannot subscribe to anyone else's stream.
+1. A requests approval, selects a Visual Studio application window and shares.
+2. B requests approval; the lecturer selects B. A shows **STANDBY · Upload paused**. Verify A's browser capture indicator stays active, but LiveKit video upload pauses. B chooses an application window.
+3. Return to A: A's existing stream resumes without another browser source picker.
+4. Use *Put on standby*: no stream is shown; all previously selected captures remain locally alive but paused upstream.
+5. Stop A's capture in its own browser, then select A again: a **new** window-selection prompt is required.
+6. Switch tabs and apps while keeping the shared window and student sharing page open. Test the browser's background-tab behaviour.
+7. Verify the lecturer subscribes to at most one video track and students cannot subscribe to others.
+8. Simulate pauseUpstream failure; the student client should stop capture rather than silently continue uploading in standby.
+
+Do not merge the draft PR or incur a production deploy until a two-student real LiveKit test and the user's approval.
