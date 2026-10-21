@@ -34,11 +34,11 @@ export default async function handler(req){
   const identity=(isTeacher?'lecturer-':'student-')+randomUUID();
   const display=isTeacher?'Lecturer':publicName(data.name);
   const token=new AccessToken(process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET,{
-   identity,name:display,ttl:isTeacher?'30m':'15m',metadata:JSON.stringify({role:data.role,part:isTeacher?'':'Screen share'})
+   identity,name:display,ttl:isTeacher?'30m':'15m',metadata:JSON.stringify({role:data.role,status:isTeacher?'lecturer':'waiting'})
   });
   // SDK expects numeric protobuf enum values, not the client-side 'screen_share' string.
-  // Student may publish only a screen video track; only the lecturer may subscribe.
-  token.addGrant({roomJoin:true,room:ROOM,canPublish:!isTeacher,canPublishSources:isTeacher?[]:[TrackSource.SCREEN_SHARE],canSubscribe:isTeacher,canPublishData:false});
+  // Students enter a waiting lobby with NO publish or subscribe permissions. Only the lecturer can authorize one screen at a time through live-control.
+  token.addGrant({roomJoin:true,room:ROOM,canPublish:false,canPublishSources:isTeacher?[]:[TrackSource.SCREEN_SHARE],canSubscribe:isTeacher,canPublishData:false});
   return res({url:process.env.LIVEKIT_URL,token:await token.toJwt(),identity,display});
   }catch(e){
   const description=String(e?.message||'');
