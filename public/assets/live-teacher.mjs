@@ -1,6 +1,6 @@
 const $=id=>document.getElementById(id),root=$('stream-teacher-root');
 // Classroom room stays connected when the lecturer changes tabs.
-root.innerHTML=\`
+root.innerHTML=`
 <div class="stream-login">
  <label for="stream-pin">Private lecturer PIN</label>
  <div class="stream-login-controls"><input id="stream-pin" type="password" autocomplete="off" placeholder="Enter lecturer PIN">
@@ -19,7 +19,7 @@ root.innerHTML=\`
   <p class="hint">Approve one student at a time. Switching stops the previous stream.</p>
   <div id="stream-list" class="stream-cards">Connect to see the queue.</div>
  </aside>
-</div>\`;
+</div>`;
 let room=null,pin='',busy=false,changing=false,activeId=null;
 const status=(msg,error=false)=>{$('stream-status').textContent=msg;$('stream-status').style.color=error?'#b74b36':'#087f78'};
 function updateViewer(){
