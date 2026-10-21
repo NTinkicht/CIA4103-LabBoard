@@ -14,12 +14,13 @@ export default async function handler(req){
   const streams=people.flatMap(p=>{
    let metadata={};try{metadata=JSON.parse(p.metadata||'{}');}catch{}
    return metadata.role==='student'?[{
-    identity:p.identity,name:p.name||'Student',connected:true,
+    identity:p.identity,name:p.name||'Student',connected:true,connectedAt:Number(p.joinedAt||0),
     status:p.permission?.canPublish?'approved':'waiting',
     approved:Boolean(p.permission?.canPublish),
     sharing:Boolean(p.tracks?.some(t=>t.source===3&&!t.muted))
    }]:[];
   });
+  streams.sort((a,b)=>a.connectedAt-b.connectedAt);
   return res({streams,active:streams.find(s=>s.approved)?.identity||null});
  }catch(e){console.error('LiveKit participants',e);return res({error:'Could not list screen sharers.'},502);}
 }
