@@ -73,7 +73,6 @@ async function synchronizeUpstream(){
    }
    // Recheck state: selection may have changed while awaiting LiveKit.
   }while(publication&&capture&&room);
-  void synchronizeUpstream();
   sharingStatus();
  }catch(error){
   // Stop may have been initiated intentionally while an async pause was in flight.
@@ -118,6 +117,9 @@ $('start').addEventListener('click',async()=>{
   room.on(LivekitClient.RoomEvent.ParticipantMetadataChanged,(_previous,participant)=>{
    if(participant===room?.localParticipant)permissionCheck();
   });
+  // Also listen directly on the local participant; metadata drives automatic
+  // standby resume, so avoid waiting for the lecturer's periodic refresh.
+  room.localParticipant.on(LivekitClient.ParticipantEvent.ParticipantMetadataChanged,permissionCheck);
   room.on(LivekitClient.RoomEvent.Reconnected,permissionCheck);
   room.on(LivekitClient.RoomEvent.Disconnected,()=>{
    if(!leaving){stopCapture();room=null;approved=false;onAir=false;connecting=false;controls();status('Disconnected. Click Request to share to rejoin.',true);}
