@@ -29,38 +29,47 @@ export async function release(store,lease){
  try{await store.setJSON(LOCK,{owner:null,expires:0},{onlyIfMatch:lease.etag});}
  catch(err){console.error('Classroom control lease release failed',err?.name||'error');}
 }
+// A lecturer switches the displayed screen, NOT a student's browser capture.
+// Published student tracks remain available in standby and can resume instantly.
 export async function switchPresenter(api,identity){
  let people=await api.listParticipants(ROOM);
  const students=people.filter(p=>meta(p).role==='student');
- if(identity&&!students.some(p=>p.identity===identity))return {error:'This student has disconnected. Refresh the waiting list.',status:404};
- // Fail-closed: revoke EVERY connected student's ability to publish FIRST,
- // regardless of whether their metadata says approved. The old screen track is unpublished.
- for(const p of students){
-  if(p.permission?.canPublish||meta(p).status==='approved'){
-   await api.updateParticipant(ROOM,p.identity,{
-    permission:{canPublish:false,canSubscribe:false,canPublishData:false,canPublishSources:[]},
-    metadata:JSON.stringify({role:'student',status:'waiting'})
+ const target=identity?students.find(p=>p.identity===identity):null;
+ if(identity&&!target)return {error:'This student has disconnected. Refresh the list.',status:404};
+ // Demote other presenters first. Do not revoke their publishing permissions.
+ for(const student of students){
+  if(student.identity===identity)continue;
+  if(['active','approved'].includes(meta(student).status)){
+   await api.updateParticipant(ROOM,student.identity,{
+    metadata:JSON.stringify({role:'student',status:student.permission?.canPublish?'standby':'waiting'})
    });
   }
  }
- if(identity){
+ if(target){
+  const existingPermission=Boolean(target.permission?.canPublish);
   await api.updateParticipant(ROOM,identity,{
-   permission:{canPublish:true,canSubscribe:false,canPublishData:false,canPublishSources:[TrackSource.SCREEN_SHARE]},
-   metadata:JSON.stringify({role:'student',status:'approved'})
+   ...(existingPermission?{}:{permission:{
+    canPublish:true,canSubscribe:false,canPublishData:false,
+    canPublishSources:[TrackSource.SCREEN_SHARE]
+   }}),
+   metadata:JSON.stringify({role:'student',status:'active'})
   });
  }
- // Post-condition check. Do not return success if multiple students can publish.
  people=await api.listParticipants(ROOM);
- const publishing=people.filter(p=>meta(p).role==='student'&&p.permission?.canPublish);
- if(publishing.length>1||identity&&(publishing.length!==1||publishing[0].identity!==identity)){
-  // Best effort to fail closed; do not falsely claim successful authorization.
-  for(const p of publishing)await api.updateParticipant(ROOM,p.identity,{
-   permission:{canPublish:false,canSubscribe:false,canPublishData:false,canPublishSources:[]},
-   metadata:JSON.stringify({role:'student',status:'waiting'})
-  });
-  return {error:'Could not establish exclusive screen-sharing permissions. Try again.',status:409};
+ const refreshed=people.filter(p=>meta(p).role==='student');
+ const selected=refreshed.filter(p=>['active','approved'].includes(meta(p).status));
+ if(selected.length!==(identity?1:0)||
+   identity&&(!selected[0]||selected[0].identity!==identity||!selected[0].permission?.canPublish)){
+  // Fail closed for what is shown, but preserve student's running window capture.
+  for(const student of selected){
+   await api.updateParticipant(ROOM,student.identity,{
+    metadata:JSON.stringify({role:'student',status:student.permission?.canPublish?'standby':'waiting'})
+   });
+  }
+  return {error:'Could not establish a single selected screen.',status:409};
  }
- return {active:identity||null,connected:students.length};
+ return {active:identity||null,connected:refreshed.length,
+   standby:refreshed.filter(p=>p.permission?.canPublish&&p.identity!==identity).length};
 }
 export default async function handler(req){
  if(req.method!=='POST')return respond({error:'POST required'},405);
@@ -78,6 +87,7 @@ export default async function handler(req){
   store=getStore({name:'cia4103-screen-control',consistency:'strong'});
   lease=await acquire(store);
   if(!lease)return respond({error:'A lecturer action is already in progress. Please retry in a moment.'},409);
+  // Stop means hide the selected screen; students may remain in standby.
   const result=await switchPresenter(service(),data.action==='approve'?data.identity:null);
   return result.error?respond({error:result.error},result.status):respond(result);
  }catch(err){

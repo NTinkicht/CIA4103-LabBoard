@@ -103,3 +103,28 @@ The green CBE 5Es badges were removed from the student and lecturer dashboard pa
 9. Upload a PDF close to 50 MB from the lecturer viewer. This is a browser-local upload; it may fail if the school's browser quota is smaller.
 
 Real LiveKit and Netlify integration is not exercised by source-code tests; verify with two student browser sessions and the actual teaching environment before relying on it in a class observation.
+
+## Lecturer-controlled standby sharing and compact queue (draft release)
+
+**Previously shared applications resume automatically.** Student A selects a window once and shares while lecturer-approved. Switching to Student B changes A to **standby**, invokes LiveKit `pauseUpstream()`, and keeps A's selected window locally captured. Clicking A's ▶ **Show/Resume** icon later invokes `resumeUpstream()` on A's existing publication—no student click and no new browser window-selection prompt. Student B is paused instead.
+
+**A student who has never shared, or who clicked Stop sharing, must select a window themselves.** Browser screen-capture permissions cannot be granted silently. If the captured application window is closed, the student tab is closed, or capture permission is revoked, the student must share again.
+
+The lecturer dashboard displays one screen at a time and has a **compact 46px-per-student roster** that supports large classes. Every row shows name, small status, and a **single icon aligned to the right**: ▶ approves a new student or instantly resumes an approved standby student; ⏸ moves the current presenter into standby. Icon buttons have accessible labels, tooltips, and visible keyboard-focus outlines. The roster has its own scroll and a name filter for 30+ connected students. No full-width approve/stop action buttons remain in the roster.
+
+**Video privacy:** Standby means the browser retains the selected application-window capture locally, keeping the browser's capture indicator on, while video upload to LiveKit is paused. The lecturer unsubscribes from standby tracks, and can only display one student at a time. Students may stop sharing at any time. If an upstream pause fails, the student client stops capture rather than silently continuing video upload. No recording is implemented.
+
+The student app listens for LiveKit participant metadata changes to trigger pause/resume immediately. The pause/resume synchronization function is non-recursive and serializes state changes so rapid presenter switches settle to the latest desired state. Presenter selection on the server is guarded by the existing Netlify Blobs lease. Brief metadata propagation delay may occur; a hard no-overlapping-upload guarantee would require a pause-acknowledgement protocol.
+
+### Acceptance tests before merging
+
+1. A shares a Visual Studio window; B requests access; lecturer approves B, A displays **STANDBY · Video upload paused**.
+2. Lecturer presses ▶ next to A; A's previously shared window reappears **without A clicking anything** or seeing a new source picker.
+3. Lecturer presses ⏸ next to A; A remains connected and captured locally; upload pauses.
+4. A clicks Stop sharing, then is reselected; window permission must be requested again.
+5. Connect 30 student sessions (or use synthetic UI data) and verify compact rows, filtering, accessible icon labels and internal scrolling.
+6. Switch between lecturer tabs and student windows without disconnecting the room or exposing a standby video.
+7. Check real LiveKit stats for paused upstream frames, quick resume, and no additional permissions or unwanted viewer subscriptions.
+8. Test on HCT machines; a browser can still revoke capture when windows or tabs are closed.
+
+**Release protocol:** Keep this PR in draft. Test with two real student browsers and lecturer dashboard before merging; a GitHub commit on this branch does not trigger a production redeployment of `main`.

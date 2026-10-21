@@ -43,7 +43,48 @@ h1{font-size:clamp(2rem,4vw,3rem);color:var(--navy);line-height:1.15;margin:10px
 .stream-student.presenting{background:#e6f8ee;border-color:#69b8a3}
 .stream-student strong{color:#173863;font-size:1.01rem;overflow-wrap:anywhere}
 .stream-student small{color:#687f93}
-.stream-student button{padding:10px!important;margin-top:2px}
+/* Old wide-button padding removed: icon actions use their own precise box model. */
+/* Compact lecturer roster: 30 students fit without tall action cards. */
+.stream-sidebar{display:flex;flex-direction:column;overflow:hidden;max-height:84vh}
+.stream-filter-label{display:flex;flex-direction:column;gap:4px;font-size:.72rem;color:#617b94;font-weight:750;margin:7px 0 8px}
+#stream-filter{width:100%;min-height:32px;background:#fff;border:1px solid #c6d6e6;border-radius:8px;padding:5px 9px;font:inherit;font-size:.84rem;color:#163864}
+#stream-filter:focus-visible{outline:2px solid #0a8a83;outline-offset:2px}
+#stream-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;max-height:calc(84vh - 160px);padding:2px 2px 2px 0}
+.stream-student{display:grid;grid-template-columns:8px minmax(0,1fr) 36px;align-items:center;gap:8px;min-height:46px;margin:3px 0;padding:4px 5px 4px 9px;border-radius:9px}
+.stream-student-info{display:flex;flex-direction:column;min-width:0;gap:0}
+.stream-student-info strong{display:block;font-size:.86rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.2}
+.stream-student-info small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.68rem;line-height:1.2;margin-top:2px}
+.stream-status-dot{display:block;width:8px;height:8px;border-radius:50%;background:#92a3ba}
+.stream-status-dot.on-screen{background:#12906e}
+.stream-status-dot.standby{background:#d8a32b}
+/* Shared precise hit area and optical centering for play/pause SVGs. */
+.stream-student button.stream-icon-action{
+ display:grid!important;place-items:center!important;align-self:center;justify-self:end;
+ box-sizing:border-box;appearance:none;-webkit-appearance:none;
+ width:34px!important;height:34px!important;min-width:34px!important;min-height:34px!important;
+ padding:0!important;margin:0!important;line-height:0!important;font-size:0!important;
+ border:1px solid #b9cde5!important;border-radius:10px!important;
+ background:#e9eff8;color:#1b427f;cursor:pointer;
+ transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease,transform .15s ease;
+}
+.stream-student button.stream-icon-action.play{background:#244caa;color:#fff;border-color:#244caa!important}
+.stream-student button.stream-icon-action.pause{background:#fff4ed;color:#ae4b37;border-color:#eac9bc!important}
+.stream-student button.stream-icon-action svg{
+ display:block!important;position:static;box-sizing:border-box;flex:none;
+ width:18px!important;height:18px!important;max-width:18px;max-height:18px;
+ margin:0!important;padding:0!important;pointer-events:none;overflow:visible;
+}
+.stream-student button.stream-icon-action.play svg{transform:translateX(-.6px)}
+.stream-student button.stream-icon-action.pause svg{transform:none}
+.stream-student button.stream-icon-action:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 8px rgba(20,53,98,.16)}
+.stream-student button.stream-icon-action.play:hover:not(:disabled){background:#173b90;border-color:#173b90!important}
+.stream-student button.stream-icon-action.pause:hover:not(:disabled){background:#ffeadf;border-color:#db9f8b!important}
+.stream-student button.stream-icon-action:active:not(:disabled){transform:translateY(0);box-shadow:none}
+.stream-student button.stream-icon-action:focus-visible{outline:3px solid #0b8985;outline-offset:2px}
+.stream-student button.stream-icon-action:disabled{opacity:.45;cursor:wait}
+@media(prefers-reduced-motion:reduce){.stream-student button.stream-icon-action{transition:none}}
+.stream-empty-queue{font-size:.82rem;color:#667f94;padding:15px 8px;text-align:center}
+
 @media(max-width:860px){.stream-workspace{grid-template-columns:1fr}.stream-sidebar{max-height:none}.stream-video-stage{height:55vh;min-height:320px}}
 </style><script type="module" src="/assets/dashboard-v2.mjs"></script><script defer src="https://cdn.jsdelivr.net/npm/livekit-client@2.23.0/dist/livekit-client.umd.min.js"></script><script type="module" src="/assets/lab-pdfs.mjs"></script><script type="module" src="/assets/live-teacher.mjs"></script></head><body>
 <header class="top"><div class="brand"><div class="brandmark">HCT</div><div class="brandtext"><small>HIGHER COLLEGES OF TECHNOLOGY</small><strong>CIA4103 · LECTURER DASHBOARD</strong></div></div><a href="/">Student board ↗</a></header><main class="dash">
