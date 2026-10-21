@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-let room=null,capture=null,published=null,leaving=false,approved=false,connecting=false;
+let room=null,capture=null,published=null,leaving=false,approved=false,connecting=false,onAir=false;
 try{
  const profile=JSON.parse(sessionStorage.getItem('cia4103-share-profile')||'null');
  if(profile){$('name').value=String(profile.name||'').slice(0,60);sessionStorage.removeItem('cia4103-share-profile');}
@@ -25,22 +25,34 @@ function stopCapture(){
 }
 async function leave(){
  leaving=true;stopCapture();
- const prev=room;room=null;approved=false;connecting=false;
+ const prev=room;room=null;approved=false;onAir=false;connecting=false;
  try{if(prev)await prev.disconnect();}catch{}
  $('name').disabled=false;leaving=false;controls();
  status('You have left the classroom sharing queue.');
 }
+function sharingStatus(){
+ if(!room)return;
+ if(capture){
+  status(onAir?'● ON SCREEN · The lecturer is showing your application window.':
+   '◌ STANDBY · Your window capture continues, but it is not displayed. You can stop sharing at any time.');
+ }else if(approved){
+  status(onAir?'✓ Selected by the lecturer. Click Share application window.':
+   '✓ You are approved and in standby. Select your application window when ready.');
+ }else{
+  status('● Waiting for lecturer approval. You are not sharing yet.');
+ }
+}
 function permissionCheck(){
  if(!room||leaving)return;
- // Server updates participant permissions in real time.
  const allowed=Boolean(room.localParticipant.permissions?.canPublish);
- const changed=allowed!==approved;approved=allowed;
- if(!approved&&capture)stopCapture(); // lecturer switched to another student.
+ let metadata={};try{metadata=JSON.parse(room.localParticipant.metadata||'{}');}catch{}
+ const currentlyOnAir=allowed&&['active','approved'].includes(metadata.status);
+ const changed=allowed!==approved||currentlyOnAir!==onAir;
+ approved=allowed;onAir=currentlyOnAir;
+ // Switches only change metadata: do NOT stop capture on standby transitions.
+ if(!approved&&capture)stopCapture(); // true revocation, not normal standby
  controls();
- if(changed){
-  status(approved?'✓ Approved by your lecturer. Click “Share application window” and select the app.':
-   'You are in the waiting list. The lecturer controls who can present.');
- }
+ if(changed)sharingStatus();
 }
 $('start').addEventListener('click',async()=>{
  if(room||connecting)return;
@@ -56,16 +68,19 @@ $('start').addEventListener('click',async()=>{
   const data=await response.json();if(!response.ok)throw Error(data.error||'Could not join waiting room.');
   room=new LivekitClient.Room({adaptiveStream:true});
   room.on(LivekitClient.RoomEvent.ParticipantPermissionsChanged,permissionCheck);
+  room.on(LivekitClient.RoomEvent.ParticipantMetadataChanged,(_previous,participant)=>{
+   if(participant===room?.localParticipant)permissionCheck();
+  });
   room.on(LivekitClient.RoomEvent.Reconnected,permissionCheck);
   room.on(LivekitClient.RoomEvent.Disconnected,()=>{
    if(!leaving){stopCapture();room=null;approved=false;connecting=false;controls();status('Disconnected. Click Request to share to rejoin.',true);}
   });
   await room.connect(data.url,data.token,{autoSubscribe:false});
-  connecting=false;approved=false;permissionCheck();
+  connecting=false;approved=false;onAir=false;permissionCheck();
   status('● Connected to the waiting list. Your lecturer will approve the next presenter.');
  }catch(error){
   if(room)await room.disconnect().catch(()=>{});
-  room=null;connecting=false;approved=false;controls();
+  room=null;connecting=false;approved=false;onAir=false;controls();
   status('Could not join the sharing queue: '+error.message,true);
  }
 });
@@ -95,9 +110,9 @@ $('share-window').addEventListener('click',async()=>{
   published=track;
   $('preview').srcObject=capture;$('preview').style.display='block';
   track.addEventListener('ended',()=>{
-   if(capture){stopCapture();if(approved)status('Window sharing stopped. You may share a window again while approved.');}
+   if(capture){stopCapture();sharingStatus();}
   },{once:true});
-  status('● LIVE · Sharing your application window. You may switch browser tabs or work in the application; keep this sharing page open.');
+  sharingStatus();
  }catch(error){
   if(selected)selected.getTracks().forEach(t=>t.stop());
   capture=null;published=null;controls();
@@ -105,7 +120,7 @@ $('share-window').addEventListener('click',async()=>{
  }
 });
 $('stop').addEventListener('click',()=>{
- stopCapture();status(approved?'Window sharing stopped. You remain approved and connected.':'Window sharing stopped. You remain in the waiting list.');
+ stopCapture();sharingStatus();
 });
 $('leave').addEventListener('click',leave);
 setInterval(()=>{if(room)permissionCheck();},1500);
