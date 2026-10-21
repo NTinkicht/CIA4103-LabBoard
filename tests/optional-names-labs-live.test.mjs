@@ -1,51 +1,63 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {validatePost,makeRecord,makeCSV} from '../netlify/functions/board-core.mjs';
-import {configured,teacherAuthorized,publicName,allowedPart} from '../netlify/lib/live-auth.mjs';
-const post=(name='')=>({part:'09a-1',type:'display',lang:'razor',note:'Showing my form',code:'<form method="get"></form>',name});
-test('name is optional and an anonymous submission remains anonymous',()=>{
- const p=makeRecord(validatePost(post()));
- assert.equal(p.name,'');
+import {validatePost,makeRecord,makeCSV,validTask} from '../netlify/functions/board-core.mjs';
+import {detectLanguage,taskFromText} from '../public/assets/checker.mjs';
+import {configured,teacherAuthorized,allowedPart} from '../netlify/lib/live-auth.mjs';
+const post=(name='Amina',part='Lab 10 · Exercise 2',code='<form method="get"><input name="title"/></form>')=>({part,type:'display',note:'Working form',code,name});
+test('student name and activity are required by backend',()=>{
+ assert.throws(()=>validatePost(post('')),/name/i);
+ assert.throws(()=>validatePost(post('Amina','  ')),/lab or activity/i);
+ assert.throws(()=>validatePost(post('Amina','Task\n1')),/lab or activity/i);
 });
-test('name is preserved on the post and in teacher CSV export',()=>{
- const p=makeRecord(validatePost(post('  Amina  ')));
+test('any nonempty activity is accepted, without Lab 09 restriction',()=>{
+ const p=makeRecord(validatePost(post('  Amina  ','Chapter 12 / Task A')));
  assert.equal(p.name,'Amina');
- assert.match(makeCSV([p]),/Amina/);
+ assert.equal(p.part,'Chapter 12 / Task A');
+ assert.ok(validTask('Capstone project - Demo 4'));
+ assert.ok(allowedPart('Capstone project - Demo 4'));
 });
-test('oversized names and control characters are rejected',()=>{
- assert.throws(()=>validatePost(post('a'.repeat(61))),/Name/);
- assert.throws(()=>validatePost(post('Any\nName')),/Name/);
+test('language is inferred without student language dropdown',()=>{
+ assert.equal(detectLanguage('public IActionResult Test() { return View(); }'),'csharp');
+ assert.equal(detectLanguage('<form asp-action="BookByTitle"></form>'),'razor');
+ assert.equal(detectLanguage('<h2>Hello</h2>'),'html');
+ assert.equal(detectLanguage('body { color: red; padding: 12px; }'),'css');
+ assert.equal(detectLanguage('SELECT * FROM Books WHERE Price > 10;'),'sql');
+ const p=makeRecord(validatePost({...post(),lang:'sql'}));
+ assert.equal(p.lang,'html','user input cannot override language detection');
 });
-test('CSV neutralizes spreadsheet formula injection in the name',()=>{
+test('known natural Lab 09 references retain targeted hints',()=>{
+ assert.equal(taskFromText('Lab 09a – Task 3'),'09a-3');
+ assert.equal(taskFromText('Lab 09b - Task 1'),'09b-1');
+ assert.equal(taskFromText('Chapter 12'),'');
+});
+test('CSV contains names and escapes spreadsheet formulas',()=>{
  const p=makeRecord(validatePost(post('=HYPERLINK("x")')));
  assert.match(makeCSV([p]),/"'=HYPERLINK/);
 });
-test('live auth is disabled unless all server secrets are present',()=>{
+test('LiveKit is not enabled with incomplete credentials',()=>{
  assert.equal(configured({LIVEKIT_URL:'wss://example.livekit.cloud'}),false);
 });
-test('teacher PIN check uses the correct secret and rejects incorrect PIN',()=>{
- const env={LIVEKIT_URL:'wss://test.livekit.cloud',LIVEKIT_API_KEY:'key',LIVEKIT_API_SECRET:'secret',CIA4103_TEACHER_PIN:'a-long-teacher-passphrase'};
+test('lecturer PIN required and cannot be forged',()=>{
+ const env={LIVEKIT_URL:'wss://example.livekit.cloud',LIVEKIT_API_KEY:'key',LIVEKIT_API_SECRET:'secret',CIA4103_TEACHER_PIN:'long-private-passphrase'};
  assert.equal(configured(env),true);
- assert.equal(teacherAuthorized('a-long-teacher-passphrase',env),true);
- assert.equal(teacherAuthorized('incorrect-pin',env),false);
+ assert.equal(teacherAuthorized('long-private-passphrase',env),true);
+ assert.equal(teacherAuthorized('incorrect',env),false);
 });
-test('public screen-share names and lab tasks are constrained',()=>{
- assert.equal(publicName(' First Name '),'First Name');
- assert.equal(allowedPart('09a-5'),true);
- assert.equal(allowedPart('09b-3'),true);
- assert.equal(allowedPart('../../admin'),false);
+test('dynamic PDF viewer persists arbitrary documents locally',()=>{
+ const js=readFileSync(new URL('../public/assets/lab-pdfs.mjs',import.meta.url),'utf8');
+ const html=readFileSync(new URL('../public/dashboard/index.html',import.meta.url),'utf8');
+ assert.match(js,/indexedDB\.open/);
+ assert.match(js,/getAll\(\)/);
+ assert.match(js,/addDocument\(file\)/);
+ assert.match(html,/id="pdf-add"/);
+ assert.match(html,/id="pdf-tabs"/);
+ assert.doesNotMatch(html,/id="pdf-09a"/);
 });
-test('lab viewer supports exactly two uploaded PDF labels without a server upload',()=>{
- const src=readFileSync(new URL('../public/assets/lab-pdfs.mjs',import.meta.url),'utf8');
- assert.match(src,/indexedDB\.open/);
- assert.match(src,/\['09a','09b'\]/);
- assert.doesNotMatch(src,/fetch\(.*pdf-file/);
-});
-test('screen capture is directly initiated from a student click',()=>{
- const src=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
- const click=src.indexOf("$('start').addEventListener('click'");
- const capture=src.indexOf('navigator.mediaDevices.getDisplayMedia({video:true,audio:false})',click);
- const token=src.indexOf("fetch('/api/live-token'",click);
+test('live screen selection begins directly from a student click',()=>{
+ const s=readFileSync(new URL('../public/assets/live-student.mjs',import.meta.url),'utf8');
+ const click=s.indexOf("$('start').addEventListener('click'");
+ const capture=s.indexOf('navigator.mediaDevices.getDisplayMedia({video:true,audio:false})',click);
+ const token=s.indexOf("fetch('/api/live-token'",click);
  assert.ok(click>=0&&capture>click&&token>capture);
 });
