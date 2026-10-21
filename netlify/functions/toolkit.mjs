@@ -180,7 +180,7 @@ export default async function handler(request){
       const old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
       const expected=Number(data.revision||0);
       if((old?.data?.revision||0)!==expected)return fail(409,'Answer changed on another device. Refresh before resubmitting');
-      const answer={subject,value,revision:expected+1,submittedAt:new Date().toISOString(),name:round.unit==='pair'?'Pair '+claims.teamLabel:claims.name,hidden:old?.data?.hidden||false};
+      const answer={subject,value,revision:expected+1,submittedAt:new Date().toISOString(),name:round.unit==='pair'?'Pair '+claims.teamLabel:claims.name,hidden:old?.data?.hidden??(round.type==='answers')};
       const saved=await store.setJSON(path,answer,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
       if(!saved.modified)return fail(409,'Simultaneous edit. Refresh and retry');
       return reply({ok:true,revision:answer.revision});
