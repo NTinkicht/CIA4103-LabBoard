@@ -16,11 +16,14 @@ root.innerHTML=`
  </div>
  <aside class="stream-sidebar" aria-label="Student waiting queue">
   <div class="stream-sidebar-head"><h3>Connected students</h3><span id="stream-count">0</span></div>
-  <p class="hint">Switch screens anytime. Standby students keep their window selected, but stop uploading video.</p>
+  <p class="hint">Use ▶ to approve or resume a screen; ⏸ to put the current screen on standby.</p>
+  <label for="stream-filter" class="stream-filter-label">Find student
+    <input id="stream-filter" type="search" placeholder="Search names…" autocomplete="off">
+  </label>
   <div id="stream-list" class="stream-cards">Connect to see the queue.</div>
  </aside>
 </div>`;
-let room=null,pin='',busy=false,changing=false,activeId=null;
+let room=null,pin='',busy=false,changing=false,activeId=null,lastStudents=[];
 const status=(msg,error=false)=>{$('stream-status').textContent=msg;$('stream-status').style.color=error?'#b74b36':'#087f78'};
 function syncSubscriptions(){
  if(!room)return;
@@ -49,19 +52,43 @@ function updateViewer(){
  }
 }
 function renderPeople(items){
- const panel=$('stream-list');panel.replaceChildren();
+ lastStudents=items;
+ const panel=$('stream-list'),scroll=panel.scrollTop;
+ panel.replaceChildren();
  $('stream-count').textContent=String(items.length);
- if(!items.length)panel.textContent='No student requests yet.';
- for(const student of items){
-  const card=document.createElement('div');card.className='stream-student'+(student.presenting?' presenting':'');
-  const name=document.createElement('strong');name.textContent=student.name||'Student';
-  const state=document.createElement('small');state.textContent=student.presenting?(student.sharing?'● ON SCREEN':student.hasScreenTrack?'● Selected · Resuming video':'● Selected · Awaiting window'):(student.approved?(student.hasScreenTrack?'◌ STANDBY · Upload paused':'◌ STANDBY · No window yet'):'Waiting for approval');
-  const button=document.createElement('button');button.type='button';button.className=student.presenting?'secondary':'primary';
-  button.disabled=changing;button.textContent=student.presenting?'Put on standby':student.approved?'Show screen':'Approve & show';
-  button.addEventListener('click',()=>switchTo(student.presenting?null:student.identity));
-  card.append(name,state,button);panel.append(card);
+ const term=$('stream-filter').value.trim().toLocaleLowerCase();
+ const visible=items.filter(p=>(p.name||'Student').toLocaleLowerCase().includes(term));
+ if(!visible.length){
+  const empty=document.createElement('p');empty.className='stream-empty-queue';
+  empty.textContent=items.length?'No matching students.':'No student requests yet.';panel.append(empty);
  }
+ for(const student of visible){
+  const showing=Boolean(student.presenting);
+  const card=document.createElement('div');card.className='stream-student'+(showing?' presenting':student.approved?' standby':'');
+  card.setAttribute('role','listitem');
+  const dot=document.createElement('span');dot.className='stream-status-dot '+(showing?'on-screen':student.approved?'standby':'waiting');dot.setAttribute('aria-hidden','true');
+  const info=document.createElement('div');info.className='stream-student-info';
+  const name=document.createElement('strong');name.textContent=student.name||'Student';
+  const label=document.createElement('small');
+  label.textContent=showing?(student.sharing?'On screen':student.hasScreenTrack?'Resuming…':'Waiting for window'):
+   student.approved?(student.hasScreenTrack?'Standby · Upload paused':'Approved · No window'):'Waiting for approval';
+  info.append(name,label);
+  const button=document.createElement('button');button.type='button';
+  button.className='stream-icon-action '+(showing?'pause':'play');
+  button.disabled=changing;
+  const action=showing?'Put '+(student.name||'Student')+' on standby':
+    student.approved?'Resume '+(student.name||'Student')+' without another screen selection':
+    'Approve and show '+(student.name||'Student');
+  button.title=action;button.setAttribute('aria-label',action);
+  button.innerHTML=showing
+   ?'<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><rect x="6" y="4.5" width="4" height="15" rx="1.2"/><rect x="14" y="4.5" width="4" height="15" rx="1.2"/></svg>'
+   :'<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M8 5.1c0-.8.9-1.3 1.6-.9l10 7c.6.4.6 1.2 0 1.6l-10 7c-.7.5-1.6 0-1.6-.9V5.1z"/></svg>';
+  button.addEventListener('click',()=>switchTo(showing?null:student.identity));
+  card.append(dot,info,button);panel.append(card);
+ }
+ panel.scrollTop=scroll;
 }
+$('stream-filter').addEventListener('input',()=>renderPeople(lastStudents));
 async function refresh(){
  if(!room||busy||changing)return;busy=true;
  try{
