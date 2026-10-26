@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {getStore} from '@netlify/blobs';
 import {RoomServiceClient,TrackSource} from 'livekit-server-sdk';
-import {ROOM,configured,teacherAuthorized} from '../lib/live-auth.mjs';
+import {ROOM,configured,lecturerAuthorized,teacherAuthorized} from '../lib/live-auth.mjs';
 
 // One lecturer action at a time. The distributed lease serializes approvals
 // from independent browsers/functions. Fail CLOSED if lease storage is unavailable.
@@ -76,10 +76,10 @@ export default async function handler(req){
  if(!configured())return respond({error:'LiveKit is not configured'},503);
  let data;
  try{
-  const body=await req.text();if(body.length>1000)return respond({error:'Request too large'},413);
+  const body=await req.text();if(body.length>2800)return respond({error:'Request too large'},413);
   data=JSON.parse(body);
  }catch{return respond({error:'Invalid request'},400)}
- if(!teacherAuthorized(data.pin))return respond({error:'Lecturer authorization failed'},403);
+ if(!await lecturerAuthorized(data))return respond({error:'Lecturer authorization failed'},403);
  if(!['approve','stop'].includes(data.action))return respond({error:'Unknown action'},400);
  if(data.action==='approve'&&(!/^student-[a-f0-9-]{36}$/.test(data.identity||'')))return respond({error:'Invalid student'},400);
  let lease,store;
