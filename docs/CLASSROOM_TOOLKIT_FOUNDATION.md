@@ -147,3 +147,35 @@ Navigation requirements:
 Testing: \`tests/toolkit-browser-smoke.mjs\` exercises the three student tabs, embedded share name prefill and frame persistence, private work submission and active poll return. \`tests/toolkit-api.test.mjs\` verifies work-type validation, lecturer-only access, screenshot private retrieval and independent rooms.
 
 **Known limitation:** Existing LiveKit media queue is not yet isolated by Toolkit room; do not run separate simultaneous classes using screen sharing until room-scoped LiveKit integration is delivered.
+
+
+## Collaborative whiteboard (teacher-controlled student drawing)
+
+The lecturer now has a **Whiteboard** tool. Select **Open whiteboard for students** to make the board the active classroom activity. Existing polls, Word Cloud and Live Answers continue working as separate activities. When the whiteboard is active, it appears inside students' existing **Activities** tab; the student interface retains exactly **three tabs**, without adding another navigation destination.
+
+**Teaching workflow**
+1. Open Whiteboard; the board and student roster appear side by side on the lecturer's screen.
+2. The teacher can draw at any time with pen colors, sizes and a white eraser.
+3. Students automatically see the board. Unselected students are view-only.
+4. Select a student from the side roster to grant them drawing access. Selecting another automatically revokes the previous student; selecting the active student again revokes everyone.
+5. The selected student draws directly on the same board in Activities, using mouse, touch or stylus, while the lecturer may keep writing.
+6. The teacher can undo, clear, export a PNG or fullscreen the canvas. Students can export the current view but cannot undo/clear the shared board.
+7. The projector view can also display the board without drawing rights.
+
+**Permissions**
+- The server verifies lecturer vs student role on every whiteboard request; a student's drawing permission is rechecked against the latest granted student ID during each atomic CAS update.
+- Student selection is restricted to student IDs belonging to the same classroom; projector/other rooms cannot draw or change permissions.
+- Strokes are normalized to a fixed 1000×600 canvas, with accepted color/width and bounded coordinate/point inputs.
+- Both lecturer and selected student may draw concurrently; updates use compare-and-set and retry rather than overwriting existing strokes.
+
+**Operating limits**
+- Poll-based sharing refreshes in approximately 1.7 seconds, not continuous streamed pointer positions. A stroke is distributed when the writer finishes it (pointer release).
+- Up to 350 strokes per classroom whiteboard; Clear resets it. Old strokes are removed from the current board but physical retention of the backing room data still requires the broader cleanup work.
+- The side list represents **joined classroom members**, not verified real-time presence. It may include a student who disconnected.
+- Grant applies to only one student at a time, in addition to the teacher; broader concurrent group collaboration is a future optional enhancement.
+- Anonymous classroom identifiers and older legacy screen-sharing features remain separate. Avoid using sensitive real patient/student details on classroom boards.
+
+**Verification**
+- Backend tests check teacher-only activation, reader roles, private room isolation, selected writer/revocation, fresh permission rechecks, two-writer concurrency, undo, clear, exact bounds and invalid input.
+- Chromium browser tests check teacher/student drawing, switching selected writer, view-only state, teacher drawing/clear, and the preserved 3-tab student interface.
+- Original CIA4103 backup: \`backup/cia4103-working-2026-10-22\`.
