@@ -112,3 +112,46 @@ test('closing a room invalidates all student and projector sessions',async()=>{
  assert.equal((await state(store,room.displayToken)).status,410);
  assert.equal((await join(store,room.code,'Late Learner')).status,404);
 });
+
+
+test('lecturer saves polls, edits them and retrieves them after starting another classroom',async()=>{
+ const store=new FakeStore();
+ const first=(await created(store)).body;
+ const poll={title:'Week 8 — Flow Analysis',prompt:'Which step takes longest?',options:['Approval','Recording','Review'],unit:'pair'};
+ const save=await call(store,{action:'library',operation:'save',token:first.teacherToken,poll});
+ assert.equal(save.status,201);
+ assert.equal(save.body.poll.revision,1);
+ const loaded=await call(store,{action:'library',operation:'list',token:first.teacherToken});
+ assert.equal(loaded.body.polls.length,1);
+ assert.equal(loaded.body.polls[0].title,poll.title);
+ const student=(await join(store,first.code,'Test student')).body;
+ assert.equal((await call(store,{action:'library',operation:'list',token:student.token})).status,403);
+ assert.equal((await call(store,{action:'library',operation:'list',token:first.displayToken})).status,403);
+ const update=await call(store,{action:'library',operation:'save',token:first.teacherToken,
+   id:save.body.poll.id,revision:1,poll:{...poll,options:['Yes','No'],unit:'individual'}});
+ assert.equal(update.status,200);
+ assert.equal(update.body.poll.revision,2);
+ assert.equal((await call(store,{action:'library',operation:'save',token:first.teacherToken,
+   id:save.body.poll.id,revision:1,poll})).status,409);
+ const second=(await created(store)).body;
+ const fromNewRoom=await call(store,{action:'library',operation:'list',token:second.teacherToken});
+ assert.equal(fromNewRoom.status,200);
+ assert.deepEqual(fromNewRoom.body.polls[0].options,['Yes','No']);
+ assert.equal((await call(store,{action:'library',operation:'delete',token:second.teacherToken,id:save.body.poll.id})).status,200);
+ assert.equal((await call(store,{action:'library',operation:'list',token:first.teacherToken})).body.polls.length,0);
+});
+test('saved poll API rejects invalid questions and too many options',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const base={title:'Poll',prompt:'',unit:'individual',options:['Yes','No']};
+ const bad=[
+   {...base,title:''},
+   {...base,options:['Only one']},
+   {...base,options:Array.from({length:9},(_,i)=>'Choice '+i)},
+   {...base,prompt:'x'.repeat(241)},
+   {...base,options:['Yes','']}
+ ];
+ for (const poll of bad){
+  const result=await call(store,{action:'library',operation:'save',token:room.teacherToken,poll});
+  assert.equal(result.status,400);
+ }
+});
