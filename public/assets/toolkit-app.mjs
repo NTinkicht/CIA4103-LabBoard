@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides',work:'Work & Problems'};
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:'',tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -23,7 +23,7 @@ const noResults=(txt='Waiting for responses…')=>'<div class="empty"><span clas
 function notices(){return '<div id="notice" class="notice" role="status" aria-live="polite"></div>'}
 function btn(text,cls='primary',id='',extra=''){return '<button class="'+cls+'" '+(id?'id="'+id+'"':'')+' '+extra+'>'+text+'</button>'}
 function welcome(){
- stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.studentTab='activities';state.studentName='';state.workImage=null;state.shareLoaded=false;state.workItems=[];state.savedPolls=[];state.savedQuestionSets={poll:[],cloud:[],answers:[]};state.editingPollId=null;state.editingRevision=0;setRoom(null);connected(null);
+ stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.studentTab='activities';state.studentName='';state.workImage=null;state.shareLoaded=false;state.workItems=[];state.workLastFetch=0;state.workSignature='';state.savedPolls=[];state.savedQuestionSets={poll:[],cloud:[],answers:[]};state.editingPollId=null;state.editingRevision=0;setRoom(null);connected(null);
  app.className='container';
  app.innerHTML='<div class="join-shell"><section class="join-card"><p class="eyebrow">Welcome to your teaching companion</p><h1>Make every voice part of the room.</h1><p style="max-width:515px;margin-top:15px">Live polls, open answers, word clouds and screen sharing. No course setup. No new link for every question.</p><div class="entry-grid"><div class="entry-card"><span class="entry-icon">↗</span><h3>Join as student</h3><p>Enter your room code once, then respond to activities on any device.</p>'+btn('Join classroom →','primary','open-student')+'</div><div class="entry-card"><span class="entry-icon">▦</span><h3>Start as lecturer</h3><p>Create a classroom and choose your teaching tools as you go.</p>'+btn('Start classroom →','secondary','open-teacher')+'</div></div>'+notices()+'</section></div>';
  $('open-student').onclick=joinForm;$('open-teacher').onclick=teacherForm;
@@ -98,7 +98,7 @@ function configTool(){
  }
  if(state.tool==='work'){
   $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Student solutions & problems</strong><p>Students share code, notes or screenshots without leaving their classroom. Their submissions are private to your room.</p></div><span aria-hidden="true" style="font-size:34px">▤</span></div><div class="buttons">'+btn('↻ Refresh student work','secondary','work-reload')+'</div><div id="teacher-work-list" class="teacher-work-list">'+loading('Loading student submissions…')+'</div>';
-  $('work-reload').onclick=loadStudentWork;
+  $('work-reload').onclick=()=>loadStudentWork(true);
   void loadStudentWork();
   return;
  }
@@ -349,12 +349,16 @@ async function submitStudentWork(e){
  }catch(err){$('work-status').textContent=err.message;announce(err.message,true)}
  finally{button.disabled=false}
 }
-async function loadStudentWork(){
- if(state.role!=='teacher')return;
+async function loadStudentWork(force=false){
+ if(state.role!=='teacher'||state.workFetchBusy)return;
+ state.workFetchBusy=true;state.workLastFetch=Date.now();
  const container=$('teacher-work-list');if(!container)return;
  try{
   const result=await request('work',{token:state.token,operation:'list'});
-  state.workItems=result.items||[];
+  const next=result.items||[];
+  const signature=next.map(x=>x.id+':'+x.submittedAt).join('|');
+  if(!force&&signature===state.workSignature)return;
+  state.workSignature=signature;state.workItems=next;
   if(!state.workItems.length){container.innerHTML=noResults('Student solutions and problems will appear here.');return}
   container.innerHTML=state.workItems.map(item=>'<article class="answer-card work-card">'+
    '<div class="work-meta"><span class="pill '+(item.kind==='problem'?'warn':'')+'">'+(item.kind==='problem'?'Needs help':'Solution')+'</span> <span>'+esc(item.name)+' · '+esc(new Date(item.submittedAt).toLocaleTimeString())+'</span></div>'+
@@ -373,6 +377,7 @@ async function loadStudentWork(){
    }catch(e){announce(e.message,true);button.disabled=false}
   });
  }catch(e){container.innerHTML=noResults('Unable to load student work.');announce(e.message,true)}
+ finally{state.workFetchBusy=false}
 }
 
 function renderStudent(snapshot){
@@ -445,7 +450,7 @@ async function refresh(){
   if(epoch!==state.epoch)return;
   state.clockOffset=snap.serverTime-Date.now();state.errors=0;state.snapshot=snap;
   connected(true,'Synced live');
-  if(state.role==='teacher')renderTeacher(snap);
+  if(state.role==='teacher'){renderTeacher(snap);if(state.tool==='work'&&Date.now()-state.workLastFetch>5000)void loadStudentWork();}
   else if(state.role==='student')renderStudent(snap);
   else if(state.role==='display')renderDisplay(snap);
  }catch(e){
