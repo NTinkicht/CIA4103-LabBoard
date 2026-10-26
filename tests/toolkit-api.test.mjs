@@ -155,3 +155,40 @@ test('saved poll API rejects invalid questions and too many options',async()=>{
   assert.equal(result.status,400);
  }
 });
+
+
+test('saved Word Cloud and Live Answers questions persist across classrooms without mixing types',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const cloud={title:'Brainstorm',prompt:'One word to describe slow service?',unit:'pair'};
+ const open={title:'Exit ticket',prompt:'What would you improve?',unit:'individual'};
+ const a=await call(store,{action:'library',kind:'cloud',operation:'save',token:room.teacherToken,item:cloud});
+ const b=await call(store,{action:'library',kind:'answers',operation:'save',token:room.teacherToken,item:open});
+ assert.equal(a.status,201);assert.equal(b.status,201);
+ assert.equal(a.body.item.kind,'cloud');assert.equal(b.body.item.kind,'answers');
+ assert.equal((await call(store,{action:'library',kind:'poll',operation:'list',token:room.teacherToken})).body.items.length,0);
+ assert.equal((await call(store,{action:'library',kind:'cloud',operation:'list',token:room.teacherToken})).body.items.length,1);
+ assert.equal((await call(store,{action:'library',kind:'answers',operation:'list',token:room.teacherToken})).body.items.length,1);
+ const room2=(await created(store)).body;
+ const loaded=await call(store,{action:'library',kind:'cloud',operation:'list',token:room2.teacherToken});
+ assert.equal(loaded.body.items[0].prompt,cloud.prompt);
+ const updated=await call(store,{action:'library',kind:'cloud',operation:'save',token:room2.teacherToken,
+  id:a.body.item.id,revision:1,item:{...cloud,prompt:'Name a bottleneck'}});
+ assert.equal(updated.status,200);
+ assert.equal(updated.body.item.revision,2);
+ assert.equal((await call(store,{action:'library',kind:'cloud',operation:'save',token:room.teacherToken,
+  id:a.body.item.id,revision:1,item:cloud})).status,409);
+ assert.equal((await call(store,{action:'library',kind:'cloud',operation:'delete',token:room2.teacherToken,id:a.body.item.id})).status,200);
+ assert.equal((await call(store,{action:'library',kind:'cloud',operation:'list',token:room.teacherToken})).body.items.length,0);
+ assert.equal((await call(store,{action:'library',kind:'answers',operation:'list',token:room.teacherToken})).body.items.length,1);
+});
+test('saved open question validates prompt and rejects nonlecturer access',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ for (const kind of ['answers','cloud']){
+  for (const prompt of ['', ' '.repeat(7), 'x'.repeat(241)]){
+   assert.equal((await call(store,{action:'library',operation:'save',kind,token:room.teacherToken,
+     item:{title:'Question',prompt,unit:'individual'}})).status,400);
+  }
+  assert.equal((await call(store,{action:'library',operation:'list',kind,token:room.displayToken})).status,403);
+ }
+ assert.equal((await call(store,{action:'library',operation:'list',kind:'video',token:room.teacherToken})).status,400);
+});
