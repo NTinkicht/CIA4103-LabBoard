@@ -313,7 +313,12 @@ async function refresh(){
   if(epoch!==state.epoch)return;
   state.errors++;connected(false,'Reconnecting');
   if(state.errors===1||state.errors%4===0)announce(e.message,true);
-  if(/expired|invalid|ended/i.test(e.message)){stopPolling();connected(false,'Session ended')}
+  if(/expired|invalid|ended/i.test(e.message)){
+    const oldRole=state.role;
+    stopPolling();connected(false,'Session ended');
+    if(oldRole==='teacher'){sessionStorage.removeItem('classroom-teacher');state.token=null;state.role=null;teacherForm();announce('Your classroom has ended. Start a new room to access your saved polls.',true);}
+    else if(oldRole==='student'){sessionStorage.removeItem('classroom-student');state.token=null;state.role=null;joinForm();announce('This classroom has ended. Ask your lecturer for a new code.',true);}
+   }
  }finally{state.busy=false}
 }
 function stopPolling(){state.epoch++;if(state.pollTimer)clearTimeout(state.pollTimer);state.pollTimer=null}
