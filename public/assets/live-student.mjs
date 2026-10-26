@@ -1,3 +1,5 @@
+// Embed inside Classroom Toolkit without changing the legacy standalone screen-share behavior.
+if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('toolkit-embedded');
 const $=id=>document.getElementById(id);
 let room=null,capture=null,published=null,publication=null,leaving=false,approved=false,connecting=false,onAir=false;
 let upstreamSyncing=false,upstreamPending=false;
