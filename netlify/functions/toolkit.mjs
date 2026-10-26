@@ -73,7 +73,7 @@ async function snapshot(store,room,claims){
   const round=room.active?await get(store,key('round',claims.code,room.active)):null;
   const result={code:claims.code,roomOpen:!room.ended,active:publicRound(round),serverTime:Date.now()};
   if(claims.role==='teacher')result.participants=(await entries(store,key('member',claims.code)+'/',250)).length;
-  if(!round)return result;
+  if(!round||round.type==='whiteboard')return result;
   const answerPrefix=key('response',claims.code,round.id)+'/';
   if(claims.role==='teacher'){
     const items=await entries(store,answerPrefix,250);
@@ -131,6 +131,79 @@ export async function handleToolkit(request,storeProvider=getStore){
     const room=await get(store,key('room',claims.code));
     if(!room||room.ended||room.expiresAt<Date.now())return fail(410,'Classroom has ended');
     if(data.action==='state')return reply(await snapshot(store,room,claims));
+
+
+    if(data.action==='board'){
+      const op=data.operation||'read',path=key('whiteboard',claims.code);
+      const board=await get(store,path);
+      const activeRound=room.active?await get(store,key('round',claims.code,room.active)):null;
+      const isActive=activeRound?.type==='whiteboard';
+      if(op==='activate'){
+        if(claims.role!=='teacher')return fail(403,'Only lecturers may open the whiteboard');
+        if(!board){
+          await store.setJSON(path,{version:0,generation:0,writerId:null,strokes:[]},{onlyIfNew:true});
+        }
+        if(isActive)return reply({active:publicRound(activeRound)});
+        const round={id:randomUUID(),type:'whiteboard',prompt:'Shared Whiteboard',status:'open',
+          options:[],unit:'individual',createdAt:Date.now(),revealed:true,endsAt:null};
+        await store.setJSON(key('round',claims.code,round.id),round,{onlyIfNew:true});
+        const updated=await change(store,key('room',claims.code),r=>({...r,active:round.id}));
+        return updated?.error?fail(409,updated.error):reply({active:publicRound(round)});
+      }
+      if(!board)return fail(409,'The lecturer has not opened a whiteboard yet');
+      if(!isActive&&claims.role!=='teacher')return fail(409,'The whiteboard is not the active activity');
+      if(op==='read'){
+        const result={version:board.version,generation:board.generation,writerId:board.writerId,
+          canDraw:claims.role==='teacher'||(claims.role==='student'&&board.writerId===claims.id),
+          active:isActive};
+        if(!Number.isInteger(data.since)||data.since!==board.version)result.strokes=board.strokes;
+        if(claims.role==='teacher'){
+          result.students=(await entries(store,key('member',claims.code)+'/',250))
+            .map(m=>({id:m.id,name:m.name,team:m.team||'',selected:board.writerId===m.id}))
+            .sort((a,b)=>a.name.localeCompare(b.name));
+        }
+        return reply(result);
+      }
+      if(!isActive)return fail(409,'Start the whiteboard before editing it');
+      if(op==='select'){
+        if(claims.role!=='teacher')return fail(403,'Lecturer only');
+        const id=data.studentId??null;
+        if(id!==null){
+          if(typeof id!=='string'||!/^[a-f0-9-]{36}$/i.test(id))return fail(400,'Invalid student');
+          const member=await get(store,key('member',claims.code,id));
+          if(!member)return fail(404,'Student is not in this classroom');
+        }
+        const changed=await change(store,path,b=>({...b,writerId:id,version:b.version+1}));
+        return changed?.error?fail(409,changed.error):reply({ok:true,writerId:changed.writerId});
+      }
+      if(op==='clear'||op==='undo'){
+        if(claims.role!=='teacher')return fail(403,'Lecturer only');
+        const updated=await change(store,path,b=>({...b,
+          generation:op==='clear'?b.generation+1:b.generation,
+          strokes:op==='clear'?[]:b.strokes.slice(0,-1),version:b.version+1}));
+        return updated?.error?fail(409,updated.error):reply({ok:true,version:updated.version});
+      }
+      if(op==='stroke'){
+        if(claims.role==='display')return fail(403,'Projector cannot draw');
+        const points=data.points,color=data.color,width=data.width;
+        const colors=['#24374f','#1976bd','#169b83','#dc8743','#c54b58'];
+        if(!Array.isArray(points)||points.length<2||points.length>120||
+          !points.every(p=>Array.isArray(p)&&p.length===2&&Number.isInteger(p[0])&&Number.isInteger(p[1])&&
+            p[0]>=0&&p[0]<=1000&&p[1]>=0&&p[1]<=600)||
+          !colors.includes(color)||!Number.isInteger(width)||width<2||width>14)return fail(400,'Invalid whiteboard stroke');
+        const stroke={id:randomUUID(),by:claims.role==='teacher'?'Lecturer':claims.name,
+          points,color,width,createdAt:Date.now()};
+        const updated=await change(store,path,b=>{
+          if(claims.role==='student'&&b.writerId!==claims.id)
+            return {error:'Drawing permission has been revoked. Ask your lecturer'};
+          if(b.strokes.length>=350)
+            return {error:'Board is full. Ask your lecturer to clear it before continuing'};
+          return {...b,strokes:[...b.strokes,stroke],version:b.version+1};
+        });
+        return updated?.error?fail(409,updated.error):reply({ok:true,strokeId:stroke.id,version:updated.version});
+      }
+      return fail(400,'Unknown whiteboard action');
+    }
 
     if(data.action==='work'){
       const operation=data.operation||'list';
