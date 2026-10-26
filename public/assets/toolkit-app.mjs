@@ -74,6 +74,11 @@ function teacherShell(){
  const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides']];
  app.innerHTML='<div class="workspace"><aside class="rail"><p class="rail-title">Interactive tools</p><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span>'+text+'</button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div id="tool-config"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div></section><section class="surface" id="live-results-panel" hidden><div class="results-head"><div><p class="eyebrow">Live classroom</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></section>'+notices()+'</div></div>';
  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{state.tool=b.dataset.tool;configTool()});
+ const liveFrame=$('teacher-screen-frame');
+ liveFrame?.addEventListener('load',()=>{
+  if(state.role==='teacher'&&state.token&&liveFrame.contentWindow)
+   liveFrame.contentWindow.postMessage({type:'toolkit:lecturer-session',token:state.token},location.origin);
+ });
  $('copy-link').onclick=()=>copyLink(location.origin+'/toolkit/?code='+encodeURIComponent(state.room));
  $('copy-projector').onclick=()=>copyLink(location.origin+'/toolkit/?view=display&token='+encodeURIComponent(state.displayToken));
  $('end-room').onclick=async()=>{
@@ -86,6 +91,7 @@ function teacherShell(){
  void loadSavedQuestions('cloud');
 }
 function configTool(){
+ app.classList.toggle('screen-focus',state.tool==='screen');
  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
  const screenHost=$('teacher-screen-host'),slidesHost=$('teacher-slides-host');
  if(screenHost)screenHost.hidden=state.tool!=='screen';
@@ -543,6 +549,15 @@ function startPolling(){
    state.pollTimer=setTimeout(async()=>{await refresh();schedule()},Math.min(18000,rate*Math.max(1,state.errors)));
  };schedule();
 }
+
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||state.role!=='teacher'||!state.token)return;
+ if(event.data?.type!=='toolkit:screen-ready')return;
+ const frame=$('teacher-screen-frame');
+ if(frame?.contentWindow!==event.source)return;
+ frame.contentWindow.postMessage({type:'toolkit:lecturer-session',token:state.token},location.origin);
+});
+
 document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.token)refresh()});
 window.addEventListener('focus',()=>{if(state.token)refresh()});
 setInterval(syncClock,400);
