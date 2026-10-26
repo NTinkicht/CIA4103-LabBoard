@@ -69,3 +69,41 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 .saved-poll-info{min-width:0;flex:1}.saved-poll-info strong{display:block;font-size:14px;color:#263e53;overflow-wrap:anywhere}
 .saved-poll-info span{display:block;font-size:12px;color:#77899b;margin-top:5px;overflow-wrap:anywhere}.saved-poll-row .buttons{margin:0;flex-wrap:nowrap}.saved-poll-row .buttons button{font-size:12px;padding:9px 12px;min-height:38px}
 @media(max-width:590px){.saved-poll-row{flex-direction:column;align-items:stretch}.saved-poll-row .buttons{justify-content:flex-start}}
+
+
+/* Student workspace: three always-visible tabs on one joined classroom page */
+.unified-student{max-width:940px;margin:0 auto;min-height:600px}
+.student-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:25px;padding:7px;background:#f0f4f9;border-radius:17px;border:1px solid #e3eaf1}
+.student-tab{min-height:76px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:7px;border-radius:12px;border:1px solid transparent;background:transparent;color:#63768b;padding:12px 9px;text-align:center;font-size:13px;font-weight:800;line-height:1.25}
+.student-tab span{font-size:22px;line-height:1}
+.student-tab.active,.student-tab[aria-selected=true]{background:white;color:#1464ac;box-shadow:0 4px 17px rgba(35,71,101,.1);border-color:#d9e7f3}
+.student-tab:hover:not(.active){background:#e7eff8;color:#2b679b}
+.student-panel{min-width:0;margin-top:22px;min-height:260px}
+.student-panel[hidden]{display:none!important}
+.student-panel-intro{margin-bottom:22px}
+.student-panel-intro h2{font-size:21px;margin-bottom:9px}
+.student-panel-intro p{font-size:13px;max-width:710px;line-height:1.7}
+#embedded-screen-share{display:block;border:1px solid #dbe5ef;background:#fff;border-radius:14px;min-height:540px;width:100%;height:min(72vh,780px)}
+.work-type-group{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:5px 0 13px}
+.work-type{border:1px solid #d6e2ec;border-radius:11px;background:#f6f9fd;color:#49647d;padding:14px 12px;min-height:51px;font-size:13px;font-weight:800}
+.work-type.active{background:#e9f3ff;color:#1666ad;border-color:#74b8e8;box-shadow:inset 0 0 0 1px #74b8e8}
+.work-form{max-width:760px}.work-form label{margin-top:16px}
+.work-form input[type=file]{min-height:0;cursor:pointer}
+.work-code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;tab-size:2}
+.work-preview{margin-top:14px;border-radius:13px;background:#f5f8fb;border:1px solid #dce6f0;padding:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.work-preview[hidden]{display:none!important}
+.work-preview img{width:200px;height:125px;object-fit:contain;background:white;border-radius:9px;border:1px solid #d7e0eb}
+.work-status{font-size:13px;color:#527085;margin-top:13px}
+.teacher-work-list{padding-top:4px}
+.work-card h3{margin:11px 0 8px}
+.work-meta{display:flex;align-items:center;flex-wrap:wrap;gap:12px;color:#75899b;font-size:12px}
+.work-snippet{font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#dde9f5;background:#172c44;border-radius:11px;padding:15px;max-height:450px;overflow:auto}
+.work-image-view img{display:block;max-width:100%;max-height:700px;margin-top:12px;object-fit:contain;border:1px solid #e4ebf3;border-radius:10px}
+@media(max-width:590px){
+ .student-tabs{gap:4px;padding:5px}
+ .student-tab{font-size:11px;min-height:74px;padding:9px 4px;gap:5px}
+ .student-tab span{font-size:20px}
+ .unified-student{min-height:450px}
+ #embedded-screen-share{min-height:570px;height:72vh}
+ .work-type-group{gap:8px}
+}
