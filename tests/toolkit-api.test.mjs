@@ -216,16 +216,16 @@ test('screenshot is hidden from list and fetched only with a lecturer room token
  const store=new FakeStore(),a=(await created(store)).body,b=(await created(store)).body;
  const student=(await join(store,a.code,'A')).body;
  const image='data:image/webp;base64,'+Buffer.from('synthetic screenshot').toString('base64');
- const created=await call(store,{action:'work',operation:'submit',token:student.token,
+ const submission=await call(store,{action:'work',operation:'submit',token:student.token,
   kind:'solution',note:'I solved it',image});
- assert.equal(created.status,201);
+ assert.equal(submission.status,201);
  const list=(await call(store,{action:'work',operation:'list',token:a.teacherToken})).body.items;
  assert.equal(list[0].hasImage,true);
  assert.equal(JSON.stringify(list).includes(image),false,'private image must not leak through list');
- assert.equal((await call(store,{action:'work',operation:'image',token:a.teacherToken,id:created.body.id})).body.image,image);
- assert.equal((await call(store,{action:'work',operation:'image',token:student.token,id:created.body.id})).status,403);
- assert.equal((await call(store,{action:'work',operation:'image',token:b.teacherToken,id:created.body.id})).status,404);
- assert.equal((await call(store,{action:'work',operation:'image',token:a.displayToken,id:created.body.id})).status,403);
+ assert.equal((await call(store,{action:'work',operation:'image',token:a.teacherToken,id:submission.body.id})).body.image,image);
+ assert.equal((await call(store,{action:'work',operation:'image',token:student.token,id:submission.body.id})).status,403);
+ assert.equal((await call(store,{action:'work',operation:'image',token:b.teacherToken,id:submission.body.id})).status,404);
+ assert.equal((await call(store,{action:'work',operation:'image',token:a.displayToken,id:submission.body.id})).status,403);
 });
 test('work input validation handles empty, overlong and unsupported image',async()=>{
  const store=new FakeStore(),a=(await created(store)).body,student=(await join(store,a.code,'A')).body;
