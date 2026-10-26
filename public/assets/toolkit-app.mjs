@@ -4,7 +4,7 @@ const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing'};
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣'};
-const state={role:null,token:null,displayToken:null,room:null,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0};
+const state={role:null,token:null,displayToken:null,room:null,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],editingPollId:null,editingRevision:0};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -23,7 +23,7 @@ const noResults=(txt='Waiting for responses…')=>'<div class="empty"><span clas
 function notices(){return '<div id="notice" class="notice" role="status" aria-live="polite"></div>'}
 function btn(text,cls='primary',id='',extra=''){return '<button class="'+cls+'" '+(id?'id="'+id+'"':'')+' '+extra+'>'+text+'</button>'}
 function welcome(){
- stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;setRoom(null);connected(null);
+ stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.savedPolls=[];state.editingPollId=null;state.editingRevision=0;setRoom(null);connected(null);
  app.className='container';
  app.innerHTML='<div class="join-shell"><section class="join-card"><p class="eyebrow">Welcome to your teaching companion</p><h1>Make every voice part of the room.</h1><p style="max-width:515px;margin-top:15px">Live polls, open answers, word clouds and screen sharing. No course setup. No new link for every question.</p><div class="entry-grid"><div class="entry-card"><span class="entry-icon">↗</span><h3>Join as student</h3><p>Enter your room code once, then respond to activities on any device.</p>'+btn('Join classroom →','primary','open-student')+'</div><div class="entry-card"><span class="entry-icon">▦</span><h3>Start as lecturer</h3><p>Create a classroom and choose your teaching tools as you go.</p>'+btn('Start classroom →','secondary','open-teacher')+'</div></div>'+notices()+'</section></div>';
  $('open-student').onclick=joinForm;$('open-teacher').onclick=teacherForm;
@@ -78,6 +78,7 @@ function teacherShell(){
   try{await request('control',{token:state.token,control:'end'});sessionStorage.removeItem('classroom-teacher');welcome();}catch(e){announce(e.message,true)}
  };
  configTool();
+ void loadSavedPolls();
 }
 function configTool(){
  document.querySelectorAll('[data-tool]').forEach(b=>{const on=b.dataset.tool===state.tool;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false')});
@@ -91,16 +92,21 @@ function configTool(){
  const prompt='<label for="question">Your question <span class="small">(optional — ask it verbally or show on your slides)</span></label><input id="question" maxlength="240" placeholder="No need to type a question">';
  let controls='';
  if(state.tool==='poll'){
- controls=prompt+'<div class="subhead" style="margin-top:22px"><h3>Voting choices</h3><span class="pill grey">2–8 options</span></div><div class="option-grid" id="poll-options"></div><div class="buttons">'+btn('+ Add option','secondary','add-option')+btn('− Remove last','ghost','remove-option')+'</div>'+common;
+ controls='<label for="poll-title">Saved poll title <span class="small">(for your preparation library)</span></label><input id="poll-title" maxlength="100" placeholder="e.g. Week 8 — Process vs Cycle Time">'+prompt+'<div class="subhead" style="margin-top:22px"><h3>Voting choices</h3><span class="pill grey">2–8 options</span></div><div class="option-grid" id="poll-options"></div><div class="buttons">'+btn('+ Add option','secondary','add-option')+btn('− Remove last','ghost','remove-option')+'</div>'+common;
  }else if(state.tool==='answers'||state.tool==='cloud')controls=prompt+common;
  else controls='<label for="duration">Countdown</label><select id="duration"><option value="60">1 minute</option><option value="120">2 minutes</option><option selected value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option></select>';
- $('tool-config').innerHTML=controls+'<div class="buttons">'+btn('▶ Start '+NAMES[state.tool],'primary','launch')+'</div>';
+ $('tool-config').innerHTML=controls+'<div class="buttons">'+btn('▶ Start '+NAMES[state.tool],'primary','launch')+(state.tool==='poll'?btn('▤ Save for later','secondary','save-poll'):'')+'</div>'+(state.tool==='poll'?'<section class="poll-library"><div class="subhead"><h3>My saved polls</h3><span class="pill grey" id="poll-library-count">0 saved</span></div><p class="small">Create questions now. Your library is stored on the site and will be available in future classroom sessions.</p><div id="poll-library-list"></div></section>':'');
  if(state.tool==='poll'){
+   state.editingPollId=null;state.editingRevision=0;
    for(let i=0;i<4;i++)addOption();
    $('add-option').onclick=addOption;
    $('remove-option').onclick=()=>{const els=[...document.querySelectorAll('.poll-option')];if(els.length>2)els.at(-1).parentElement.remove()};
  }
  $('launch').onclick=startRound;
+ if(state.tool==='poll'){
+  $('save-poll').onclick=savePoll;
+  renderSavedPolls();
+ }
 }
 function addOption(){
  const parent=$('poll-options');if(!parent)return;
@@ -108,6 +114,63 @@ function addOption(){
  const div=document.createElement('div');div.innerHTML='<label for="option-'+n+'">Option '+(n+1)+'</label><input class="poll-option" id="option-'+n+'" maxlength="60" value="Option '+(n+1)+'">';
  parent.append(div);
 }
+
+function pollFields(){
+ const options=[...document.querySelectorAll('.poll-option')].map(e=>e.value.trim()).filter(Boolean);
+ return {title:$('poll-title')?.value.trim()||'',prompt:$('question')?.value.trim()||'',unit:$('response-unit')?.value||'individual',options};
+}
+async function loadSavedPolls(){
+ if(state.role!=='teacher'||!state.token)return;
+ try{
+  const result=await request('library',{token:state.token,operation:'list'});
+  state.savedPolls=result.polls||[];
+  renderSavedPolls();
+ }catch(error){if(state.tool==='poll')announce('Saved polls could not be loaded: '+error.message,true)}
+}
+function renderSavedPolls(){
+ const box=$('poll-library-list');
+ if(!box)return;
+ $('poll-library-count').textContent=state.savedPolls.length+' saved';
+ if(!state.savedPolls.length){box.innerHTML=noResults('Save your first poll above. It will be available in a new classroom session.');return;}
+ box.innerHTML=state.savedPolls.map(p=>'<div class="saved-poll-row"><div class="saved-poll-info"><strong>'+esc(p.title)+'</strong><span>'+esc(p.prompt||'Question shown on your slides')+' · '+p.options.length+' choices</span></div><div class="buttons"><button type="button" class="secondary" data-use-poll="'+p.id+'">Load</button><button type="button" class="ghost" data-delete-poll="'+p.id+'">Delete</button></div></div>').join('');
+ box.querySelectorAll('[data-use-poll]').forEach(b=>b.onclick=()=>useSavedPoll(b.dataset.usePoll));
+ box.querySelectorAll('[data-delete-poll]').forEach(b=>b.onclick=()=>deleteSavedPoll(b.dataset.deletePoll));
+}
+function useSavedPoll(id){
+ const p=state.savedPolls.find(p=>p.id===id);
+ if(!p)return announce('Saved poll not found. Reload the library.',true);
+ state.tool='poll';configTool();
+ $('poll-title').value=p.title;$('question').value=p.prompt;$('response-unit').value=p.unit;
+ $('poll-options').innerHTML='';
+ for(let i=0;i<p.options.length;i++){addOption();const field=$('option-'+i);if(field)field.value=p.options[i]}
+ state.editingPollId=p.id;state.editingRevision=p.revision;
+ $('save-poll').textContent='▤ Update saved poll';
+ announce('Loaded "'+p.title+'". You can edit it, save updates, or launch it during the lesson.');
+}
+async function savePoll(){
+ const poll=pollFields();
+ if(!poll.title)return announce('Give this poll a title before saving.',true);
+ if(poll.options.length<2||poll.options.length>8)return announce('Enter 2 to 8 voting choices.',true);
+ const b=$('save-poll');b.disabled=true;
+ try{
+  const result=await request('library',{token:state.token,operation:'save',poll,id:state.editingPollId,revision:state.editingRevision});
+  state.editingPollId=result.poll.id;state.editingRevision=result.poll.revision;
+  b.textContent='▤ Update saved poll';
+  announce('Poll saved to your library. It will be available in future sessions.');
+  await loadSavedPolls();
+ }catch(e){announce(e.message,true)}finally{if($('save-poll'))$('save-poll').disabled=false}
+}
+async function deleteSavedPoll(id){
+ const p=state.savedPolls.find(p=>p.id===id);
+ if(!p||!confirm('Delete saved poll "'+p.title+'"?'))return;
+ try{
+  await request('library',{token:state.token,operation:'delete',id});
+  if(state.editingPollId===id){state.editingPollId=null;state.editingRevision=0;$('save-poll').textContent='▤ Save for later';}
+  await loadSavedPolls();
+  announce('Saved poll deleted.');
+ }catch(e){announce(e.message,true)}
+}
+
 async function startRound(){
  const button=$('launch');button.disabled=true;const type=state.tool;
  const payload={token:state.token,type,prompt:$('question')?.value||'',unit:$('response-unit')?.value||'individual'};
