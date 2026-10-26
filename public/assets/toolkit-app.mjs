@@ -292,6 +292,11 @@ function studentShell(){
   state.workKind=button.dataset.workKind;
   document.querySelectorAll('[data-work-kind]').forEach(x=>{const active=x.dataset.workKind===state.workKind;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active))});
  }));
+ $('embedded-screen-share').addEventListener('load',()=>{
+  try{const field=$('embedded-screen-share').contentDocument?.getElementById('name');
+   if(field&&!field.value)field.value=state.studentName||'';
+  }catch{/* Keep sharing usable if embedding policy changes */}
+ });
  $('work-file').onchange=onWorkFile;
  $('work-remove-image').onclick=()=>{state.workImage=null;$('work-file').value='';$('work-preview').hidden=true};
  $('work-form').onsubmit=submitStudentWork;
