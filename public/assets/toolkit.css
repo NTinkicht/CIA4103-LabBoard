@@ -107,3 +107,44 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  #embedded-screen-share{min-height:570px;height:72vh}
  .work-type-group{gap:8px}
 }
+
+
+/* Collaborative whiteboard: one shared room canvas, teacher-controlled student writer */
+.wb-root{border:1px solid #dde6ef;border-radius:16px;background:#fbfdff;margin:18px 0 0;overflow:hidden}
+.wb-topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:18px 21px;border-bottom:1px solid #e5edf4;background:white;flex-wrap:wrap}
+.wb-topbar h3{font-size:18px;margin-bottom:5px}.wb-topbar p.small{margin:0;max-width:500px}
+.wb-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 16px;background:#fff;border-bottom:1px solid #e1eaf2}
+.wb-tools .secondary,.wb-tools .ghost{font-size:12px;padding:9px 11px;min-height:36px}
+.wb-tools label{margin:0;font-size:12px;white-space:nowrap}.wb-tools select{width:auto;min-height:37px;padding:6px 9px}
+.wb-swatches{display:flex;align-items:center;gap:5px;padding-right:6px}
+.wb-swatch{width:31px;height:31px;background:var(--swatch);border:2px solid #c8d6e3;border-radius:50%;color:#14263a;display:grid;place-items:center;font-size:17px;font-weight:800;box-shadow:0 1px 3px #142b4220}
+.wb-swatch.selected{outline:3px solid #438fca;outline-offset:2px}
+.wb-body{display:grid;grid-template-columns:1fr;min-width:0}
+.wb-body.teacher{grid-template-columns:minmax(0,1fr) 245px}
+.wb-main{min-width:0;padding:13px;background:#f1f5fa}
+.wb-canvas-wrap{width:100%;aspect-ratio:5/3;overflow:hidden;border:1px solid #cddbe7;border-radius:10px;background:white;box-shadow:0 4px 17px #152d4612}
+.wb-canvas-wrap:fullscreen{border:0;border-radius:0;width:100vw;height:100vh;aspect-ratio:auto;display:grid;place-items:center;background:#eaf0f6}
+.wb-canvas-wrap canvas{display:block;width:100%;height:100%;aspect-ratio:5/3;touch-action:none;user-select:none;background:#fff}
+.wb-canvas-wrap:fullscreen canvas{height:auto;width:auto;max-width:100vw;max-height:100vh;object-fit:contain}
+.wb-status{font-size:12px;color:#668097;margin:11px 4px 2px;line-height:1.6}
+.wb-status.error{color:#b54153}
+.wb-sidebar{min-width:0;border-left:1px solid #e1e8f0;padding:16px 13px;background:white;max-height:650px;overflow-y:auto}
+.wb-side-title{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:9px}
+.wb-side-title h3{font-size:15px}.wb-sidebar p.small{font-size:11px;line-height:1.6}
+.wb-roster{display:grid;gap:7px;margin-top:15px}
+.wb-person{display:flex;align-items:center;gap:8px;border:1px solid #e1e9f1;border-radius:12px;background:#fff;padding:10px 8px;width:100%;text-align:left;color:#2b435b;min-width:0}
+.wb-person:hover{border-color:#8fc4ee;background:#f3f9ff}
+.wb-person.chosen{background:#eaf8f4;border-color:#44bea0}
+.wb-avatar{height:31px;width:31px;border-radius:50%;background:#e5f0fd;color:#216da9;display:grid;place-items:center;font-weight:800;flex-shrink:0}
+.wb-person-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.wb-person-info strong{display:block;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wb-person-info small{display:block;color:#7d91a4;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wb-person-right{flex-shrink:0;font-size:10px;color:#1469a9;font-weight:800}
+.wb-person.chosen .wb-person-right{color:#0e8b70}
+#teacher-board-mount,.wb-root,#student-board-mount,#display-board-mount{min-width:0}
+#student-board-mount .wb-canvas-wrap,#display-board-mount .wb-canvas-wrap{max-width:100%}
+#student-board-mount .wb-status{font-size:13px;font-weight:700}
+#display-board-mount .wb-tools,#display-board-mount .wb-sidebar{display:none}
+#display-board-mount .wb-canvas-wrap{max-height:75vh}
+@media(max-width:1040px){.wb-body.teacher{grid-template-columns:1fr}.wb-sidebar{border-left:0;border-top:1px solid #e1e8f0;max-height:210px}.wb-roster{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:590px){.wb-topbar{padding:13px}.wb-main{padding:7px}.wb-tools{padding:10px;gap:7px}.wb-swatches{gap:4px}.wb-swatch{height:27px;width:27px}.wb-tools select{max-width:120px}.wb-roster{grid-template-columns:1fr}.wb-person-right{font-size:11px}}
