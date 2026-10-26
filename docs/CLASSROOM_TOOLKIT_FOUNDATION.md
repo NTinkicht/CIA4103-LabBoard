@@ -125,3 +125,25 @@ The new **Files & Slides** tool displays a same-origin \`/toolkit/presenter/\` v
 - [ ] Verify imported PowerPoint slides (text, images, charts, layouts) and PDF under fullscreen; check browser privacy and network policies.
 - [ ] Confirm classroom does not disconnect when switching Files & Slides.
 - [ ] Verify CI for new library and presenter, Netlify-specific header rules and production staging before merging.
+
+
+## Unified student classroom (three persistent tabs)
+
+Immediately after joining a room, students see a single \`/toolkit/\` page with exactly three top-level navigation tabs:
+
+1. **Activities:** Polls, Live Answers, Word Cloud and timed activities; auto-refresh without leaving the room.
+2. **Screen Share:** A same-origin embedded instance of the existing approved student LiveKit queue. The student name is prefilled. The iframe remains mounted across tab switches, maintaining captured application/window and standby state (until the student stops sharing or the browser closes the media track). It is the original legacy shared LiveKit queue, not yet a distinct video room per Toolkit code.
+3. **Share Work / Problem:** A native, course-independent form to share a problem or solution, optional topic, explanation, code/calculation text, and a screenshot. Screenshots are converted to bounded WebP in the student browser and stored with the submission in room-scoped Netlify Blobs. No separate navigation or compulsory "Lab" field.
+
+Lecturer dashboard gains **Work & Problems**. The list is accessible only with a lecturer room token; screenshot bytes are fetched separately and only on demand. Nothing is published to the projector or other students. Room expiry denies further reads, but existing blob records still require the previously identified storage-retention cleanup.
+
+Navigation requirements:
+- Switching tabs never changes the URL, never opens a new tab, and must not reset an unfinished answer/form.
+- Screen Share iframe loads lazily the first time its tab is opened; it is hidden, not destroyed, during subsequent tab changes.
+- Keyboard and mobile layouts remain accessible with large fixed tab targets.
+- Legacy \`/live/\`, \`/\` student boards, \`/dashboard/\` and backup branch remain available.
+- The specific \`/live/*\` page is allowed only inside a **same-origin** iframe using its scoped CSP/X-Frame-Options; the global deny rule remains unchanged for other pages.
+
+Testing: \`tests/toolkit-browser-smoke.mjs\` exercises the three student tabs, embedded share name prefill and frame persistence, private work submission and active poll return. \`tests/toolkit-api.test.mjs\` verifies work-type validation, lecturer-only access, screenshot private retrieval and independent rooms.
+
+**Known limitation:** Existing LiveKit media queue is not yet isolated by Toolkit room; do not run separate simultaneous classes using screen sharing until room-scoped LiveKit integration is delivered.
