@@ -131,6 +131,45 @@ export async function handleToolkit(request,storeProvider=getStore){
     const room=await get(store,key('room',claims.code));
     if(!room||room.ended||room.expiresAt<Date.now())return fail(410,'Classroom has ended');
     if(data.action==='state')return reply(await snapshot(store,room,claims));
+
+    if(data.action==='library'){
+      if(claims.role!=='teacher')return fail(403,'Only lecturers may manage saved polls');
+      const operation=data.operation||'list',prefix='saved-poll/';
+      const validPoll=(p)=>p&&typeof p==='object'&&!Array.isArray(p)&&
+        validText(p.title,100)&&p.title.trim().length>=1&&validText(p.prompt,240)&&
+        Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=8&&
+        p.options.every(o=>validText(o,60)&&o.trim().length>0);
+      if(operation==='list'){
+        const saved=(await entries(store,prefix,100)).filter(p=>!p.archived);
+        return reply({polls:saved.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))});
+      }
+      if(operation==='save'){
+        if(!validPoll(data.poll))return fail(400,'Enter a title and 2–8 valid choices');
+        const payload={title:data.poll.title.trim(),prompt:data.poll.prompt.trim(),
+          options:data.poll.options.map(o=>o.trim()),unit:data.poll.unit==='pair'?'pair':'individual'};
+        const id=data.id||randomUUID();
+        if(!/^[a-f0-9-]{36}$/.test(id))return fail(400,'Invalid saved poll ID');
+        const path=key('saved-poll',id),old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+        const expected=Number(data.revision||0);
+        if((old?.data?.revision||0)!==expected||old?.data?.archived)return fail(409,'Saved poll was changed in another tab. Reload your library');
+        if(!old){
+          const count=(await store.list({prefix})).blobs.length;
+          if(count>=100)return fail(409,'Saved poll library is full (100 maximum)');
+        }
+        const result={id,...payload,revision:expected+1,createdAt:old?.data?.createdAt||new Date().toISOString(),
+          updatedAt:new Date().toISOString(),archived:false};
+        const saved=await store.setJSON(path,result,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
+        if(!saved.modified)return fail(409,'Concurrent update. Reload your saved polls');
+        return reply({poll:result},old?200:201);
+      }
+      if(operation==='delete'){
+        if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/.test(data.id))return fail(400,'Invalid saved poll ID');
+        const changed=await change(store,key('saved-poll',data.id),p=>({...p,archived:true,revision:p.revision+1,updatedAt:new Date().toISOString()}));
+        return changed?.error?fail(409,changed.error):changed?reply({ok:true}):fail(404,'Saved poll not found');
+      }
+      return fail(400,'Unknown library operation');
+    }
+
     if(data.action==='start'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       if(!['poll','answers','cloud','timer'].includes(data.type))return fail(400,'Invalid tool');
