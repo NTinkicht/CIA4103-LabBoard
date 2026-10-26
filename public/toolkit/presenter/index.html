@@ -10,15 +10,16 @@
 </head>
 <body>
 <main class="presenter-app">
-<header class="toolbar">
- <div class="identity"><span class="logo" aria-hidden="true">▧</span><div><strong>Files & Slides</strong><small>PowerPoint and PDF viewer</small></div></div>
- <div class="actions">
-  <label class="file-button" for="upload">＋ Add PowerPoint / PDF</label>
+<header class="toolbar" aria-label="Presentation controls">
+ <label class="file-label" for="documents">Presentation</label>
+ <select id="documents" aria-label="Choose a saved presentation"><option value="">Choose a file</option></select>
+ <button id="delete" type="button" class="remove-file" disabled title="Remove selected file">Remove</button>
+ <div class="toolbar-actions">
+  <label class="file-button" for="upload">＋ Add file</label>
   <input id="upload" type="file" accept=".pptx,.ppt,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-powerpoint" hidden>
   <button type="button" id="fullscreen" class="primary">⛶ Fullscreen</button>
  </div>
 </header>
-<section class="library-bar"><label for="documents">My classroom files</label><select id="documents" aria-label="Choose a saved presentation"><option value="">Select a file</option></select><button id="delete" type="button" disabled>Remove</button><span class="help">Files stored only in this browser</span></section>
 <section class="presentation" id="presentation" aria-label="Slide presentation area" tabindex="0">
  <div class="viewer" id="viewer"><div id="placeholder"><span>▧</span><h1>Present your slides.</h1><p>Choose a PowerPoint or PDF to display it here.<br>Use the fullscreen button or press F to present.</p></div></div>
  <div class="slide-control" id="slide-controls" hidden>
