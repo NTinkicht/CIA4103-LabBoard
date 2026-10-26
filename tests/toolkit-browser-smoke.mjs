@@ -73,7 +73,7 @@ try{
 
  await lecturer.locator('[data-tool="work"]').click();
  await lecturer.locator('#teacher-work-list').waitFor({timeout:7000});
- assert.match(await lecturer.locator('#teacher-work-list').innerText(),/Nothing here yet/);
+ await lecturer.waitForFunction(()=>document.querySelector('#teacher-work-list')?.textContent?.includes('Nothing here yet'),{timeout:8000});
  console.log('Lecturer private Work & Problems tab present');
  // The student always has exactly three tabs on one URL after joining the classroom.
  const student=await browser.newPage({viewport:{width:390,height:844}});
