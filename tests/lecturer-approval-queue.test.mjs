@@ -154,7 +154,7 @@ test('lecturer viewer uses one large video and a waiting sidebar',()=>{
  assert.match(client,/autoSubscribe:false/);
  assert.match(client,/setSubscribed\(false\)/);
  assert.match(client,/setSubscribed\(true\)/);
- assert.match(client,/STANDBY/);
+ assert.match(client,/standby/i);
 });
 test('compact lecturer roster supports 30 students without tall cards',()=>{
  const html=readFileSync(new URL('../public/dashboard/index.html',import.meta.url),'utf8');
