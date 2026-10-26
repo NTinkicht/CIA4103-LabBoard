@@ -192,3 +192,12 @@ The lecturer now has a **Whiteboard** tool. Select **Open whiteboard for student
 - The embedded Live Screens tool still requires the existing lecturer PIN once in the legacy LiveKit controls and still uses the legacy global LiveKit room. It does not yet map to the Toolkit's 6-digit multi-room identity.
 
 Verification: Chromium tests check sidebar geometry, viewer width, code board availability and selected Live Screens tab, persistent iframe on tab switches, no duplicate lower panel, and original student three-tab navigation.
+
+
+## Simplified Screen Sharing lecturer tool
+
+The lecturer's left-rail **Screen Sharing** selection now embeds only the LiveKit screen-sharing interface. It shows the lecturer PIN connection, active shared screen, student approval/standby queue and control buttons directly; it does **not** load the previous CIA4103 dashboard header, lab PDF tabs, submitted code board, or unrelated classroom panels.
+
+The focused view is served at \`/toolkit/screen-sharing/\` and reuses the tested \`live-teacher.mjs\` controller; both the legacy \`/dashboard/\` standalone page and student \`/live/\` continue unchanged. The Toolkit keeps the same iframe mounted across tool switches so ongoing LiveKit screen viewing is not disconnected. The standalone legacy dashboard is again protected by the global DENY iframe policy; only the dedicated screen view allows same-origin embedding.
+
+The lecturer still enters their existing lecturer PIN inside the screen-sharing panel because media authorization is separate from the Toolkit room token. The original shared LiveKit room remains a limitation for simultaneous independent classes.
