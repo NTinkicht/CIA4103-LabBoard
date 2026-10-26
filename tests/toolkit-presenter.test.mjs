@@ -33,13 +33,20 @@ test('the presenter can be framed only in same-origin toolkit pages',()=>{
  assert.match(app,/allowfullscreen/);
 });
 
-test('lecturer embeds the code board, keeps both viewers alive and hides irrelevant whiteboard results',()=>{
+test('the lecturer screen-sharing menu contains only the LiveKit viewer and student approval queue',()=>{
  const main=readFileSync(new URL('../public/assets/toolkit-app.mjs',import.meta.url),'utf8');
+ const screen=readFileSync(new URL('../public/toolkit/screen-sharing/index.html',import.meta.url),'utf8');
  assert.match(main,/id="teacher-screen-frame"/);
  assert.match(main,/id="live-results-panel" hidden/);
  assert.match(main,/id="teacher-slides-host"/);
- assert.match(main,/dashboard\/\?embed=1&section=screens/);
+ assert.match(main,/\/toolkit\/screen-sharing\//);
+ assert.doesNotMatch(main,/dashboard\/\?embed=1/);
  assert.match(main,/round\.type===state\.tool/);
- assert.match(headers,/for = "\/dashboard\/\*"/);
- assert.match(headers,/X-Frame-Options = "SAMEORIGIN"/);
+ assert.match(screen,/id="stream-teacher-root"/);
+ assert.match(screen,/live-teacher\.mjs/);
+ assert.doesNotMatch(screen,/Live classroom code board|Lab PDFs|tab-screens|board-view/i);
+ assert.match(headers,/for = "\/toolkit\/screen-sharing\/\*"/);
+ assert.doesNotMatch(headers,/for = "\/dashboard\/\*"/);
+ assert.match(headers,/for = "\/\*"/);
+ assert.match(headers,/X-Frame-Options = "DENY"/);
 });
