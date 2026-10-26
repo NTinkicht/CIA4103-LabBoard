@@ -50,6 +50,7 @@ try{
   const req=route.request(),body=JSON.parse(req.postData()||'{}');
   const payload=body.action==='create'?{code:'123456',teacherToken:'test-teacher',displayToken:'test-display'}:
     body.action==='library'?{items:[],polls:[]}:
+    body.action==='work'?{items:[]}:
     body.action==='state'?{code:'123456',roomOpen:true,active:null,serverTime:Date.now(),participants:0}:
     {ok:true};
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
@@ -69,6 +70,56 @@ try{
  await frame.locator('#upload').waitFor({state:'attached',timeout:10000});
  assert.match(await frame.locator('h1').first().innerText(),/Present your slides/);
  console.log('Toolkit lecturer tabs and same-origin Files & Slides iframe validated');
+
+ await lecturer.locator('[data-tool="work"]').click();
+ await lecturer.locator('#teacher-work-list').waitFor({timeout:7000});
+ await lecturer.waitForFunction(()=>document.querySelector('#teacher-work-list')?.textContent?.includes('Nothing here yet'),{timeout:8000});
+ console.log('Lecturer private Work & Problems tab present');
+ // The student always has exactly three tabs on one URL after joining the classroom.
+ const student=await browser.newPage({viewport:{width:390,height:844}});
+ student.on('pageerror',e=>errors.push('student: '+e.message));
+ let workCalls=0;
+ await student.route('**/.netlify/functions/toolkit',async route=>{
+  const data=JSON.parse(route.request().postData()||'{}');
+  const payload=data.action==='join'?{code:'123456',token:'synthetic-student'}:
+    data.action==='state'?{code:'123456',roomOpen:true,active:{id:'round-1',type:'poll',unit:'individual',status:'open',revealed:false,prompt:'Which option?',options:['Option 1','Option 2']},serverTime:Date.now(),mine:null}:
+    data.action==='work'&&data.operation==='submit'?(workCalls++,{ok:true,id:'synthetic-work'}):
+    {ok:true};
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+ });
+ await student.goto('http://127.0.0.1:'+port+'/toolkit/',{waitUntil:'domcontentloaded'});
+ await student.locator('#open-student').click();
+ await student.locator('#room-code').fill('123456');
+ await student.locator('#join-name').fill('Student One');
+ await student.locator('#join-submit').click();
+ await student.locator('.student-tabs [role="tab"]').first().waitFor({timeout:8000});
+ assert.equal(await student.locator('.student-tabs [role="tab"]').count(),3);
+ assert.equal(await student.locator('#student-activities-panel').isVisible(),true);
+ await student.locator('input[name="student-vote"]').first().waitFor({timeout:8000});
+ await student.locator('#tab-screen').click();
+ await student.locator('#embedded-screen-share').waitFor({state:'visible',timeout:8000});
+ const share=student.frameLocator('#embedded-screen-share');
+ await share.locator('#name').waitFor({state:'visible',timeout:8000});
+ await student.waitForFunction(()=>document.querySelector('#embedded-screen-share')?.contentDocument?.querySelector('#name')?.value==='Student One',null,{timeout:10000});
+ assert.equal(await share.locator('#name').inputValue(),'Student One');
+ await share.locator('body').evaluate(()=>{window.__preserveIframeOnTabSwitch=true});
+ await student.locator('#tab-work').click();
+ assert.equal(await student.locator('#student-work-panel').isVisible(),true);
+ await student.locator('#work-topic').fill('My exercise');
+ await student.locator('#work-note').fill('This operation fails');
+ await student.locator('#send-work').click();
+ await student.waitForFunction(()=>document.querySelector('#work-status')?.textContent?.includes('Shared successfully'),{timeout:8000});
+ assert.equal(workCalls,1);
+ await student.locator('#tab-screen').click();
+ assert.equal(await share.locator('body').evaluate(()=>window.__preserveIframeOnTabSwitch),true,'Screen-sharing iframe must remain mounted');
+ await student.locator('#tab-activities').click();
+ assert.equal(await student.locator('input[name="student-vote"]').count(),2);
+ assert.equal(student.url(),'http://127.0.0.1:'+port+'/toolkit/','Switching tabs must not navigate');
+ const overflow=await student.evaluate(()=>document.documentElement.scrollWidth-innerWidth);
+ assert.ok(overflow<=3,'Mobile student page must have no horizontal overflow');
+ console.log('Student 3 tabs, embedded screen sharing, same-iframe persistence, work submission and poll restoration passed');
+ await student.close();
+
  await lecturer.close();
 
 }finally{await browser.close();await new Promise(r=>server.close(r))}
