@@ -44,4 +44,31 @@ try{
  await page.waitForFunction(()=>document.querySelector('#counter')?.textContent?.startsWith('Slide 1 of '),{timeout:60000});
  console.log('IndexedDB PPTX restoration validated');
  assert.deepEqual(errors,[],'Browser must not throw unhandled exceptions');
+ // Simulated lecturer API exercises actual Toolkit UI navigation without requiring real credentials.
+ const lecturer=await browser.newPage({viewport:{width:1300,height:850}});
+ await lecturer.route('**/.netlify/functions/toolkit',async route=>{
+  const req=route.request(),body=JSON.parse(req.postData()||'{}');
+  const payload=body.action==='create'?{code:'123456',teacherToken:'test-teacher',displayToken:'test-display'}:
+    body.action==='library'?{items:[],polls:[]}:
+    body.action==='state'?{code:'123456',roomOpen:true,active:null,serverTime:Date.now(),participants:0}:
+    {ok:true};
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(payload)});
+ });
+ await lecturer.goto('http://127.0.0.1:'+port+'/toolkit/',{waitUntil:'domcontentloaded'});
+ await lecturer.locator('#open-teacher').click();
+ await lecturer.locator('#teacher-pin').fill('synthetic-test-pin-only');
+ await lecturer.locator('#create-submit').click();
+ await lecturer.locator('[data-tool="cloud"]').click();
+ assert.equal(await lecturer.locator('#save-question').count(),1,'Word Cloud must offer Save');
+ await lecturer.locator('[data-tool="answers"]').click();
+ assert.equal(await lecturer.locator('#save-question').count(),1,'Live Answers must offer Save');
+ await lecturer.locator('[data-tool="poll"]').click();
+ assert.equal(await lecturer.locator('#save-question').count(),1,'Poll must offer Save');
+ await lecturer.locator('[data-tool="documents"]').click();
+ const frame=lecturer.frameLocator('#document-frame');
+ await frame.locator('#upload').waitFor({timeout:10000});
+ assert.match(await frame.locator('h1').first().innerText(),/Present your slides/);
+ console.log('Toolkit lecturer tabs and same-origin Files & Slides iframe validated');
+ await lecturer.close();
+
 }finally{await browser.close();await new Promise(r=>server.close(r))}
