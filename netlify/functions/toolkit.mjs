@@ -91,7 +91,7 @@ async function snapshot(store,room,claims){
   }
   return result;
 }
-const bodyMax=12000;
+const bodyMax=700000; // Work screenshots are intentionally capped at 450 KB encoded; other routes remain validated.
 export async function handleToolkit(request,storeProvider=getStore){
   if(request.method!=='POST')return fail(405,'POST only');
   if(Number(request.headers.get('content-length')||0)>bodyMax)return fail(413,'Payload too large');
@@ -131,6 +131,45 @@ export async function handleToolkit(request,storeProvider=getStore){
     const room=await get(store,key('room',claims.code));
     if(!room||room.ended||room.expiresAt<Date.now())return fail(410,'Classroom has ended');
     if(data.action==='state')return reply(await snapshot(store,room,claims));
+
+    if(data.action==='work'){
+      const operation=data.operation||'list';
+      const prefix=key('student-work',claims.code)+'/';
+      if(operation==='list'){
+        if(claims.role!=='teacher')return fail(403,'Lecturer only');
+        const docs=await entries(store,prefix,200);
+        return reply({items:docs.map(({image,...item})=>({...item,hasImage:Boolean(image)}))
+          .sort((a,b)=>b.submittedAt.localeCompare(a.submittedAt))});
+      }
+      if(operation==='image'){
+        if(claims.role!=='teacher')return fail(403,'Lecturer only');
+        if(typeof data.id!=='string'||!/^[0-9a-f-]{36}$/i.test(data.id))return fail(400,'Invalid work ID');
+        const doc=await get(store,key('student-work',claims.code,data.id));
+        return doc?.image?reply({image:doc.image}):fail(404,'Screenshot unavailable');
+      }
+      if(operation==='submit'){
+        if(claims.role!=='student')return fail(403,'Students only');
+        const kind=data.kind;
+        if(!['solution','problem'].includes(kind))return fail(400,'Choose Solution or Problem');
+        const topic=typeof data.topic==='string'?data.topic.trim():'';
+        const note=typeof data.note==='string'?data.note.trim():'';
+        const code=typeof data.code==='string'?data.code.trim():'';
+        if(!validText(topic,120)||!validText(note,1500)||!validText(code,5000))return fail(400,'Submission contains invalid or too much text');
+        const image=data.image??null;
+        if(image!==null&&(typeof image!=='string'||image.length>450000||
+          !/^data:image\/webp;base64,[a-zA-Z0-9+/]+={0,2}$/.test(image)))return fail(400,'Invalid screenshot. Please use a smaller image');
+        if(!note&&!code&&!image)return fail(400,'Add a description, text/code or screenshot before sending');
+        const memberPrefix=prefix;
+        const records=await store.list({prefix:memberPrefix});
+        if(records.blobs.length>=200)return fail(409,'This classroom has reached its work-submission limit');
+        const id=randomUUID(),doc={id,kind,topic,note,code,image,
+          name:claims.name,studentId:claims.id,submittedAt:new Date().toISOString()};
+        const saved=await store.setJSON(key('student-work',claims.code,id),doc,{onlyIfNew:true});
+        if(!saved.modified)return fail(409,'Could not save submission. Try again');
+        return reply({ok:true,id},201);
+      }
+      return fail(400,'Unknown work operation');
+    }
 
     if(data.action==='library'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
