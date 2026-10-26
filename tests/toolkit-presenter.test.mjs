@@ -32,3 +32,14 @@ test('the presenter can be framed only in same-origin toolkit pages',()=>{
  assert.match(app,/id="document-frame"/);
  assert.match(app,/allowfullscreen/);
 });
+
+test('lecturer embeds the code board, keeps both viewers alive and hides irrelevant whiteboard results',()=>{
+ const main=readFileSync(new URL('../public/assets/toolkit-app.mjs',import.meta.url),'utf8');
+ assert.match(main,/id="teacher-screen-frame"/);
+ assert.match(main,/id="live-results-panel" hidden/);
+ assert.match(main,/id="teacher-slides-host"/);
+ assert.match(main,/dashboard\/\?embed=1&section=screens/);
+ assert.match(main,/round\.type===state\.tool/);
+ assert.match(headers,/for = "\/dashboard\/\*"/);
+ assert.match(headers,/X-Frame-Options = "SAMEORIGIN"/);
+});
