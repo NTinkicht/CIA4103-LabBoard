@@ -69,12 +69,36 @@ try{
  const frame=lecturer.frameLocator('#document-frame');
  await frame.locator('#upload').waitFor({state:'attached',timeout:10000});
  assert.match(await frame.locator('h1').first().innerText(),/Present your slides/);
+ assert.equal(await frame.locator('.library-bar').count(),0,'No second stacked file toolbar');
+ const toolbarBox=await frame.locator('.toolbar').boundingBox();
+ assert.ok(toolbarBox.height<=85,'Presentation file controls should use one compact row');
+ await frame.locator('#upload').setInputFiles({name:'class-sample.pptx',mimeType:'application/vnd.openxmlformats-officedocument.presentationml.presentation',buffer:bytes});
+ await frame.locator('#counter').waitFor({timeout:60000});
+ await lecturer.waitForFunction(()=>document.querySelector('#document-frame')?.contentDocument?.querySelector('#counter')?.textContent?.startsWith('Slide 1 of '),null,{timeout:60000});
+ const slideBox=await frame.locator('#viewer').boundingBox();
+ assert.ok(slideBox.height>420,'Slide should occupy most of the vertical viewport');
+ const initialFile=await frame.locator('#documents').inputValue();
+ assert.ok(initialFile,'Presentation should be loaded in the embedded viewer');
+
  const docsFrameBounds=await lecturer.locator('#document-frame').boundingBox();
  const railBounds=await lecturer.locator('.rail').boundingBox();
  assert.ok(docsFrameBounds.width>820,'PDF/PowerPoint viewer should use most of the lecturer workspace at desktop width');
  assert.ok(railBounds.x<35&&railBounds.width<=230,'Compact sidebar should start at left viewport edge');
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'No unrelated activity results beneath files');
  console.log('Wide Files & Slides frame:',Math.round(docsFrameBounds.width),'Sidebar width:',Math.round(railBounds.width));
+ await lecturer.locator('#rail-toggle').click();
+ assert.equal(await lecturer.locator('#rail-toggle').getAttribute('aria-expanded'),'false');
+ assert.equal(await lecturer.locator('.tool-link').first().getAttribute('aria-label'),'Live Poll');
+ const collapsedRail=await lecturer.locator('.rail').boundingBox();
+ const expandedSlides=await lecturer.locator('#document-frame').boundingBox();
+ assert.ok(collapsedRail.width<=80,'Collapsed rail should be icon-only and narrow');
+ assert.ok(expandedSlides.width>docsFrameBounds.width+110,'Sidebar collapse should materially expand slide width');
+ assert.equal(await frame.locator('#documents').inputValue(),initialFile,'Collapsing must not reload the loaded presentation');
+ assert.equal(await lecturer.evaluate(()=>localStorage.getItem('classroom-toolkit-rail-collapsed')),'true');
+ await lecturer.locator('#rail-toggle').click();
+ assert.equal(await lecturer.locator('#rail-toggle').getAttribute('aria-expanded'),'true');
+ assert.equal(await lecturer.evaluate(()=>localStorage.getItem('classroom-toolkit-rail-collapsed')),'false');
+ console.log('Compact slides toolbar and collapsible icon-only tool rail passed');
  let autoLiveLogin=null;
  await lecturer.route('**/api/live-token',async route=>{
   autoLiveLogin=JSON.parse(route.request().postData()||'{}');
