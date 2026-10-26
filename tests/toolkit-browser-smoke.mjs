@@ -69,6 +69,30 @@ try{
  const frame=lecturer.frameLocator('#document-frame');
  await frame.locator('#upload').waitFor({state:'attached',timeout:10000});
  assert.match(await frame.locator('h1').first().innerText(),/Present your slides/);
+ const docsFrameBounds=await lecturer.locator('#document-frame').boundingBox();
+ const railBounds=await lecturer.locator('.rail').boundingBox();
+ assert.ok(docsFrameBounds.width>820,'PDF/PowerPoint viewer should use most of the lecturer workspace at desktop width');
+ assert.ok(railBounds.x<35&&railBounds.width<=230,'Compact sidebar should start at left viewport edge');
+ assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'No unrelated activity results beneath files');
+ console.log('Wide Files & Slides frame:',Math.round(docsFrameBounds.width),'Sidebar width:',Math.round(railBounds.width));
+ await lecturer.locator('[data-tool="screen"]').click();
+ const screenFrame=lecturer.frameLocator('#teacher-screen-frame');
+ await screenFrame.locator('#tab-screens').waitFor({state:'visible',timeout:15000});
+ await lecturer.waitForFunction(()=>document.querySelector('#teacher-screen-frame')?.contentDocument?.querySelector('#tab-screens')?.getAttribute('aria-selected')==='true',null,{timeout:10000});
+ assert.match(await screenFrame.locator('h1').first().innerText(),/Live classroom code board/i);
+ assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'Whiteboard should not reappear below Screen Sharing');
+ const screenBounds=await lecturer.locator('#teacher-screen-frame').boundingBox();
+ assert.ok(screenBounds.width>820,'Embedded live code board should be wide');
+ // The teacher's ongoing LiveKit iframe is never recreated while changing tools.
+ await screenFrame.locator('body').evaluate(()=>{window.__persistentToolkitScreenSession=1});
+ await lecturer.locator('[data-tool="documents"]').click();
+ assert.equal(await lecturer.locator('#teacher-screen-host').isVisible(),false);
+ assert.equal(await lecturer.locator('#teacher-slides-host').isVisible(),true);
+ assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
+ await lecturer.locator('[data-tool="screen"]').click();
+ assert.equal(await screenFrame.locator('body').evaluate(()=>window.__persistentToolkitScreenSession),1);
+ assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
+ console.log('Embedded live code board, sidebar and persistent screens tested at desktop width');
  console.log('Toolkit lecturer tabs and same-origin Files & Slides iframe validated');
 
  await lecturer.locator('[data-tool="work"]').click();
