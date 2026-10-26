@@ -25,3 +25,19 @@ jobs:
       - run: npm test
       - run: node --check public/assets/toolkit-app.mjs
       - run: node --check netlify/functions/toolkit.mjs
+      - run: node --check public/assets/toolkit-presenter.mjs
+
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm install --no-save --no-audit --no-fund playwright-core@1.56.1
+      - name: Browser PPTX and fullscreen smoke test
+        run: |
+          echo "Chrome: $(command -v google-chrome || true)"
+          node tests/toolkit-browser-smoke.mjs

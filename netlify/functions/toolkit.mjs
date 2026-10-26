@@ -133,39 +133,44 @@ export async function handleToolkit(request,storeProvider=getStore){
     if(data.action==='state')return reply(await snapshot(store,room,claims));
 
     if(data.action==='library'){
-      if(claims.role!=='teacher')return fail(403,'Only lecturers may manage saved polls');
-      const operation=data.operation||'list',prefix='saved-poll/';
-      const validPoll=(p)=>p&&typeof p==='object'&&!Array.isArray(p)&&
-        validText(p.title,100)&&p.title.trim().length>=1&&validText(p.prompt,240)&&
-        Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=8&&
-        p.options.every(o=>validText(o,60)&&o.trim().length>0);
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      const operation=data.operation||'list',kind=data.kind||'poll';
+      if(!['poll','cloud','answers'].includes(kind))return fail(400,'Unknown question type');
+      // Keep the existing saved-poll prefix so previously created polls remain available.
+      const prefix=kind==='poll'?'saved-poll/':'saved-'+kind+'/';
+      const storeKind=kind==='poll'?'saved-poll':'saved-'+kind;
+      const validQuestion=p=>p&&typeof p==='object'&&!Array.isArray(p)&&
+        validText(p.title,100)&&p.title.trim().length>0&&validText(p.prompt,240)&&
+        (kind==='poll'?(Array.isArray(p.options)&&p.options.length>=2&&p.options.length<=8&&
+          p.options.every(o=>validText(o,60)&&o.trim().length>0)):
+          (typeof p.prompt==='string'&&p.prompt.trim().length>0));
       if(operation==='list'){
         const saved=(await entries(store,prefix,100)).filter(p=>!p.archived);
-        return reply({polls:saved.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))});
+        const sorted=saved.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+        return reply({items:sorted,polls:kind==='poll'?sorted:undefined});
       }
       if(operation==='save'){
-        if(!validPoll(data.poll))return fail(400,'Enter a title and 2–8 valid choices');
-        const payload={title:data.poll.title.trim(),prompt:data.poll.prompt.trim(),
-          options:data.poll.options.map(o=>o.trim()),unit:data.poll.unit==='pair'?'pair':'individual'};
+        const input=data.item||data.poll;
+        if(!validQuestion(input))return fail(400,kind==='poll'?'Title and 2–8 options required':'Enter a title and your question');
+        const payload={kind,title:input.title.trim(),prompt:input.prompt.trim(),
+          options:kind==='poll'?input.options.map(o=>o.trim()):[],
+          unit:input.unit==='pair'?'pair':'individual'};
         const id=data.id||randomUUID();
-        if(!/^[a-f0-9-]{36}$/.test(id))return fail(400,'Invalid saved poll ID');
-        const path=key('saved-poll',id),old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
-        const expected=Number(data.revision||0);
-        if((old?.data?.revision||0)!==expected||old?.data?.archived)return fail(409,'Saved poll was changed in another tab. Reload your library');
-        if(!old){
-          const count=(await store.list({prefix})).blobs.length;
-          if(count>=100)return fail(409,'Saved poll library is full (100 maximum)');
-        }
-        const result={id,...payload,revision:expected+1,createdAt:old?.data?.createdAt||new Date().toISOString(),
+        if(!/^[a-f0-9-]{36}$/i.test(id))return fail(400,'Invalid saved question ID');
+        const path=key(storeKind,id),old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+        const revision=Number(data.revision||0);
+        if((old?.data?.revision||0)!==revision||old?.data?.archived)return fail(409,'Saved question changed. Refresh your library and retry');
+        if(!old&&(await store.list({prefix})).blobs.length>=100)return fail(409,'Question library full (100 entries for this type)');
+        const result={id,...payload,revision:revision+1,createdAt:old?.data?.createdAt||new Date().toISOString(),
           updatedAt:new Date().toISOString(),archived:false};
         const saved=await store.setJSON(path,result,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
-        if(!saved.modified)return fail(409,'Concurrent update. Reload your saved polls');
-        return reply({poll:result},old?200:201);
+        if(!saved.modified)return fail(409,'Saved question changed concurrently. Reload the library');
+        return reply({item:result,poll:kind==='poll'?result:undefined},old?200:201);
       }
       if(operation==='delete'){
-        if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/.test(data.id))return fail(400,'Invalid saved poll ID');
-        const changed=await change(store,key('saved-poll',data.id),p=>({...p,archived:true,revision:p.revision+1,updatedAt:new Date().toISOString()}));
-        return changed?.error?fail(409,changed.error):changed?reply({ok:true}):fail(404,'Saved poll not found');
+        if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/i.test(data.id))return fail(400,'Invalid saved question ID');
+        const changed=await change(store,key(storeKind,data.id),p=>({...p,archived:true,revision:(p.revision||0)+1,updatedAt:new Date().toISOString()}));
+        return changed?.error?fail(409,changed.error):changed?reply({ok:true}):fail(404,'Question not found');
       }
       return fail(400,'Unknown library operation');
     }

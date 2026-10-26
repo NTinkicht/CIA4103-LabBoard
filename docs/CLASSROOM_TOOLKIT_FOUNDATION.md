@@ -93,3 +93,35 @@ Teacher-only library API: \`action: "library"\` with \`operation: "list"|"save"|
 **Safe first deployment:** This release can be published as an **early-access lesson-preparation tool** under \`/toolkit/\` following the owner's direct deployment instruction and passing CI. It does not replace or modify the old CIA4103 routes, and the source backup remains fixed. The live classroom features must still receive a real-world connection/security/scale test before a full class depends on them. In particular, screen sharing still uses the independent legacy room.
 
 **Live configuration:** \`CIA4103_TEACHER_PIN\` and either \`TOOLKIT_SESSION_SECRET\` (preferred) or \`LIVEKIT_API_SECRET\` must be present in **Netlify Functions** for the selected deployment context. A successful static deployment does not imply those secrets have been verified or that room creation works.
+
+
+## Classroom preparation: questions for three tools
+
+The lecturer's three active response tools now each support a persistent, independent question library:
+
+- **Polls:** Optional prompt, 2–8 choices, title, response unit; Save for later / Load / Update / Delete
+- **Word Cloud:** Saved title and required prompt, response unit; reuse across new rooms
+- **Live Answers:** Saved title and required question, response unit; reuse across new rooms
+
+Library API accepts \`action=library\`, \`operation=list|save|delete\`, \`kind=poll|cloud|answers\`. Existing saved polls remain under \`saved-poll/\` and are backward compatible. Each question kind has its own namespace (100-entry cap). Permission: teacher room token, created by existing lecturer PIN. A room lasts four hours but saved questions remain in site storage after the room expires. Each future room can load them.
+
+## Files & Slides — local PDF and PowerPoint presenter
+
+The new **Files & Slides** tool displays a same-origin \`/toolkit/presenter/\` viewer in the lecturer workspace and opens the standalone viewer in a new tab if desired.
+
+- Supported: \`.pptx\`, \`.ppt\`, \`.pdf\` up to 50 MB per file.
+- Lecturer selects local file; saved to browser IndexedDB (no upload of file bytes); file selector can reopen files across classroom sessions in **the same browser/device and site origin**.
+- PowerPoint uses pinned \`@web-ppt/core@0.4.5\` through the existing allowlisted jsDelivr module CDN to parse a Blob locally; the rendered slide is a sandboxed SVG image URL. Canvas-free; arrow keys, PageUp/PageDown, Home/End, slide count, and fullscreen using the native Fullscreen API.
+- PDFs appear in a native iframe backed by an in-memory blob URL and also support fullscreen.
+- If institutional network blocks CDN scripts or the deck contains unsupported fonts/effects/animations, request a PDF export or open the file in PowerPoint; rendering may differ from Office.
+- Document viewer permits same-origin iframe embedding with scoped \`X-Frame-Options: SAMEORIGIN\` and \`frame-ancestors 'self'\`. The rest of CIA4103 still retains \`DENY\` and \`frame-ancestors 'none'\`.
+
+**Security/privacy:** The selected file never goes to Netlify Functions; there is no upload endpoint. It does remain stored *unencrypted in the current browser's local IndexedDB*, so do not use private files on shared computers. The parser source is fetched from jsDelivr but not the presentation bytes. The engine's browser compatibility and rendering fidelity must be smoke-tested with a representative lecture PPTX; do not promise pixel-perfect slides, embedded fonts or animation equivalence. Original PDF lab viewer is untouched.
+
+### Release acceptance
+
+- [ ] Verify live preview with two browser profiles and teacher credentials.
+- [ ] Verify saved questions after ending classroom and starting a new room.
+- [ ] Verify imported PowerPoint slides (text, images, charts, layouts) and PDF under fullscreen; check browser privacy and network policies.
+- [ ] Confirm classroom does not disconnect when switching Files & Slides.
+- [ ] Verify CI for new library and presenter, Netlify-specific header rules and production staging before merging.
