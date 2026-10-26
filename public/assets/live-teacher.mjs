@@ -11,7 +11,7 @@ root.innerHTML=`
 <div class="stream-workspace">
  <div class="stream-main">
   <div class="stream-main-header"><div><strong id="presenter-name">No application window is being shared</strong><span id="presenter-note">Approve a student from the queue. They then select an application window.</span></div>
-  <button type="button" class="secondary" id="stream-stop-all" disabled>Put on standby</button></div>
+  <div class="stream-header-actions"><button type="button" class="secondary" id="stream-toggle-queue" aria-pressed="false">Hide students</button><button type="button" class="secondary" id="stream-stop-all" disabled>Put on standby</button></div></div>
   <div class="stream-video-stage"><video id="primary-stream-video" autoplay playsinline muted></video><p id="stream-empty">Waiting for an approved student to share an application window.</p></div>
  </div>
  <aside class="stream-sidebar" aria-label="Student waiting queue">
@@ -23,7 +23,10 @@ root.innerHTML=`
   <div id="stream-list" class="stream-cards">Connect to see the queue.</div>
  </aside>
 </div>`;
-let room=null,pin='',busy=false,changing=false,activeId=null,lastStudents=[];
+let room=null,pin='',toolkitToken=null,busy=false,changing=false,activeId=null,lastStudents=[];
+const embedded=window.parent!==window&&location.pathname.startsWith('/toolkit/screen-sharing/');
+if(embedded)document.documentElement.classList.add('toolkit-screen-embedded');
+const credentials=()=>toolkitToken?{toolkitToken}:{pin};
 const status=(msg,error=false)=>{$('stream-status').textContent=msg;$('stream-status').style.color=error?'#b74b36':'#087f78'};
 function syncSubscriptions(){
  if(!room)return;
@@ -94,7 +97,7 @@ async function refresh(){
  try{
   const response=await fetch('/api/live-participants',{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({pin}),cache:'no-store'
+   body:JSON.stringify(credentials()),cache:'no-store'
   });
   const result=await response.json();if(!response.ok)throw Error(result.error||'Unable to read student list');
   const items=Array.isArray(result.streams)?result.streams:[];
@@ -117,7 +120,7 @@ async function switchTo(identity){
  try{
   const response=await fetch('/api/live-control',{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({pin,action:identity?'approve':'stop',identity:identity||undefined})
+   body:JSON.stringify({...credentials(),action:identity?'approve':'stop',identity:identity||undefined})
   });
   const data=await response.json();if(!response.ok)throw Error(data.error||'Could not switch presenters');
   status(identity?'Selected stream resumes automatically if the student is already sharing.':'Stream hidden; student capture stays in standby.');
@@ -125,6 +128,11 @@ async function switchTo(identity){
  finally{changing=false;await refresh();}
 }
 $('stream-stop-all').addEventListener('click',()=>switchTo(null));
+$('stream-toggle-queue').addEventListener('click',()=>{
+ const collapsed=root.classList.toggle('queue-collapsed');
+ $('stream-toggle-queue').textContent=collapsed?'Show students':'Hide students';
+ $('stream-toggle-queue').setAttribute('aria-pressed',String(collapsed));
+});
 function onSubscribed(track,pub,p){
  if(pub.source!==LivekitClient.Track.Source.ScreenShare||track.kind!=='video')return;
  if(p.identity!==activeId){pub.setSubscribed(false);return;}
@@ -134,19 +142,18 @@ function onUnsubscribed(track,pub,p){
  if(pub.source!==LivekitClient.Track.Source.ScreenShare)return;
  track.detach();if(p.identity===activeId)updateViewer();
 }
-$('stream-connect').addEventListener('click',async()=>{
+async function connectLecturer(auth){
  if(room)return;
  if(!window.LivekitClient){status('LiveKit library is unavailable. Check your network.',true);return;}
- const value=$('stream-pin').value;
- if(!value){status('Enter your private lecturer PIN.',true);return;}
+ if(!auth?.toolkitToken&&!auth?.pin){status('Enter your private lecturer PIN.',true);return;}
  $('stream-connect').disabled=true;status('Connecting to the classroom…');
  try{
   const response=await fetch('/api/live-token',{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({role:'teacher',pin:value})
+   body:JSON.stringify({role:'teacher',...auth})
   });
   const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to authorize lecturer');
-  pin=value;room=new LivekitClient.Room({adaptiveStream:true});
+  pin=auth.pin||'';toolkitToken=auth.toolkitToken||null;room=new LivekitClient.Room({adaptiveStream:true});
   room.on(LivekitClient.RoomEvent.TrackSubscribed,onSubscribed);
   room.on(LivekitClient.RoomEvent.TrackUnsubscribed,onUnsubscribed);
   room.on(LivekitClient.RoomEvent.TrackPublished,()=>{if(room){syncSubscriptions();refresh();}});
@@ -154,7 +161,7 @@ $('stream-connect').addEventListener('click',async()=>{
   room.on(LivekitClient.RoomEvent.ParticipantConnected,()=>{syncSubscriptions();refresh();});
   room.on(LivekitClient.RoomEvent.ParticipantDisconnected,()=>refresh());
   room.on(LivekitClient.RoomEvent.Disconnected,()=>{
-   activeId=null;room=null;pin='';$('stream-leave').disabled=true;$('stream-connect').disabled=false;
+   activeId=null;room=null;pin='';toolkitToken=null;$('stream-leave').disabled=true;$('stream-connect').disabled=false;
    $('stream-list').replaceChildren();updateViewer();status('Classroom connection closed.');
   });
   await room.connect(data.url,data.token,{autoSubscribe:false});
@@ -162,11 +169,26 @@ $('stream-connect').addEventListener('click',async()=>{
  }catch(err){
   status('Could not connect: '+err.message,true);
   if(room)await room.disconnect().catch(()=>{});
-  room=null;pin='';$('stream-connect').disabled=false;
+  room=null;pin='';toolkitToken=null;$('stream-connect').disabled=false;
  }
-});
+}
+
+$('stream-connect').addEventListener('click',()=>connectLecturer({pin:$('stream-pin').value}));
+if(embedded){
+  // The parent Toolkit is already authenticated. Never transmit its teacher token
+  // through the iframe URL, a query string, the DOM or a third-party host.
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin||event.source!==window.parent)return;
+    if(event.data?.type!=='toolkit:lecturer-session')return;
+    if(typeof event.data.token!=='string'||event.data.token.length>2200)return;
+    if(room||$('stream-connect').disabled)return;
+    void connectLecturer({toolkitToken:event.data.token});
+  });
+  window.parent.postMessage({type:'toolkit:screen-ready'},location.origin);
+}
+
 $('stream-leave').addEventListener('click',async()=>{
- if(room)await room.disconnect();room=null;pin='';activeId=null;
+ if(room)await room.disconnect();room=null;pin='';toolkitToken=null;activeId=null;
  $('stream-connect').disabled=false;$('stream-leave').disabled=true;$('stream-list').replaceChildren();updateViewer();
  status('Disconnected from the classroom.');
 });
