@@ -2,9 +2,9 @@ const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides'};
+const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides',work:'Work & Problems'};
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -23,7 +23,7 @@ const noResults=(txt='Waiting for responses…')=>'<div class="empty"><span clas
 function notices(){return '<div id="notice" class="notice" role="status" aria-live="polite"></div>'}
 function btn(text,cls='primary',id='',extra=''){return '<button class="'+cls+'" '+(id?'id="'+id+'"':'')+' '+extra+'>'+text+'</button>'}
 function welcome(){
- stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.savedPolls=[];state.savedQuestionSets={poll:[],cloud:[],answers:[]};state.editingPollId=null;state.editingRevision=0;setRoom(null);connected(null);
+ stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.studentTab='activities';state.studentName='';state.workImage=null;state.shareLoaded=false;state.workItems=[];state.savedPolls=[];state.savedQuestionSets={poll:[],cloud:[],answers:[]};state.editingPollId=null;state.editingRevision=0;setRoom(null);connected(null);
  app.className='container';
  app.innerHTML='<div class="join-shell"><section class="join-card"><p class="eyebrow">Welcome to your teaching companion</p><h1>Make every voice part of the room.</h1><p style="max-width:515px;margin-top:15px">Live polls, open answers, word clouds and screen sharing. No course setup. No new link for every question.</p><div class="entry-grid"><div class="entry-card"><span class="entry-icon">↗</span><h3>Join as student</h3><p>Enter your room code once, then respond to activities on any device.</p>'+btn('Join classroom →','primary','open-student')+'</div><div class="entry-card"><span class="entry-icon">▦</span><h3>Start as lecturer</h3><p>Create a classroom and choose your teaching tools as you go.</p>'+btn('Start classroom →','secondary','open-teacher')+'</div></div>'+notices()+'</section></div>';
  $('open-student').onclick=joinForm;$('open-teacher').onclick=teacherForm;
@@ -33,7 +33,7 @@ function joinForm(){
  $('back').onclick=welcome;
  $('join-form').onsubmit=async e=>{e.preventDefault();const button=$('join-submit');button.disabled=true;
   try{const data=await request('join',{code:$('room-code').value.trim(),name:$('join-name').value.trim(),team:$('pair').value.trim()});
-   state.role='student';state.room=data.code;state.token=data.token;state.lastStudentKey=null;sessionStorage.setItem('classroom-student',JSON.stringify(data));
+   state.role='student';state.room=data.code;state.token=data.token;state.studentName=$('join-name').value.trim();state.lastStudentKey=null;data.name=state.studentName;sessionStorage.setItem('classroom-student',JSON.stringify(data));
    shell();await refresh();}catch(err){announce(err.message,true);button.disabled=false}
  };
 }
@@ -68,7 +68,7 @@ function shell(){
  startPolling();
 }
 function teacherShell(){
- const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['documents','▧','Files & Slides']];
+ const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['documents','▧','Files & Slides']];
  app.innerHTML='<div class="workspace"><aside class="rail"><p class="rail-title">Interactive tools</p><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span>'+text+'</button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div id="tool-config"></div></section><section class="surface"><div class="results-head"><div><p class="eyebrow">Live classroom</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></section>'+notices()+'</div></div>';
  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{state.tool=b.dataset.tool;configTool()});
  $('copy-link').onclick=()=>copyLink(location.origin+'/toolkit/?code='+encodeURIComponent(state.room));
@@ -85,7 +85,7 @@ function teacherShell(){
 function configTool(){
  document.querySelectorAll('[data-tool]').forEach(b=>{const on=b.dataset.tool===state.tool;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false')});
  $('tool-title').textContent=NAMES[state.tool];
- const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.'};
+ const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='screen'){
  $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Your existing screen sharing is preserved</strong><p>Opening the original dashboard does not disconnect this toolkit room. Multi-room screen sharing is under development and is not yet synchronized with the toolkit roster.</p></div><span style="font-size:35px" aria-hidden="true">▣</span></div><div class="buttons"><a href="/dashboard/" target="_blank" rel="noopener" class="tool-link active">Open lecturer screen sharing ↗</a><a href="/live/" target="_blank" rel="noopener" class="tool-link">Student share page ↗</a></div>';return;
@@ -94,6 +94,12 @@ function configTool(){
  if(state.tool==='documents'){
   $('tool-config').innerHTML='<div class="tool-feature"><div><strong>PowerPoint & PDF presentation viewer</strong><p>Add a PPTX (or legacy PPT) or PDF directly from your computer. Open fullscreen, navigate with arrow keys, and return to your teaching tools. Files stay on this browser and are never uploaded.</p></div><span style="font-size:35px" aria-hidden="true">▧</span></div><div class="buttons">'+btn('Open PowerPoint / PDF viewer ↗','primary','open-presenter')+'</div><div class="presenter-embed"><iframe id="document-frame" title="PowerPoint and PDF viewer" src="/toolkit/presenter/" allowfullscreen allow="fullscreen"></iframe></div>';
   $('open-presenter').onclick=()=>window.open('/toolkit/presenter/','_blank','noopener');
+  return;
+ }
+ if(state.tool==='work'){
+  $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Student solutions & problems</strong><p>Students share code, notes or screenshots without leaving their classroom. Their submissions are private to your room.</p></div><span aria-hidden="true" style="font-size:34px">▤</span></div><div class="buttons">'+btn('↻ Refresh student work','secondary','work-reload')+'</div><div id="teacher-work-list" class="teacher-work-list">'+loading('Loading student submissions…')+'</div>';
+  $('work-reload').onclick=loadStudentWork;
+  void loadStudentWork();
   return;
  }
  const common='<label for="response-unit">Response mode</label><select id="response-unit"><option value="individual">Individual response</option><option value="pair">One answer per pair</option></select>';
@@ -251,8 +257,124 @@ function renderTeacher(snapshot){
  syncClock();
 }
 function studentShell(){
- app.innerHTML='<section class="surface student-main"><div class="headrow"><div><p class="eyebrow">Connected to the classroom</p><h1>Room '+esc(state.room)+'</h1><p>When your lecturer opens a tool, your activity will appear here automatically.</p></div><span class="pill">● Joined</span></div><div id="student-work" class="student-activity">'+loading('Waiting for a question…')+'</div>'+notices()+'<div class="student-note">Need to show your work? <a href="/live/" target="_blank" rel="noopener">Request to share your application window ↗</a> — a separate legacy screen-sharing queue for now.</div></section>';
+ state.studentTab='activities';state.shareLoaded=false;state.workImage=null;
+ app.innerHTML='<section class="surface student-main unified-student">'+
+  '<div class="headrow"><div><p class="eyebrow">Student classroom</p><h1>You are in Room '+esc(state.room)+'</h1><p>Everything you need is here. Switch tools without leaving your classroom.</p></div><span class="pill">● Connected</span></div>'+
+  '<nav class="student-tabs" role="tablist" aria-label="Student classroom tools">'+
+  '<button type="button" role="tab" aria-selected="true" aria-controls="student-activities-panel" id="tab-activities" class="student-tab active" data-student-tab="activities"><span aria-hidden="true">▦</span><strong>Activities</strong></button>'+
+  '<button type="button" role="tab" aria-selected="false" aria-controls="student-screen-panel" id="tab-screen" class="student-tab" data-student-tab="screen"><span aria-hidden="true">▣</span><strong>Screen Share</strong></button>'+
+  '<button type="button" role="tab" aria-selected="false" aria-controls="student-work-panel" id="tab-work" class="student-tab" data-student-tab="work"><span aria-hidden="true">✎</span><strong>Share Work / Problem</strong></button>'+
+  '</nav>'+
+  '<div class="student-panel" role="tabpanel" id="student-activities-panel" aria-labelledby="tab-activities"><div id="student-work" class="student-activity">'+loading('Waiting for a question…')+'</div></div>'+
+  '<div class="student-panel" role="tabpanel" id="student-screen-panel" aria-labelledby="tab-screen" hidden>'+
+   '<div class="student-panel-intro"><h2>Share your application window</h2><p>Join the teacher’s sharing queue, then choose a window when you are approved. Switching tabs will not stop your capture. Use <strong>Stop sharing</strong> to end it.</p></div>'+
+   '<iframe id="embedded-screen-share" title="Student screen-sharing controls" src="about:blank" loading="eager" allow="display-capture; fullscreen" referrerpolicy="no-referrer"></iframe>'+
+  '</div>'+
+  '<div class="student-panel" role="tabpanel" id="student-work-panel" aria-labelledby="tab-work" hidden>'+
+   '<div class="student-panel-intro"><h2>Share your work or ask for help</h2><p>Send your solution, describe a problem or attach a screenshot. Your lecturer receives it in the same room.</p></div>'+
+   '<form id="work-form" class="work-form">'+
+    '<div class="work-type-group" role="group" aria-label="What are you sharing?">'+
+    '<button type="button" class="work-type" id="work-problem" aria-pressed="true" data-work-kind="problem">I need help</button>'+
+    '<button type="button" class="work-type" id="work-solution" aria-pressed="false" data-work-kind="solution">I have a solution</button>'+
+    '</div>'+
+    '<label for="work-topic">Topic or task <span class="small">(optional)</span></label><input id="work-topic" maxlength="120" placeholder="e.g. Task 3 · Analysis · My project">'+
+    '<label for="work-note">Your explanation <span class="small">(optional if you add text or a screenshot)</span></label><textarea id="work-note" maxlength="1500" rows="3" placeholder="Describe your problem or explain what you achieved…"></textarea>'+
+    '<label for="work-code">Code, calculation or supporting text <span class="small">(optional)</span></label><textarea id="work-code" maxlength="5000" rows="5" class="work-code" placeholder="Paste code, an error message, or your working…"></textarea>'+
+    '<label for="work-file">Screenshot <span class="small">(optional · PNG, JPG or WebP)</span></label><input type="file" id="work-file" accept="image/png,image/jpeg,image/webp">'+
+    '<div class="work-preview" id="work-preview" hidden><img id="work-thumbnail" alt="Your screenshot preview"><button id="work-remove-image" type="button" class="ghost">Remove screenshot</button></div>'+
+    '<div class="buttons">'+btn('Send to lecturer →','primary','send-work','type="submit"')+'</div>'+
+    '<p id="work-status" class="work-status" role="status" aria-live="polite">Your submission is visible only to the lecturer.</p>'+
+   '</form>'+
+  '</div>'+
+  notices()+'</section>';
+ document.querySelectorAll('[data-student-tab]').forEach(button=>button.addEventListener('click',()=>switchStudentTab(button.dataset.studentTab)));
+ document.querySelectorAll('[data-work-kind]').forEach(button=>button.addEventListener('click',()=>{
+  state.workKind=button.dataset.workKind;
+  document.querySelectorAll('[data-work-kind]').forEach(x=>{const active=x.dataset.workKind===state.workKind;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active))});
+ }));
+ $('work-file').onchange=onWorkFile;
+ $('work-remove-image').onclick=()=>{state.workImage=null;$('work-file').value='';$('work-preview').hidden=true};
+ $('work-form').onsubmit=submitStudentWork;
 }
+function switchStudentTab(tab){
+ if(!['activities','screen','work'].includes(tab))return;
+ state.studentTab=tab;
+ for(const button of document.querySelectorAll('[data-student-tab]')){
+  const active=button.dataset.studentTab===tab;button.classList.toggle('active',active);
+  button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;
+ }
+ for(const panel of ['activities','screen','work'])$('student-'+panel+'-panel').hidden=panel!==tab;
+ if(tab==='screen'&&!state.shareLoaded){
+  state.shareLoaded=true;
+  try{sessionStorage.setItem('cia4103-share-profile',JSON.stringify({name:state.studentName||'Student'}))}catch{}
+  $('embedded-screen-share').src='/live/?embed=1';
+ }
+}
+async function onWorkFile(){
+ const file=$('work-file').files?.[0];state.workImage=null;$('work-preview').hidden=true;
+ if(!file)return;
+ if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>8*1024*1024){
+  $('work-status').textContent='Choose a PNG, JPG or WebP image under 8 MB.';return;
+ }
+ try{
+  const bmp=await createImageBitmap(file);
+  if(bmp.width*bmp.height>20000000){bmp.close?.();throw Error('Screenshot is too large (20 megapixels maximum)')}
+  let scale=Math.min(1,1250/bmp.width,1000/bmp.height),url=null;
+  for(let i=0;i<4;i++){
+   const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*scale));c.height=Math.max(1,Math.round(bmp.height*scale));
+   c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+   const blob=await new Promise(resolve=>c.toBlob(resolve,'image/webp',0.76-i*.11));
+   if(!blob)throw Error('Could not compress screenshot');
+   url=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('Could not read screenshot'));reader.readAsDataURL(blob)});
+   if(url.length<=440000)break;scale*=.75;url=null;
+  }
+  bmp.close?.();
+  if(!url)throw Error('Screenshot remains too large. Crop it and retry');
+  state.workImage=url;$('work-thumbnail').src=url;$('work-preview').hidden=false;
+  $('work-status').textContent='Screenshot attached and compressed for your lecturer.';
+ }catch(e){$('work-status').textContent=e.message}
+}
+async function submitStudentWork(e){
+ e.preventDefault();
+ const button=$('send-work');button.disabled=true;
+ const payload={token:state.token,operation:'submit',kind:state.workKind,topic:$('work-topic').value.trim(),
+   note:$('work-note').value.trim(),code:$('work-code').value.trim(),image:state.workImage};
+ try{
+  await request('work',payload);
+  $('work-form').reset();state.workImage=null;$('work-preview').hidden=true;
+  state.workKind='problem';
+  document.querySelectorAll('[data-work-kind]').forEach(x=>{const active=x.dataset.workKind==='problem';x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active))});
+  $('work-status').textContent='✓ Shared successfully! Your lecturer can now see it.';
+  announce('Your work was sent to the lecturer.');
+ }catch(err){$('work-status').textContent=err.message;announce(err.message,true)}
+ finally{button.disabled=false}
+}
+async function loadStudentWork(){
+ if(state.role!=='teacher')return;
+ const container=$('teacher-work-list');if(!container)return;
+ try{
+  const result=await request('work',{token:state.token,operation:'list'});
+  state.workItems=result.items||[];
+  if(!state.workItems.length){container.innerHTML=noResults('Student solutions and problems will appear here.');return}
+  container.innerHTML=state.workItems.map(item=>'<article class="answer-card work-card">'+
+   '<div class="work-meta"><span class="pill '+(item.kind==='problem'?'warn':'')+'">'+(item.kind==='problem'?'Needs help':'Solution')+'</span> <span>'+esc(item.name)+' · '+esc(new Date(item.submittedAt).toLocaleTimeString())+'</span></div>'+
+   (item.topic?'<h3>'+esc(item.topic)+'</h3>':'')+
+   (item.note?'<div class="answer-text">'+esc(item.note)+'</div>':'')+
+   (item.code?'<pre class="work-snippet">'+esc(item.code)+'</pre>':'')+
+   (item.hasImage?'<div class="buttons">'+btn('View screenshot','secondary','', 'data-work-image="'+esc(item.id)+'"')+'</div><div id="work-image-'+esc(item.id)+'" class="work-image-view"></div>':'')+
+   '</article>').join('');
+  container.querySelectorAll('[data-work-image]').forEach(button=>button.onclick=async()=>{
+   button.disabled=true;
+   try{
+    const response=await request('work',{token:state.token,operation:'image',id:button.dataset.workImage});
+    const target=$('work-image-'+button.dataset.workImage);target.replaceChildren();
+    const img=document.createElement('img');img.src=response.image;img.alt='Student submitted screenshot';
+    target.append(img);button.textContent='Screenshot loaded';
+   }catch(e){announce(e.message,true);button.disabled=false}
+  });
+ }catch(e){container.innerHTML=noResults('Unable to load student work.');announce(e.message,true)}
+}
+
 function renderStudent(snapshot){
  const r=snapshot.active,area=$('student-work');
  if(!r){state.lastStudentKey=null;area.innerHTML=noResults('Your lecturer will launch an activity. Stay on this page.');return}
@@ -367,7 +489,7 @@ function restore(){
   try{
    const saved=JSON.parse(sessionStorage.getItem(storageKey)||'null');
    if(saved&&saved[key]&&/^[0-9]{6}$/.test(String(saved.code))){
-    state.role=role;state.room=saved.code;state.token=saved[key];state.displayToken=saved.displayToken||null;
+    state.role=role;state.room=saved.code;state.token=saved[key];state.displayToken=saved.displayToken||null;state.studentName=saved.name||'';
     shell();refresh();return true;
    }
   }catch{/* Invalid stored session */}
