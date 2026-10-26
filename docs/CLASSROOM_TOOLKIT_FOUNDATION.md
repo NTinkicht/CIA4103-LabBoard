@@ -82,3 +82,14 @@ Do not expose the PIN or signing secret in the frontend, GitHub, URLs or screens
 This development branch is a **foundation, not a release**. Keep PR in draft. Formal acceptance only after security gaps, multi-room media integration and end-to-end tests are resolved.
 
 Tracked in [Issue #2](https://github.com/NTinkicht/CIA4103-LabBoard/issues/2).
+
+
+## Saved Polls — lecturer lesson preparation
+
+The lecturer can prepare a poll with a title, optional prompt, 2–8 choices and individual/pair mode, and press **Save for later**. The poll is stored in the site's Netlify Blobs store as a versioned saved poll, **not** merely in browser localStorage or in the temporary classroom room. On future visits, the lecturer creates a new classroom with the same PIN and sees their **My saved polls** library, and can Load → Edit/Update → Start when ready. The library is intended for one lecturer administering this site, not multi-user access control. Currently 100 stored poll slots maximum, including archived entries.
+
+Teacher-only library API: \`action: "library"\` with \`operation: "list"|"save"|"delete"\`; classroom tokens authorize the request. Question library remains usable across successive room sessions, but each room code is temporary (four-hour expiry). Do not put student-identifying information into saved poll titles or questions.
+
+**Safe first deployment:** This release can be published as an **early-access lesson-preparation tool** under \`/toolkit/\` following the owner's direct deployment instruction and passing CI. It does not replace or modify the old CIA4103 routes, and the source backup remains fixed. The live classroom features must still receive a real-world connection/security/scale test before a full class depends on them. In particular, screen sharing still uses the independent legacy room.
+
+**Live configuration:** \`CIA4103_TEACHER_PIN\` and either \`TOOLKIT_SESSION_SECRET\` (preferred) or \`LIVEKIT_API_SECRET\` must be present in **Netlify Functions** for the selected deployment context. A successful static deployment does not imply those secrets have been verified or that room creation works.
