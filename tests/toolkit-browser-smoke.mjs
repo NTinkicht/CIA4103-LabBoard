@@ -100,6 +100,7 @@ try{
  await student.locator('#embedded-screen-share').waitFor({state:'visible',timeout:8000});
  const share=student.frameLocator('#embedded-screen-share');
  await share.locator('#name').waitFor({state:'visible',timeout:8000});
+ await student.waitForFunction(()=>document.querySelector('#embedded-screen-share')?.contentDocument?.querySelector('#name')?.value==='Student One',null,{timeout:10000});
  assert.equal(await share.locator('#name').inputValue(),'Student One');
  await share.locator('body').evaluate(()=>{window.__preserveIframeOnTabSwitch=true});
  await student.locator('#tab-work').click();
