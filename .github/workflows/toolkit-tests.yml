@@ -25,3 +25,4 @@ jobs:
       - run: npm test
       - run: node --check public/assets/toolkit-app.mjs
       - run: node --check netlify/functions/toolkit.mjs
+      - run: node --check public/assets/toolkit-presenter.mjs
