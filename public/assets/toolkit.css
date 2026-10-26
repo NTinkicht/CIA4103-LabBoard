@@ -197,3 +197,53 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .lecturer-layout.screen-focus .mainstack>.surface:first-child{padding:10px 8px}
  .lecturer-layout.screen-focus #teacher-screen-frame{height:72vh;min-height:500px}
 }
+
+
+/* Collapsible lecturer navigation; tool names remain available to screen readers
+   and via title tooltips when the bar is icon-only. */
+.lecturer-layout .rail-top{display:flex;align-items:center;justify-content:space-between;gap:5px;min-height:41px;padding:0 5px 8px}
+.lecturer-layout .rail-top .rail-title{margin:0;padding:6px 7px;font-size:10px}
+.lecturer-layout .rail-toggle{
+  flex:0 0 auto;width:36px;height:36px;border-radius:10px;border:1px solid #dbe5f0;
+  background:#f1f6fc;color:#245f90;font-weight:800;font-size:19px;display:grid;place-items:center
+}
+.lecturer-layout .rail-toggle:hover{background:#e0eefc}
+.lecturer-layout .tool-link .tool-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.lecturer-layout.rail-collapsed .workspace{grid-template-columns:64px minmax(0,1fr);gap:12px}
+.lecturer-layout.rail-collapsed .rail{padding:12px 6px}
+.lecturer-layout.rail-collapsed .rail-top{padding:0 0 10px;justify-content:center}
+.lecturer-layout.rail-collapsed .rail-title,.lecturer-layout.rail-collapsed .tool-text,
+.lecturer-layout.rail-collapsed .rail-divider,.lecturer-layout.rail-collapsed .rail-code,
+.lecturer-layout.rail-collapsed .rail-actions{display:none}
+.lecturer-layout.rail-collapsed #tool-nav{display:flex;flex-direction:column;gap:4px;min-width:0}
+.lecturer-layout.rail-collapsed .tool-link{justify-content:center;min-height:46px;
+  padding:9px 5px;margin:0;gap:0;width:100%;border-radius:10px}
+.lecturer-layout.rail-collapsed .tool-icon{min-width:0;font-size:21px}
+
+/* Presentation-first layout: remove redundant outer heading/copy and expand the iframe. */
+.lecturer-layout.slides-focus .mainstack{gap:0}
+.lecturer-layout.slides-focus .mainstack>.surface:first-child{padding:10px 12px 12px}
+.lecturer-layout.slides-focus .mainstack>.surface:first-child .headrow{
+ align-items:center;min-height:33px;gap:6px
+}
+.lecturer-layout.slides-focus .mainstack>.surface:first-child .headrow h1{
+ font-size:19px;line-height:1.2;margin:0
+}
+.lecturer-layout.slides-focus .headrow .eyebrow,
+.lecturer-layout.slides-focus .headrow .pill,
+.lecturer-layout.slides-focus #tool-description{display:none}
+.lecturer-layout.slides-focus #teacher-slides-host{margin-top:9px;border-radius:10px}
+.lecturer-layout.slides-focus #document-frame{
+ height:calc(100dvh - 162px);min-height:580px;max-height:none
+}
+@media(max-width:950px){
+ .lecturer-layout.rail-collapsed .workspace{grid-template-columns:minmax(0,1fr)}
+ .lecturer-layout.rail-collapsed .rail{width:64px;min-height:60px;justify-self:start}
+ .lecturer-layout.rail-collapsed #tool-nav{display:none}
+ .lecturer-layout.slides-focus #document-frame{height:calc(100dvh - 205px);min-height:540px}
+}
+@media(max-width:590px){
+ .lecturer-layout.slides-focus .mainstack>.surface:first-child{padding:8px}
+ .lecturer-layout.slides-focus #document-frame{height:78dvh;min-height:470px}
+ .lecturer-layout .rail-top{padding-bottom:4px}
+}

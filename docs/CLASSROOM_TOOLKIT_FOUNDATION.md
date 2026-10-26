@@ -217,3 +217,15 @@ Screen Sharing now focuses on the video:
 - Student selection still uses the legacy shared LiveKit room; genuine per-Toolkit-room LiveKit isolation remains a future engineering task.
 
 Acceptance: source tests for role/expiry/tamper checks and real Chrome test confirming no second PIN, same-origin session handoff and compact screen viewport. Production remains unchanged until branch checks are green.
+
+
+## Compact Files & Slides and collapsible lecturer navigation
+
+To maximize the teaching display:
+- **Files & Slides** uses a compact outer tool label and hides redundant descriptive text and badges. Inside the local PowerPoint/PDF viewer, the separate header and file library row are combined into **one small toolbar** (select presentation, Remove, Add file, Fullscreen). The slide takes the remaining viewport height; the existing PPTX parser, IndexedDB documents, keyboard navigation and native fullscreen are unchanged.
+- The lecturer rail has an always-accessible **Collapse/Expand sidebar** button. The expanded rail is 216 px; collapsed desktop rail is about **64 px** and shows only recognizable tool icons with accessible names and tooltips. The working space takes the reclaimed width. On smaller screens, collapsed navigation leaves an Expand control to bring back the full tool list.
+- Collapse preference is saved in localStorage and restored when the lecturer returns or refreshes. It never affects student navigation.
+- Switching tools or collapsing the rail does not unmount the PDF/PPTX iframe or the persistent LiveKit screen-sharing iframe, so an opened presentation and standby/live screen remain undisturbed.
+- If a lecturer chooses browser native fullscreen, only the presentation canvas is fullscreen; toolbars remain available outside fullscreen for changing files. Slides remain centered and are never distorted to fill an incompatible aspect ratio.
+
+Acceptance tests verify toolbar height, real PPTX loaded in embedded viewer, slide display height, collapsible rail width/expanded iframe gain, accessibility labels, preference persistence and loaded file continuity.

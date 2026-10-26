@@ -21,3 +21,36 @@ button:focus-visible,select:focus-visible,.file-button:focus-visible{outline:3px
 .message.error{color:#ae2e47;background:#fff3f4}
 .presentation:fullscreen{width:100vw;height:100vh}.presentation:fullscreen .slide-control{background:rgba(8,16,29,.94)}
 @media(max-width:720px){.toolbar{padding:10px;gap:8px}.library-bar{padding:10px;flex-wrap:wrap}.help{display:none}.identity small{display:none}.actions{gap:5px}.file-button,.actions button{font-size:12px;padding:9px}.slide-control{gap:6px}.slide-control button{font-size:12px;padding:8px}.message{padding:8px}}
+
+
+/* Compact classroom presentation controls; keep the projected slide dominant. */
+.presenter-app{min-height:0;height:100dvh}
+.toolbar{
+  min-height:56px;padding:8px 13px;gap:9px;flex-wrap:nowrap;
+  align-items:center;background:#fff
+}
+.toolbar label.file-label{font-size:12px;color:#5c748b;font-weight:750;white-space:nowrap}
+.toolbar select{
+  flex:1;min-width:130px;max-width:none;overflow:hidden;text-overflow:ellipsis;
+  padding:8px 10px;border:1px solid #d5e0ea;border-radius:9px;
+  color:#21394e;background:#fcfdff;min-height:39px
+}
+.toolbar-actions{display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0}
+.toolbar button,.toolbar .file-button{font-size:12px;line-height:1.2;min-height:38px;padding:9px 12px}
+.toolbar .file-button{margin:0}
+.toolbar .remove-file{background:#fff;border-color:#d7e1ea;color:#738496}
+.toolbar .primary{background:#1d70ba;color:#fff;border-color:#1d70ba}
+.presentation{min-height:0}
+.slide-control{min-height:43px;gap:12px}
+.slide-control button{padding:5px 12px;min-height:31px}
+.message{padding:5px 12px;min-height:26px;max-height:29px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:720px){
+ .toolbar{padding:7px 9px;gap:6px;flex-wrap:wrap;min-height:54px}
+ .toolbar label.file-label{display:none}
+ .toolbar select{min-width:155px;flex:1 1 170px}
+ .toolbar-actions{margin:0;gap:5px}
+ .toolbar button,.toolbar .file-button{padding:7px 9px;font-size:11px}
+ .toolbar .remove-file{padding:7px 8px}
+ .slide-control{gap:5px}
+ .slide-control button{padding:5px 8px}
+}
