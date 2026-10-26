@@ -2,9 +2,9 @@ const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing'};
-const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣'};
-const state={role:null,token:null,displayToken:null,room:null,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],editingPollId:null,editingRevision:0};
+const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides'};
+const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
+const state={role:null,token:null,displayToken:null,room:null,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -23,7 +23,7 @@ const noResults=(txt='Waiting for responses…')=>'<div class="empty"><span clas
 function notices(){return '<div id="notice" class="notice" role="status" aria-live="polite"></div>'}
 function btn(text,cls='primary',id='',extra=''){return '<button class="'+cls+'" '+(id?'id="'+id+'"':'')+' '+extra+'>'+text+'</button>'}
 function welcome(){
- stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.savedPolls=[];state.editingPollId=null;state.editingRevision=0;setRoom(null);connected(null);
+ stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.savedPolls=[];state.savedQuestionSets={poll:[],cloud:[],answers:[]};state.editingPollId=null;state.editingRevision=0;setRoom(null);connected(null);
  app.className='container';
  app.innerHTML='<div class="join-shell"><section class="join-card"><p class="eyebrow">Welcome to your teaching companion</p><h1>Make every voice part of the room.</h1><p style="max-width:515px;margin-top:15px">Live polls, open answers, word clouds and screen sharing. No course setup. No new link for every question.</p><div class="entry-grid"><div class="entry-card"><span class="entry-icon">↗</span><h3>Join as student</h3><p>Enter your room code once, then respond to activities on any device.</p>'+btn('Join classroom →','primary','open-student')+'</div><div class="entry-card"><span class="entry-icon">▦</span><h3>Start as lecturer</h3><p>Create a classroom and choose your teaching tools as you go.</p>'+btn('Start classroom →','secondary','open-teacher')+'</div></div>'+notices()+'</section></div>';
  $('open-student').onclick=joinForm;$('open-teacher').onclick=teacherForm;
@@ -68,7 +68,7 @@ function shell(){
  startPolling();
 }
 function teacherShell(){
- const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing']];
+ const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['documents','▧','Files & Slides']];
  app.innerHTML='<div class="workspace"><aside class="rail"><p class="rail-title">Interactive tools</p><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span>'+text+'</button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div id="tool-config"></div></section><section class="surface"><div class="results-head"><div><p class="eyebrow">Live classroom</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></section>'+notices()+'</div></div>';
  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{state.tool=b.dataset.tool;configTool()});
  $('copy-link').onclick=()=>copyLink(location.origin+'/toolkit/?code='+encodeURIComponent(state.room));
@@ -78,24 +78,32 @@ function teacherShell(){
   try{await request('control',{token:state.token,control:'end'});sessionStorage.removeItem('classroom-teacher');welcome();}catch(e){announce(e.message,true)}
  };
  configTool();
- void loadSavedPolls();
+ void loadSavedQuestions('poll');
+ void loadSavedQuestions('answers');
+ void loadSavedQuestions('cloud');
 }
 function configTool(){
  document.querySelectorAll('[data-tool]').forEach(b=>{const on=b.dataset.tool===state.tool;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false')});
  $('tool-title').textContent=NAMES[state.tool];
- const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.'};
+ const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='screen'){
  $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Your existing screen sharing is preserved</strong><p>Opening the original dashboard does not disconnect this toolkit room. Multi-room screen sharing is under development and is not yet synchronized with the toolkit roster.</p></div><span style="font-size:35px" aria-hidden="true">▣</span></div><div class="buttons"><a href="/dashboard/" target="_blank" rel="noopener" class="tool-link active">Open lecturer screen sharing ↗</a><a href="/live/" target="_blank" rel="noopener" class="tool-link">Student share page ↗</a></div>';return;
+ }
+
+ if(state.tool==='documents'){
+  $('tool-config').innerHTML='<div class="tool-feature"><div><strong>PowerPoint & PDF presentation viewer</strong><p>Add a PPTX (or legacy PPT) or PDF directly from your computer. Open fullscreen, navigate with arrow keys, and return to your teaching tools. Files stay on this browser and are never uploaded.</p></div><span style="font-size:35px" aria-hidden="true">▧</span></div><div class="buttons">'+btn('Open PowerPoint / PDF viewer ↗','primary','open-presenter')+'</div><div class="presenter-embed"><iframe id="document-frame" title="PowerPoint and PDF viewer" src="/toolkit/presenter/" allowfullscreen allow="fullscreen"></iframe></div>';
+  $('open-presenter').onclick=()=>window.open('/toolkit/presenter/','_blank','noopener');
+  return;
  }
  const common='<label for="response-unit">Response mode</label><select id="response-unit"><option value="individual">Individual response</option><option value="pair">One answer per pair</option></select>';
  const prompt='<label for="question">Your question <span class="small">(optional — ask it verbally or show on your slides)</span></label><input id="question" maxlength="240" placeholder="No need to type a question">';
  let controls='';
  if(state.tool==='poll'){
  controls='<label for="poll-title">Saved poll title <span class="small">(for your preparation library)</span></label><input id="poll-title" maxlength="100" placeholder="e.g. Week 8 — Process vs Cycle Time">'+prompt+'<div class="subhead" style="margin-top:22px"><h3>Voting choices</h3><span class="pill grey">2–8 options</span></div><div class="option-grid" id="poll-options"></div><div class="buttons">'+btn('+ Add option','secondary','add-option')+btn('− Remove last','ghost','remove-option')+'</div>'+common;
- }else if(state.tool==='answers'||state.tool==='cloud')controls=prompt+common;
+ }else if(state.tool==='answers'||state.tool==='cloud')controls='<label for="poll-title">Saved question title</label><input id="poll-title" maxlength="100" placeholder="e.g. Engage — opening question">'+prompt+common;
  else controls='<label for="duration">Countdown</label><select id="duration"><option value="60">1 minute</option><option value="120">2 minutes</option><option selected value="300">5 minutes</option><option value="600">10 minutes</option><option value="900">15 minutes</option><option value="1800">30 minutes</option></select>';
- $('tool-config').innerHTML=controls+'<div class="buttons">'+btn('▶ Start '+NAMES[state.tool],'primary','launch')+(state.tool==='poll'?btn('▤ Save for later','secondary','save-poll'):'')+'</div>'+(state.tool==='poll'?'<section class="poll-library"><div class="subhead"><h3>My saved polls</h3><span class="pill grey" id="poll-library-count">0 saved</span></div><p class="small">Create questions now. Your library is stored on the site and will be available in future classroom sessions.</p><div id="poll-library-list"></div></section>':'');
+ $('tool-config').innerHTML=controls+'<div class="buttons">'+btn('▶ Start '+NAMES[state.tool],'primary','launch')+(['poll','answers','cloud'].includes(state.tool)?btn('▤ Save for later','secondary','save-question'):'')+'</div>'+(['poll','answers','cloud'].includes(state.tool)?'<section class="poll-library"><div class="subhead"><h3>Saved '+esc(NAMES[state.tool])+' questions</h3><span class="pill grey" id="poll-library-count">0 saved</span></div><p class="small">Prepare before class; load or edit any question in a later room.</p><div id="poll-library-list"></div></section>':'');
  if(state.tool==='poll'){
    state.editingPollId=null;state.editingRevision=0;
    for(let i=0;i<4;i++)addOption();
@@ -103,9 +111,14 @@ function configTool(){
    $('remove-option').onclick=()=>{const els=[...document.querySelectorAll('.poll-option')];if(els.length>2)els.at(-1).parentElement.remove()};
  }
  $('launch').onclick=startRound;
+ if(['poll','answers','cloud'].includes(state.tool)){
+  state.editingPollId=null;state.editingRevision=0;
+  $('save-question').onclick=saveQuestion;
+  renderSavedQuestions();
+  void loadSavedQuestions(state.tool);
+ }
  if(state.tool==='poll'){
-  $('save-poll').onclick=savePoll;
-  renderSavedPolls();
+  renderSavedQuestions();
  }
 }
 function addOption(){
@@ -115,59 +128,63 @@ function addOption(){
  parent.append(div);
 }
 
-function pollFields(){
- const options=[...document.querySelectorAll('.poll-option')].map(e=>e.value.trim()).filter(Boolean);
- return {title:$('poll-title')?.value.trim()||'',prompt:$('question')?.value.trim()||'',unit:$('response-unit')?.value||'individual',options};
+
+function questionFields(){
+ return {title:$('poll-title')?.value.trim()||'',prompt:$('question')?.value.trim()||'',
+  unit:$('response-unit')?.value||'individual',
+  options:state.tool==='poll'?[...document.querySelectorAll('.poll-option')].map(e=>e.value.trim()).filter(Boolean):[]};
 }
-async function loadSavedPolls(){
- if(state.role!=='teacher'||!state.token)return;
+async function loadSavedQuestions(kind){
+ if(state.role!=='teacher'||!state.token||!['poll','answers','cloud'].includes(kind))return;
  try{
-  const result=await request('library',{token:state.token,operation:'list'});
-  state.savedPolls=result.polls||[];
-  renderSavedPolls();
- }catch(error){if(state.tool==='poll')announce('Saved polls could not be loaded: '+error.message,true)}
+  const result=await request('library',{token:state.token,operation:'list',kind});
+  state.savedQuestionSets[kind]=result.items||result.polls||[];
+  renderSavedQuestions();
+ }catch(e){if(state.tool===kind)announce('Could not load saved questions: '+e.message,true)}
 }
-function renderSavedPolls(){
- const box=$('poll-library-list');
- if(!box)return;
- $('poll-library-count').textContent=state.savedPolls.length+' saved';
- if(!state.savedPolls.length){box.innerHTML=noResults('Save your first poll above. It will be available in a new classroom session.');return;}
- box.innerHTML=state.savedPolls.map(p=>'<div class="saved-poll-row"><div class="saved-poll-info"><strong>'+esc(p.title)+'</strong><span>'+esc(p.prompt||'Question shown on your slides')+' · '+p.options.length+' choices</span></div><div class="buttons"><button type="button" class="secondary" data-use-poll="'+p.id+'">Load</button><button type="button" class="ghost" data-delete-poll="'+p.id+'">Delete</button></div></div>').join('');
- box.querySelectorAll('[data-use-poll]').forEach(b=>b.onclick=()=>useSavedPoll(b.dataset.usePoll));
- box.querySelectorAll('[data-delete-poll]').forEach(b=>b.onclick=()=>deleteSavedPoll(b.dataset.deletePoll));
+function renderSavedQuestions(){
+ const box=$('poll-library-list');if(!box||!['poll','answers','cloud'].includes(state.tool))return;
+ const data=state.savedQuestionSets[state.tool]||[];
+ $('poll-library-count').textContent=data.length+' saved';
+ if(!data.length){box.innerHTML=noResults('Save your first question, then load it during your lesson.');return}
+ box.innerHTML=data.map(q=>'<div class="saved-poll-row"><div class="saved-poll-info"><strong>'+esc(q.title)+'</strong><span>'+esc(q.prompt||'Question on your slides')+(state.tool==='poll'?' · '+q.options.length+' choices':'')+'</span></div><div class="buttons"><button type="button" class="secondary" data-use-question="'+q.id+'">Load</button><button type="button" class="ghost" data-delete-question="'+q.id+'">Delete</button></div></div>').join('');
+ box.querySelectorAll('[data-use-question]').forEach(b=>b.onclick=()=>useSavedQuestion(b.dataset.useQuestion));
+ box.querySelectorAll('[data-delete-question]').forEach(b=>b.onclick=()=>deleteSavedQuestion(b.dataset.deleteQuestion));
 }
-function useSavedPoll(id){
- const p=state.savedPolls.find(p=>p.id===id);
- if(!p)return announce('Saved poll not found. Reload the library.',true);
- state.tool='poll';configTool();
- $('poll-title').value=p.title;$('question').value=p.prompt;$('response-unit').value=p.unit;
- $('poll-options').innerHTML='';
- for(let i=0;i<p.options.length;i++){addOption();const field=$('option-'+i);if(field)field.value=p.options[i]}
- state.editingPollId=p.id;state.editingRevision=p.revision;
- $('save-poll').textContent='▤ Update saved poll';
- announce('Loaded "'+p.title+'". You can edit it, save updates, or launch it during the lesson.');
+function useSavedQuestion(id){
+ const q=(state.savedQuestionSets[state.tool]||[]).find(q=>q.id===id);
+ if(!q)return announce('Saved question not found. Reload your library.',true);
+ const kind=state.tool;configTool();
+ $('poll-title').value=q.title;$('question').value=q.prompt;$('response-unit').value=q.unit||'individual';
+ if(kind==='poll'){
+  $('poll-options').innerHTML='';
+  for(let i=0;i<q.options.length;i++){addOption();$('option-'+i).value=q.options[i]}
+ }
+ state.editingPollId=q.id;state.editingRevision=q.revision;
+ $('save-question').textContent='▤ Update saved question';
+ announce('Question loaded. You can launch or edit it.');
 }
-async function savePoll(){
- const poll=pollFields();
- if(!poll.title)return announce('Give this poll a title before saving.',true);
- if(poll.options.length<2||poll.options.length>8)return announce('Enter 2 to 8 voting choices.',true);
- const b=$('save-poll');b.disabled=true;
+async function saveQuestion(){
+ const kind=state.tool,form=questionFields();
+ if(!form.title)return announce('Enter a title for your saved question.',true);
+ if(kind==='poll'&&(form.options.length<2||form.options.length>8))return announce('Enter 2–8 voting choices.',true);
+ if(kind!=='poll'&&!form.prompt)return announce('Enter the question you want to save.',true);
+ const button=$('save-question');button.disabled=true;
  try{
-  const result=await request('library',{token:state.token,operation:'save',poll,id:state.editingPollId,revision:state.editingRevision});
-  state.editingPollId=result.poll.id;state.editingRevision=result.poll.revision;
-  b.textContent='▤ Update saved poll';
-  announce('Poll saved to your library. It will be available in future sessions.');
-  await loadSavedPolls();
- }catch(e){announce(e.message,true)}finally{if($('save-poll'))$('save-poll').disabled=false}
+  const result=await request('library',{token:state.token,operation:'save',kind,item:form,id:state.editingPollId,revision:state.editingRevision});
+  state.editingPollId=result.item.id;state.editingRevision=result.item.revision;
+  button.textContent='▤ Update saved question';
+  announce('Question saved. It is available for future classrooms.');
+  await loadSavedQuestions(kind);
+ }catch(e){announce(e.message,true)}finally{if($('save-question'))$('save-question').disabled=false}
 }
-async function deleteSavedPoll(id){
- const p=state.savedPolls.find(p=>p.id===id);
- if(!p||!confirm('Delete saved poll "'+p.title+'"?'))return;
+async function deleteSavedQuestion(id){
+ const kind=state.tool,q=(state.savedQuestionSets[kind]||[]).find(q=>q.id===id);
+ if(!q||!confirm('Delete "'+q.title+'"?'))return;
  try{
-  await request('library',{token:state.token,operation:'delete',id});
-  if(state.editingPollId===id){state.editingPollId=null;state.editingRevision=0;$('save-poll').textContent='▤ Save for later';}
-  await loadSavedPolls();
-  announce('Saved poll deleted.');
+  await request('library',{token:state.token,operation:'delete',kind,id});
+  if(state.editingPollId===id){state.editingPollId=null;state.editingRevision=0;$('save-question').textContent='▤ Save for later'}
+  await loadSavedQuestions(kind);announce('Question deleted.');
  }catch(e){announce(e.message,true)}
 }
 
