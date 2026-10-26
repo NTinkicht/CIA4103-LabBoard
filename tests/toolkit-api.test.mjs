@@ -238,3 +238,101 @@ test('work input validation handles empty, overlong and unsupported image',async
   {...base,note:'abc',image:'data:image/webp;base64,'+'A'.repeat(450100)}
  ]){const res=await call(store,data);assert.equal(res.status,400);}
 });
+
+
+const testStroke=(color='#1976bd')=>({points:[[5,5],[30,40],[100,120]],color,width:4});
+test('whiteboard is controlled by teacher and visible only to the active classroom',async()=>{
+ const store=new FakeStore();
+ const room=(await created(store)).body,other=(await created(store)).body;
+ const student=(await join(store,room.code,'Student A')).body;
+ const second=(await join(store,room.code,'Student B')).body;
+ const foreign=(await join(store,other.code,'Student C')).body;
+ assert.equal((await call(store,{action:'board',operation:'activate',token:student.token})).status,403);
+ assert.equal((await call(store,{action:'board',operation:'read',token:student.token})).status,409);
+ const opened=await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ assert.equal(opened.status,200);
+ assert.equal(opened.body.active.type,'whiteboard');
+ assert.equal((await state(store,student.token)).body.active.type,'whiteboard');
+ const stateTeacher=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body;
+ assert.equal(stateTeacher.students.length,2);
+ assert.equal(stateTeacher.canDraw,true);
+ assert.equal(stateTeacher.writerId,null);
+ const studentRead=await call(store,{action:'board',operation:'read',token:student.token});
+ assert.equal(studentRead.status,200);
+ assert.equal(studentRead.body.canDraw,false);
+ assert.equal(studentRead.body.students,undefined);
+ assert.deepEqual(studentRead.body.strokes,[]);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:student.token,...testStroke()})).status,409);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:room.displayToken,...testStroke()})).status,403);
+ assert.equal((await call(store,{action:'board',operation:'select',token:room.displayToken,studentId:student.body?.id})).status,403);
+ assert.equal((await call(store,{action:'board',operation:'read',token:other.teacherToken})).status,409);
+ assert.equal((await call(store,{action:'board',operation:'read',token:foreign.token})).status,409);
+ // A student from the wrong room cannot be selected.
+ const foreignId=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.students[0].id;
+ assert.notEqual(foreignId,null);
+ assert.equal((await call(store,{action:'board',operation:'select',token:room.teacherToken,studentId:'00000000-0000-0000-0000-000000000000'})).status,404);
+});
+test('teacher selects a writer, switches permission, revokes and clears strokes',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const student1=(await join(store,room.code,'Anna')).body;
+ const student2=(await join(store,room.code,'Bashir')).body;
+ await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ const members=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.students;
+ const anna=members.find(s=>s.name==='Anna').id,bashir=members.find(s=>s.name==='Bashir').id;
+ const writer1=await call(store,{action:'board',operation:'select',token:room.teacherToken,studentId:anna});
+ assert.equal(writer1.status,200);
+ assert.equal((await call(store,{action:'board',operation:'read',token:student1.token})).body.canDraw,true);
+ assert.equal((await call(store,{action:'board',operation:'read',token:student2.token})).body.canDraw,false);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:student1.token,...testStroke()})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:room.teacherToken,...testStroke('#24374f')})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'read',token:student2.token})).body.strokes.length,2);
+ // Conditional reads do not resend strokes if version is unchanged.
+ const version=(await call(store,{action:'board',operation:'read',token:student1.token})).body.version;
+ const same=await call(store,{action:'board',operation:'read',token:student1.token,since:version});
+ assert.equal('strokes' in same.body,false);
+ const selectSecond=await call(store,{action:'board',operation:'select',token:room.teacherToken,studentId:bashir});
+ assert.equal(selectSecond.status,200);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:student1.token,...testStroke()})).status,409);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:student2.token,...testStroke('#169b83')})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'select',token:student1.token,studentId:anna})).status,403);
+ const student2before=(await call(store,{action:'board',operation:'read',token:student2.token})).body;
+ assert.equal(student2before.strokes.length,3);
+ assert.equal((await call(store,{action:'board',operation:'undo',token:student2.token})).status,403);
+ assert.equal((await call(store,{action:'board',operation:'undo',token:room.teacherToken})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'read',token:student2.token})).body.strokes.length,2);
+ assert.equal((await call(store,{action:'board',operation:'clear',token:room.teacherToken})).status,200);
+ const after=(await call(store,{action:'board',operation:'read',token:student2.token})).body;
+ assert.equal(after.strokes.length,0);
+ assert.equal(after.generation,1);
+ await call(store,{action:'board',operation:'select',token:room.teacherToken,studentId:null});
+ assert.equal((await call(store,{action:'board',operation:'read',token:student2.token})).body.canDraw,false);
+});
+test('multiple writers do not overwrite strokes and input is bounded',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body,writer=(await join(store,room.code,'A')).body;
+ await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ const id=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.students[0].id;
+ await call(store,{action:'board',operation:'select',token:room.teacherToken,studentId:id});
+ const results=await Promise.all([
+   call(store,{action:'board',operation:'stroke',token:writer.token,...testStroke('#c54b58')}),
+   call(store,{action:'board',operation:'stroke',token:room.teacherToken,...testStroke('#1976bd')})
+ ]);
+ assert.deepEqual(results.map(r=>r.status),[200,200]);
+ assert.equal((await call(store,{action:'board',operation:'read',token:writer.token})).body.strokes.length,2);
+ const invalid=[
+  {...testStroke(),points:[[0,0]]},
+  {...testStroke(),points:[[1001,0],[0,0]]},
+  {...testStroke(),points:[[0,0],[0,-1]]},
+  {...testStroke(),points:[[0.5,0],[0,0]]},
+  {...testStroke(),points:Array.from({length:121},()=>[0,0])},
+  {...testStroke(),color:'red'},
+  {...testStroke(),width:100}
+ ];
+ for(const sample of invalid)assert.equal((await call(store,{action:'board',operation:'stroke',token:writer.token,...sample})).status,400);
+ // Leaving whiteboard for another teaching activity disables student drawing until reactivated.
+ assert.equal((await start(store,room.teacherToken,'poll',{options:['A','B']})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:writer.token,...testStroke()})).status,409);
+ assert.equal((await call(store,{action:'board',operation:'read',token:writer.token})).status,409);
+ const reopen=await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ assert.equal(reopen.body.active.type,'whiteboard');
+ assert.equal((await call(store,{action:'board',operation:'read',token:writer.token})).body.strokes.length,2);
+});
