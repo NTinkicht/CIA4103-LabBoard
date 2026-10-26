@@ -179,3 +179,16 @@ The lecturer now has a **Whiteboard** tool. Select **Open whiteboard for student
 - Backend tests check teacher-only activation, reader roles, private room isolation, selected writer/revocation, fresh permission rechecks, two-writer concurrency, undo, clear, exact bounds and invalid input.
 - Chromium browser tests check teacher/student drawing, switching selected writer, view-only state, teacher drawing/clear, and the preserved 3-tab student interface.
 - Original CIA4103 backup: \`backup/cia4103-working-2026-10-22\`.
+
+
+## Lecturer layout: wide workspace and embedded original viewers
+
+- Lecturer-only viewport removes the old centered 1512 px maximum and reduces the side rail to 216 px. The sidebar is positioned next to the left viewport gutter; the selected tool gets remaining width.
+- **Screen Sharing** now embeds the **existing Live classroom code board** at \`/dashboard/?embed=1&section=screens\`, opening on Live Screens. The board includes the original student submissions and Lab PDFs sections for quick access; original standalone \`/dashboard/\` remains unchanged in appearance.
+- **Files & Slides** now embeds the full PowerPoint/PDF viewer directly in the teaching workspace, at full available width and with native fullscreen. No separate click is required to reach the file viewer.
+- Both lecturer iframe elements remain mounted and retain their browsing context when another tool is selected; switching away does not intentionally disconnect the LiveKit room or reset the document viewer.
+- The lower **Live classroom** results surface is shown only when Poll, Live Answers, Word Cloud or Timer is the selected tool **and** the active activity is of that same type. The former duplicate whiteboard placeholder therefore no longer appears beneath Screen Sharing, Files, Work or Whiteboard itself.
+- Embedding uses a new scoped same-origin CSP/X-Frame-Options exception for \`/dashboard/*\`; external websites cannot frame the dashboard. The existing global framing deny remains in place.
+- The embedded Live Screens tool still requires the existing lecturer PIN once in the legacy LiveKit controls and still uses the legacy global LiveKit room. It does not yet map to the Toolkit's 6-digit multi-room identity.
+
+Verification: Chromium tests check sidebar geometry, viewer width, code board availability and selected Live Screens tab, persistent iframe on tab switches, no duplicate lower panel, and original student three-tab navigation.
