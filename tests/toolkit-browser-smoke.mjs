@@ -66,7 +66,7 @@ try{
  assert.equal(await lecturer.locator('#save-question').count(),1,'Poll must offer Save');
  await lecturer.locator('[data-tool="documents"]').click();
  const frame=lecturer.frameLocator('#document-frame');
- await frame.locator('#upload').waitFor({timeout:10000});
+ await frame.locator('#upload').waitFor({state:'attached',timeout:10000});
  assert.match(await frame.locator('h1').first().innerText(),/Present your slides/);
  console.log('Toolkit lecturer tabs and same-origin Files & Slides iframe validated');
  await lecturer.close();
