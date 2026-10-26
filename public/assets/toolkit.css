@@ -148,3 +148,34 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 #display-board-mount .wb-canvas-wrap{max-height:75vh}
 @media(max-width:1040px){.wb-body.teacher{grid-template-columns:1fr}.wb-sidebar{border-left:0;border-top:1px solid #e1e8f0;max-height:210px}.wb-roster{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:590px){.wb-topbar{padding:13px}.wb-main{padding:7px}.wb-tools{padding:10px;gap:7px}.wb-swatches{gap:4px}.wb-swatch{height:27px;width:27px}.wb-tools select{max-width:120px}.wb-roster{grid-template-columns:1fr}.wb-person-right{font-size:11px}}
+
+
+/* Full-width lecturer workspace: small left gutter and compact utility rail. */
+.container.lecturer-layout{max-width:none;width:100%;margin:0;padding:18px clamp(12px,1.2vw,22px) 48px}
+.lecturer-layout .workspace{grid-template-columns:216px minmax(0,1fr);gap:16px;align-items:start}
+.lecturer-layout .rail{top:12px;padding:18px 10px}
+.lecturer-layout .rail-title{padding-left:12px}
+.lecturer-layout .tool-link{padding:12px 11px;gap:10px}
+.lecturer-layout .rail-code{padding:8px 12px}
+.lecturer-layout .rail-actions{padding:0 5px}
+.lecturer-layout .surface{padding:clamp(17px,1.8vw,27px)}
+.lecturer-layout .mainstack{min-width:0}
+.lecturer-layout .mainstack>.surface{min-width:0}
+.lecturer-layout .mainstack>.surface[hidden]{display:none!important}
+.lecturer-embed{width:100%;min-width:0;max-width:100%;margin-top:14px;border:1px solid #dce7ef;border-radius:15px;background:#fff;overflow:hidden}
+.lecturer-embed[hidden]{display:none!important}
+.lecturer-embed iframe{display:block;width:100%;max-width:100%;height:clamp(700px,78vh,1120px);min-height:700px;border:0;background:#fff}
+#teacher-slides-host iframe{height:clamp(650px,79vh,1050px);min-height:650px}
+.embedded-hint{font-size:13px;color:#637a8e;margin:14px 0 0;line-height:1.5}
+@media(max-width:950px){
+ .lecturer-layout .workspace{grid-template-columns:minmax(0,1fr);gap:12px}
+ .lecturer-layout .rail{position:static;padding:11px}
+ .lecturer-layout .tool-link{padding:10px 12px}
+ .lecturer-embed iframe{min-height:670px}
+}
+@media(max-width:590px){
+ .container.lecturer-layout{padding:10px 8px 35px}
+ .lecturer-layout .surface{padding:14px 12px}
+ .lecturer-embed{border-radius:10px}
+ .lecturer-embed iframe,#teacher-slides-host iframe{height:78vh;min-height:610px}
+}

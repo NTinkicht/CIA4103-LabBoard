@@ -86,6 +86,18 @@ h1{font-size:clamp(2rem,4vw,3rem);color:var(--navy);line-height:1.15;margin:10px
 .stream-empty-queue{font-size:.82rem;color:#667f94;padding:15px 8px;text-align:center}
 
 @media(max-width:860px){.stream-workspace{grid-template-columns:1fr}.stream-sidebar{max-height:none}.stream-video-stage{height:55vh;min-height:320px}}
+
+/* Embedded instructor board: retain its original standalone dashboard outside Toolkit. */
+html.toolkit-embedded body{background:#fff}
+html.toolkit-embedded .top{display:none}
+html.toolkit-embedded main.dash{width:100%;max-width:none;padding:10px 11px 35px;margin:0}
+html.toolkit-embedded .dashhead{gap:10px;align-items:center}
+html.toolkit-embedded .dashhead h1{font-size:clamp(21px,2.6vw,29px);margin:0 0 6px}
+html.toolkit-embedded .dashhead .lead{font-size:13px;margin:3px 0 0;max-width:900px}
+html.toolkit-embedded .lab-tabs{margin:15px 0}
+html.toolkit-embedded #screens-view h2{font-size:20px}
+html.toolkit-embedded #screens-view .stream-workspace{max-width:none}
+html.toolkit-embedded .stream-video-stage{min-height:320px}
 </style><script type="module" src="/assets/dashboard-v2.mjs"></script><script defer src="https://cdn.jsdelivr.net/npm/livekit-client@2.23.0/dist/livekit-client.umd.min.js"></script><script type="module" src="/assets/lab-pdfs.mjs"></script><script type="module" src="/assets/live-teacher.mjs"></script></head><body>
 <header class="top"><div class="brand"><div class="brandmark">HCT</div><div class="brandtext"><small>HIGHER COLLEGES OF TECHNOLOGY</small><strong>CIA4103 · LECTURER DASHBOARD</strong></div></div><a href="/">Student board ↗</a></header><main class="dash">
 <div class="dashhead"><div><h1>Live classroom code board</h1><p class="lead">Inspect screenshots, discuss code and diagnose issues in real time. Auto-refreshes every five seconds.</p></div><button class="secondary" id="fullscreen">⛶ Presentation mode</button></div>

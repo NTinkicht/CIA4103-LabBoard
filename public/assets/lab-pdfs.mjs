@@ -1,6 +1,8 @@
 // Dynamic instructor-only PDF tabs, stored on this browser (IndexedDB).
 // Previously saved PDFs under the old fixed tabs are preserved and displayed as documents.
 const $=id=>document.getElementById(id);
+const embedParams=new URLSearchParams(location.search);
+if(embedParams.get('embed')==='1')document.documentElement.classList.add('toolkit-embedded');
 const DB='cia4103-local-lab-pdfs-v1',STORE='docs',MAX=50*1024*1024;
 let dbPromise=null,docs=[],selected=null,viewerUrl=null,requested=0;
 const openDB=()=>dbPromise||(dbPromise=new Promise((resolve,reject)=>{
@@ -107,5 +109,5 @@ function view(which){
 }
 for(const tab of ['board','labs','screens'])$('tab-'+tab).addEventListener('click',()=>view(tab));
 window.addEventListener('beforeunload',release);
-view('board');
+view(embedParams.get('embed')==='1'&&embedParams.get('section')==='screens'?'screens':'board');
 initialize();

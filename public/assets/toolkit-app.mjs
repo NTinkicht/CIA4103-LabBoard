@@ -70,8 +70,9 @@ function shell(){
  startPolling();
 }
 function teacherShell(){
+ app.classList.add('lecturer-layout');
  const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides']];
- app.innerHTML='<div class="workspace"><aside class="rail"><p class="rail-title">Interactive tools</p><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span>'+text+'</button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div id="tool-config"></div></section><section class="surface"><div class="results-head"><div><p class="eyebrow">Live classroom</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></section>'+notices()+'</div></div>';
+ app.innerHTML='<div class="workspace"><aside class="rail"><p class="rail-title">Interactive tools</p><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span>'+text+'</button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div id="tool-config"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Live classroom code board and lecturer screen sharing" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div></section><section class="surface" id="live-results-panel" hidden><div class="results-head"><div><p class="eyebrow">Live classroom</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></section>'+notices()+'</div></div>';
  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{state.tool=b.dataset.tool;configTool()});
  $('copy-link').onclick=()=>copyLink(location.origin+'/toolkit/?code='+encodeURIComponent(state.room));
  $('copy-projector').onclick=()=>copyLink(location.origin+'/toolkit/?view=display&token='+encodeURIComponent(state.displayToken));
@@ -86,20 +87,27 @@ function teacherShell(){
 }
 function configTool(){
  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
+ const screenHost=$('teacher-screen-host'),slidesHost=$('teacher-slides-host');
+ if(screenHost)screenHost.hidden=state.tool!=='screen';
+ if(slidesHost)slidesHost.hidden=state.tool!=='documents';
+ const resultsPanel=$('live-results-panel');
+ if(resultsPanel)resultsPanel.hidden=!(state.snapshot?.active?.type===state.tool&&['poll','answers','cloud','timer'].includes(state.tool));
  document.querySelectorAll('[data-tool]').forEach(b=>{const on=b.dataset.tool===state.tool;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false')});
  $('tool-title').textContent=NAMES[state.tool];
  const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='screen'){
- $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Your existing screen sharing is preserved</strong><p>Opening the original dashboard does not disconnect this toolkit room. Multi-room screen sharing is under development and is not yet synchronized with the toolkit roster.</p></div><span style="font-size:35px" aria-hidden="true">▣</span></div><div class="buttons"><a href="/dashboard/" target="_blank" rel="noopener" class="tool-link active">Open lecturer screen sharing ↗</a><a href="/live/" target="_blank" rel="noopener" class="tool-link">Student share page ↗</a></div>';return;
- }
-
- if(state.tool==='documents'){
-  $('tool-config').innerHTML='<div class="tool-feature"><div><strong>PowerPoint & PDF presentation viewer</strong><p>Add a PPTX (or legacy PPT) or PDF directly from your computer. Open fullscreen, navigate with arrow keys, and return to your teaching tools. Files stay on this browser and are never uploaded.</p></div><span style="font-size:35px" aria-hidden="true">▧</span></div><div class="buttons">'+btn('Open PowerPoint / PDF viewer ↗','primary','open-presenter')+'</div><div class="presenter-embed"><iframe id="document-frame" title="PowerPoint and PDF viewer" src="/toolkit/presenter/" allowfullscreen allow="fullscreen"></iframe></div>';
-  $('open-presenter').onclick=()=>window.open('/toolkit/presenter/','_blank','noopener');
+  $('tool-config').innerHTML='<p class="embedded-hint">Manage student screen sharing directly in the classroom board below. Connect using your lecturer PIN in its <strong>Live Screens</strong> section.</p>';
+  const frame=$('teacher-screen-frame');
+  if(frame?.getAttribute('src')==='about:blank')frame.src='/dashboard/?embed=1&section=screens';
   return;
  }
-
+ if(state.tool==='documents'){
+  $('tool-config').innerHTML='<p class="embedded-hint">Open your presentation below, then use <strong>Fullscreen</strong> in the viewer to display slides or a PDF across the screen.</p>';
+  const frame=$('document-frame');
+  if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/presenter/';
+  return;
+ }
  if(state.tool==='whiteboard'){
   $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Shared classroom whiteboard</strong><p>Write freely, then select one student from the list beside the canvas to let them draw from their own Activities tab. Everyone else can watch.</p></div><span style="font-size:35px" aria-hidden="true">✎</span></div>'+
   '<div class="buttons">'+btn('✎ Open whiteboard for students','primary','wb-open')+'</div><div id="teacher-board-mount"></div>';
@@ -267,23 +275,22 @@ async function controlRound(command){
 function renderTeacher(snapshot){
  $('participants-count').textContent=String(snapshot.participants??0);
  const round=snapshot.active;
- if(round?.type==='whiteboard'){
-  $('current-label').textContent='Whiteboard';$('round-status').textContent='Shared canvas live';
-  $('round-status').className='pill blue';
-  $('live-results').innerHTML=resultsHtml(snapshot);$('round-actions').replaceChildren();
-  if(state.tool==='whiteboard')mountTeacherWhiteboard();return;
+ const matches=Boolean(round&&round.type===state.tool&&['poll','answers','cloud','timer'].includes(round.type));
+ $('live-results-panel').hidden=!matches;
+ if(state.tool==='whiteboard'){
+  if(round?.type==='whiteboard')mountTeacherWhiteboard();
+  return;
  }
- $('current-label').textContent=round?NAMES[round.type]:'Waiting to begin';
- $('round-status').textContent=round?(round.status==='closed'?'Closed':'Receiving'):'No activity';
- $('round-status').className='pill '+(round?.status==='open'?'':'grey');
+ if(!matches)return;
+ $('current-label').textContent=NAMES[round.type];
+ $('round-status').textContent=round.status==='closed'?'Closed':'Receiving';
+ $('round-status').className='pill '+(round.status==='open'?'':'grey');
  $('live-results').innerHTML=resultsHtml(snapshot);
- $('round-actions').innerHTML=round?
+ $('round-actions').innerHTML=
    btn(round.revealed?'◉ Hide projected results':'◉ Reveal projected results','secondary','toggle-reveal')+
-   btn('■ Close responses','ghost','close-responses',round.status==='closed'?'disabled':''):'';
- if(round){
+   btn('■ Close responses','ghost','close-responses',round.status==='closed'?'disabled':'');
  $('toggle-reveal').onclick=()=>controlRound(round.revealed?'hide':'reveal');
  $('close-responses').onclick=()=>controlRound('close');
- }
  document.querySelectorAll('[data-answer]').forEach(el=>el.onclick=async()=>{
    el.disabled=true;
    try{await request('moderate',{token:state.token,roundId:round.id,subject:el.dataset.answer,hidden:el.dataset.hidden!=='true'});await refresh();}
@@ -291,6 +298,7 @@ function renderTeacher(snapshot){
  });
  syncClock();
 }
+
 function studentShell(){
  state.studentTab='activities';state.shareLoaded=false;state.workImage=null;
  app.innerHTML='<section class="surface student-main unified-student">'+
