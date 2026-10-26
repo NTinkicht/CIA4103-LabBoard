@@ -192,3 +192,49 @@ test('saved open question validates prompt and rejects nonlecturer access',async
  }
  assert.equal((await call(store,{action:'library',operation:'list',kind:'video',token:room.teacherToken})).status,400);
 });
+
+
+test('private classroom work submissions are accessible only to the matching lecturer',async()=>{
+ const store=new FakeStore(),a=(await created(store)).body,b=(await created(store)).body;
+ const learner=(await join(store,a.code,'A student')).body;
+ const note=await call(store,{action:'work',operation:'submit',token:learner.token,
+  kind:'problem',topic:'Task 3',note:'I need help with this step',code:'SELECT * FROM T',image:null});
+ assert.equal(note.status,201);
+ const own=(await call(store,{action:'work',operation:'list',token:a.teacherToken})).body.items;
+ assert.equal(own.length,1);
+ assert.equal(own[0].name,'A student');
+ assert.equal(own[0].kind,'problem');
+ assert.equal(own[0].hasImage,false);
+ assert.equal(own[0].code,'SELECT * FROM T');
+ assert.equal((await call(store,{action:'work',operation:'list',token:learner.token})).status,403);
+ assert.equal((await call(store,{action:'work',operation:'list',token:a.displayToken})).status,403);
+ assert.equal((await call(store,{action:'work',operation:'list',token:b.teacherToken})).body.items.length,0);
+ assert.equal((await call(store,{action:'work',operation:'submit',token:a.teacherToken,
+  kind:'solution',note:'Teacher cannot impersonate student'})).status,403);
+});
+test('screenshot is hidden from list and fetched only with a lecturer room token',async()=>{
+ const store=new FakeStore(),a=(await created(store)).body,b=(await created(store)).body;
+ const student=(await join(store,a.code,'A')).body;
+ const image='data:image/webp;base64,'+Buffer.from('synthetic screenshot').toString('base64');
+ const created=await call(store,{action:'work',operation:'submit',token:student.token,
+  kind:'solution',note:'I solved it',image});
+ assert.equal(created.status,201);
+ const list=(await call(store,{action:'work',operation:'list',token:a.teacherToken})).body.items;
+ assert.equal(list[0].hasImage,true);
+ assert.equal(JSON.stringify(list).includes(image),false,'private image must not leak through list');
+ assert.equal((await call(store,{action:'work',operation:'image',token:a.teacherToken,id:created.body.id})).body.image,image);
+ assert.equal((await call(store,{action:'work',operation:'image',token:student.token,id:created.body.id})).status,403);
+ assert.equal((await call(store,{action:'work',operation:'image',token:b.teacherToken,id:created.body.id})).status,404);
+ assert.equal((await call(store,{action:'work',operation:'image',token:a.displayToken,id:created.body.id})).status,403);
+});
+test('work input validation handles empty, overlong and unsupported image',async()=>{
+ const store=new FakeStore(),a=(await created(store)).body,student=(await join(store,a.code,'A')).body;
+ const base={action:'work',operation:'submit',token:student.token,kind:'solution'};
+ for(const data of [
+  {...base,note:'',code:'',image:null},
+  {...base,kind:'invalid',note:'something'},
+  {...base,note:'x'.repeat(1501)},
+  {...base,note:'abc',image:'data:image/svg+xml;base64,SGVsbG8='},
+  {...base,note:'abc',image:'data:image/webp;base64,'+'A'.repeat(450100)}
+ ]){const res=await call(store,data);assert.equal(res.status,400);}
+});
