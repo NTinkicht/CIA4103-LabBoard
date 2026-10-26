@@ -10,8 +10,8 @@ const server=createServer(async(req,res)=>{
  const path=decodeURI((req.url||'/').split('?')[0]);
  const file=normalize(join(root,path.endsWith('/')?path+'index.html':path));
  if(!file.startsWith(root)){res.writeHead(403);res.end();return}
- try{res.writeHead(200,{'Content-Type':type[extname(file)]||'application/octet-stream','Content-Security-Policy':csp,'X-Frame-Options':'SAMEORIGIN'});res.end(await readFile(file))}
- catch{res.writeHead(404);res.end()}
+ try{const bytes=await readFile(file);res.writeHead(200,{'Content-Type':type[extname(file)]||'application/octet-stream','Content-Security-Policy':csp,'X-Frame-Options':'SAMEORIGIN'});res.end(bytes)}
+ catch{if(!res.headersSent)res.writeHead(404);res.end()}
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const url='http://127.0.0.1:'+server.address().port+'/toolkit/';
