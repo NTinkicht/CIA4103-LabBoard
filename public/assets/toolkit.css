@@ -179,3 +179,21 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .lecturer-embed{border-radius:10px}
  .lecturer-embed iframe,#teacher-slides-host iframe{height:78vh;min-height:610px}
 }
+
+
+/* Lecturer Screen Sharing is a video-first tool: no duplicated hero or filler. */
+.lecturer-layout.screen-focus .mainstack>.surface:first-child{padding:12px 14px}
+.lecturer-layout.screen-focus .mainstack>.surface:first-child .headrow{align-items:center;gap:8px}
+.lecturer-layout.screen-focus .mainstack>.surface:first-child .headrow h1{font-size:20px;line-height:1.1;margin:0}
+.lecturer-layout.screen-focus .mainstack>.surface:first-child .headrow .eyebrow{display:none}
+.lecturer-layout.screen-focus #tool-description{display:none}
+.lecturer-layout.screen-focus #teacher-screen-host{margin-top:10px;border-radius:10px}
+.lecturer-layout.screen-focus #teacher-screen-frame{height:calc(100dvh - 175px);min-height:580px;max-height:none}
+.lecturer-layout.screen-focus .mainstack{gap:0}
+@media(max-width:950px){
+ .lecturer-layout.screen-focus #teacher-screen-frame{height:calc(100dvh - 220px);min-height:560px}
+}
+@media(max-width:590px){
+ .lecturer-layout.screen-focus .mainstack>.surface:first-child{padding:10px 8px}
+ .lecturer-layout.screen-focus #teacher-screen-frame{height:72vh;min-height:500px}
+}

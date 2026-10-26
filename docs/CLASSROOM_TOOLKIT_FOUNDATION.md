@@ -201,3 +201,19 @@ The lecturer's left-rail **Screen Sharing** selection now embeds only the LiveKi
 The focused view is served at \`/toolkit/screen-sharing/\` and reuses the tested \`live-teacher.mjs\` controller; both the legacy \`/dashboard/\` standalone page and student \`/live/\` continue unchanged. The Toolkit keeps the same iframe mounted across tool switches so ongoing LiveKit screen viewing is not disconnected. The standalone legacy dashboard is again protected by the global DENY iframe policy; only the dedicated screen view allows same-origin embedding.
 
 The lecturer still enters their existing lecturer PIN inside the screen-sharing panel because media authorization is separate from the Toolkit room token. The original shared LiveKit room remains a limitation for simultaneous independent classes.
+
+
+## Single lecturer sign-in and video-first Screen Sharing
+
+When a lecturer is **already authenticated in Classroom Toolkit**, the focused embedded Screen Sharing panel uses the **existing signed room session**. It does not ask for the PIN again. The lecturer's session is transferred via a **same-origin parent/iframe postMessage**, never through a URL or query string.
+
+On the server, each LiveKit lecturer operation (\`live-token\`, \`live-participants\`, \`live-control\`) accepts the Toolkit session only after verifying signature, teacher role, 6-digit room identity, expiry, room presence, and that the room has not been ended. Wrong-role, forged, expired, foreign and ended-room tokens are denied. The original standalone CIA4103 lecturer dashboard still supports the old private PIN.
+
+Screen Sharing now focuses on the video:
+- Duplicated PIN form is hidden in authenticated embedded mode, while standalone mode retains it.
+- Repeated large headings/subtitles are suppressed. A compact connection status and a short presenter/standby control strip remain.
+- The video takes the majority of the content width and vertical viewport. Teacher can hide/show the student queue for an even larger viewing area.
+- Embedded screen-sharing iframe remains mounted while the lecturer changes tools; standby/resume and existing student 3 tabs remain intact.
+- Student selection still uses the legacy shared LiveKit room; genuine per-Toolkit-room LiveKit isolation remains a future engineering task.
+
+Acceptance: source tests for role/expiry/tamper checks and real Chrome test confirming no second PIN, same-origin session handoff and compact screen viewport. Production remains unchanged until branch checks are green.

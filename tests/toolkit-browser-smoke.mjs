@@ -75,10 +75,19 @@ try{
  assert.ok(railBounds.x<35&&railBounds.width<=230,'Compact sidebar should start at left viewport edge');
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'No unrelated activity results beneath files');
  console.log('Wide Files & Slides frame:',Math.round(docsFrameBounds.width),'Sidebar width:',Math.round(railBounds.width));
+ let autoLiveLogin=null;
+ await lecturer.route('**/api/live-token',async route=>{
+  autoLiveLogin=JSON.parse(route.request().postData()||'{}');
+  await route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Synthetic LiveKit intentionally offline for UI test'})});
+ });
  await lecturer.locator('[data-tool="screen"]').click();
  const screenFrame=lecturer.frameLocator('#teacher-screen-frame');
  await screenFrame.locator('#stream-teacher-root').waitFor({state:'visible',timeout:15000});
- await screenFrame.locator('#stream-pin').waitFor({state:'visible',timeout:10000});
+ await screenFrame.locator('#stream-pin').waitFor({state:'attached',timeout:10000});
+ assert.equal(await screenFrame.locator('.stream-login').isVisible(),false,'No second lecturer PIN prompt in Toolkit');
+ await lecturer.waitForFunction(()=>document.querySelector('#teacher-screen-frame')?.contentDocument?.querySelector('#stream-status')?.textContent?.includes('Synthetic LiveKit'),null,{timeout:15000});
+ assert.equal(autoLiveLogin?.toolkitToken,'test-teacher','Embedded screen sharing must authenticate with existing room token');
+ assert.equal(autoLiveLogin?.pin,undefined,'The PIN must not be requested or leaked');
  assert.equal(await screenFrame.locator('#stream-video-stage').count(),0,'No incorrect screen stage ID');
  assert.equal(await screenFrame.locator('.stream-video-stage').count(),1,'Live screen viewer should be shown directly');
  assert.equal(await screenFrame.locator('.stream-sidebar').count(),1,'Student approval queue should be shown directly');
@@ -87,6 +96,10 @@ try{
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'Whiteboard should not reappear below Screen Sharing');
  const screenBounds=await lecturer.locator('#teacher-screen-frame').boundingBox();
  assert.ok(screenBounds.width>820,'Embedded screen-sharing panel should be wide');
+ const area=await screenFrame.locator('.stream-video-stage').boundingBox();
+ const statusBounds=await screenFrame.locator('#stream-status').boundingBox();
+ assert.ok(area.height>=400,'Shared screen area should be tall and prioritized');
+ assert.ok(statusBounds.height<=45,'Connection status should be compact');
  // The teacher's ongoing LiveKit iframe is never recreated while changing tools.
  await screenFrame.locator('body').evaluate(()=>{window.__persistentToolkitScreenSession=1});
  await lecturer.locator('[data-tool="documents"]').click();

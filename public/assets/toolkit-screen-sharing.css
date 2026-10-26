@@ -49,3 +49,42 @@ button:focus-visible,input:focus-visible{outline:3px solid #57a4d8;outline-offse
 @media(max-width:900px){.stream-workspace{grid-template-columns:1fr}.stream-sidebar{max-height:360px;min-height:180px}.stream-video-stage{height:54vh;min-height:300px}}
 @media(max-width:590px){#screen-sharing-workspace{padding:6px}.stream-login{padding:12px}.stream-login-controls input{min-width:180px;width:100%}.stream-workspace{gap:10px}.stream-video-stage{height:47vh;min-height:250px}.stream-main-header{padding:12px}.stream-sidebar{padding:12px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+
+
+/* Toolkit mode: no second PIN prompt, less chrome, much larger video. */
+html.toolkit-screen-embedded #screen-sharing-workspace{padding:0}
+html.toolkit-screen-embedded .stream-login{display:none}
+html.toolkit-screen-embedded #stream-status{
+  display:flex;align-items:center;min-height:30px;margin:0 0 7px;
+  padding:5px 11px;background:#f0f6fb;border:1px solid #dfebf4;
+  border-radius:9px;font-size:11px;line-height:1.3;color:#42708e
+}
+html.toolkit-screen-embedded .stream-workspace{margin-top:0;grid-template-columns:minmax(0,1fr) 215px;gap:9px}
+html.toolkit-screen-embedded .stream-main-header{min-height:48px;padding:7px 11px;gap:8px}
+html.toolkit-screen-embedded .stream-main-header strong{font-size:13px}
+html.toolkit-screen-embedded #presenter-note{display:none}
+html.toolkit-screen-embedded .stream-video-stage{height:calc(100dvh - 114px);min-height:480px;max-height:none}
+html.toolkit-screen-embedded .stream-sidebar{
+ min-height:0;max-height:calc(100dvh - 66px);padding:10px
+}
+html.toolkit-screen-embedded #stream-list{max-height:calc(100dvh - 180px)}
+html.toolkit-screen-embedded .stream-sidebar-head h3{font-size:13px}
+html.toolkit-screen-embedded .stream-sidebar .hint{font-size:11px;line-height:1.3}
+html.toolkit-screen-embedded .stream-filter-label{margin:6px 0}
+html.toolkit-screen-embedded .stream-header-actions{display:flex;align-items:center;gap:6px}
+html.toolkit-screen-embedded .stream-header-actions button{padding:7px 10px;font-size:11px;white-space:nowrap}
+html.toolkit-screen-embedded #stream-empty{font-size:15px}
+.stream-header-actions{display:flex;gap:8px;align-items:center}
+#stream-toggle-queue{white-space:nowrap}
+#stream-teacher-root.queue-collapsed .stream-workspace{grid-template-columns:minmax(0,1fr)}
+#stream-teacher-root.queue-collapsed .stream-sidebar{display:none}
+@media(max-width:900px){
+ html.toolkit-screen-embedded .stream-workspace{grid-template-columns:1fr}
+ html.toolkit-screen-embedded .stream-video-stage{height:60vh;min-height:280px}
+ html.toolkit-screen-embedded .stream-sidebar{max-height:210px}
+}
+@media(max-width:590px){
+ html.toolkit-screen-embedded .stream-main-header{align-items:start}
+ html.toolkit-screen-embedded .stream-header-actions{flex-wrap:wrap}
+ html.toolkit-screen-embedded .stream-video-stage{height:55vh;min-height:230px}
+}
