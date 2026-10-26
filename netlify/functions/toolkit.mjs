@@ -186,7 +186,7 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(op==='stroke'){
         if(claims.role==='display')return fail(403,'Projector cannot draw');
         const points=data.points,color=data.color,width=data.width;
-        const colors=['#24374f','#1976bd','#169b83','#dc8743','#c54b58'];
+        const colors=['#24374f','#1976bd','#169b83','#dc8743','#c54b58','#ffffff'];
         if(!Array.isArray(points)||points.length<2||points.length>120||
           !points.every(p=>Array.isArray(p)&&p.length===2&&Number.isInteger(p[0])&&Number.isInteger(p[1])&&
             p[0]>=0&&p[0]<=1000&&p[1]>=0&&p[1]<=600)||
