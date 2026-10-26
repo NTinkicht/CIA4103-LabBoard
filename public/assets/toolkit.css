@@ -62,3 +62,10 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 @media(max-width:950px){.workspace{grid-template-columns:1fr}.rail{position:static;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px}.rail-title,.rail-divider,.rail-code{display:none}.rail nav{display:flex;flex:1;overflow-x:auto;gap:5px}.tool-link{width:auto;white-space:nowrap;flex:0 0 auto;font-size:12px;padding:11px 14px}.rail-actions{display:flex;gap:5px}}
 @media(max-width:590px){.shell-header{height:auto;min-height:67px;padding:14px 15px}.header-right{gap:6px}.brand-note{display:none}.connection{font-size:0;padding:8px}.room-chip{font-size:12px}.container{padding:18px 11px 40px}.surface{padding:19px 17px;border-radius:16px}.surface.compact{padding:17px}.join-shell{padding:21px 11px}.join-card{padding:24px 20px}.entry-grid,.field-grid,.option-grid{grid-template-columns:1fr}.entry-card{padding:18px}.buttons button{flex:1}.headrow{gap:9px}.rail{border-radius:15px}.tool-link{padding:10px 12px}.results-head{align-items:flex-start}.metric-pair{gap:11px}.rail-actions button{font-size:11px}.tool-feature{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+
+/* Persistent lecturer question library */
+.poll-library{border-top:1px solid #e4ebf3;margin-top:26px;padding-top:23px}
+.saved-poll-row{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid #e3ebf2;background:#fbfdff;padding:13px 16px;border-radius:13px;margin:9px 0}
+.saved-poll-info{min-width:0;flex:1}.saved-poll-info strong{display:block;font-size:14px;color:#263e53;overflow-wrap:anywhere}
+.saved-poll-info span{display:block;font-size:12px;color:#77899b;margin-top:5px;overflow-wrap:anywhere}.saved-poll-row .buttons{margin:0;flex-wrap:nowrap}.saved-poll-row .buttons button{font-size:12px;padding:9px 12px;min-height:38px}
+@media(max-width:590px){.saved-poll-row{flex-direction:column;align-items:stretch}.saved-poll-row .buttons{justify-content:flex-start}}
