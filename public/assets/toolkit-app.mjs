@@ -71,8 +71,23 @@ function shell(){
 }
 function teacherShell(){
  app.classList.add('lecturer-layout');
+ const railPref=(()=>{try{return localStorage.getItem('classroom-toolkit-rail-collapsed')==='true'}catch{return false}})();
+ app.classList.toggle('rail-collapsed',railPref);
  const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides']];
- app.innerHTML='<div class="workspace"><aside class="rail"><p class="rail-title">Interactive tools</p><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span>'+text+'</button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div id="tool-config"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div></section><section class="surface" id="live-results-panel" hidden><div class="results-head"><div><p class="eyebrow">Live classroom</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></section>'+notices()+'</div></div>';
+ app.innerHTML='<div class="workspace"><aside class="rail"><div class="rail-top"><p class="rail-title">Interactive tools</p><button type="button" class="rail-toggle" id="rail-toggle" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="tool-nav" title="Collapse sidebar">☰</button></div><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'" title="'+text+'" aria-label="'+text+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span><span class="tool-text">'+text+'</span></button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div id="tool-config"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div></section><section class="surface" id="live-results-panel" hidden><div class="results-head"><div><p class="eyebrow">Live classroom</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></section>'+notices()+'</div></div>';
+ const updateRail=collapsed=>{
+  app.classList.toggle('rail-collapsed',collapsed);
+  const toggle=$('rail-toggle');
+  if(toggle){
+   toggle.textContent=collapsed?'☰':'‹';
+   toggle.setAttribute('aria-expanded',String(!collapsed));
+   toggle.setAttribute('aria-label',collapsed?'Expand sidebar':'Collapse sidebar');
+   toggle.title=collapsed?'Expand sidebar':'Collapse sidebar';
+  }
+  try{localStorage.setItem('classroom-toolkit-rail-collapsed',String(collapsed))}catch{}
+ };
+ updateRail(railPref);
+ $('rail-toggle').addEventListener('click',()=>updateRail(!app.classList.contains('rail-collapsed')));
  document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{state.tool=b.dataset.tool;configTool()});
  const liveFrame=$('teacher-screen-frame');
  liveFrame?.addEventListener('load',()=>{
@@ -92,6 +107,7 @@ function teacherShell(){
 }
 function configTool(){
  app.classList.toggle('screen-focus',state.tool==='screen');
+ app.classList.toggle('slides-focus',state.tool==='documents');
  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
  const screenHost=$('teacher-screen-host'),slidesHost=$('teacher-slides-host');
  if(screenHost)screenHost.hidden=state.tool!=='screen';
@@ -109,7 +125,7 @@ function configTool(){
   return;
  }
  if(state.tool==='documents'){
-  $('tool-config').innerHTML='<p class="embedded-hint">Open your presentation below, then use <strong>Fullscreen</strong> in the viewer to display slides or a PDF across the screen.</p>';
+  $('tool-config').innerHTML='';
   const frame=$('document-frame');
   if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/presenter/';
   return;
