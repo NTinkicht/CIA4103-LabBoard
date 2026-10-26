@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
-import {ROOM,configured,teacherAuthorized,publicName} from '../lib/live-auth.mjs';
+import {ROOM,configured,lecturerAuthorized,teacherAuthorized,publicName} from '../lib/live-auth.mjs';
 const headers={'Cache-Control':'no-store','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff'};
 const res=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
 export default async function handler(req){
@@ -12,7 +12,7 @@ export default async function handler(req){
   const data=JSON.parse(raw);
   if(data.role!=='teacher'&&data.role!=='student')return res({error:'Invalid role'},400);
   const isTeacher=data.role==='teacher';
-  if(isTeacher&&!teacherAuthorized(data.pin))return res({error:'Invalid lecturer PIN'},403);
+  if(isTeacher&&!await lecturerAuthorized(data))return res({error:'Lecturer session has expired or is unauthorized'},403);
   if(!isTeacher&&(typeof data.name!=='string'||!publicName(data.name).trim()))return res({error:'Enter your name before sharing.'},400);
   // Verify that the configured API key, secret, and URL actually work for
   // the lecturer before issuing room tokens. Merely having env vars is not
