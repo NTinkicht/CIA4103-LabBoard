@@ -89,7 +89,7 @@ try{
   await teacher.waitForFunction(()=>document.querySelector('#participation-summary')?.textContent?.includes('0 of 2'),null,{timeout:10000});
   assert.ok((await statusOf(teacher,'Alice')).includes('not-participated'));
   assert.ok((await statusOf(teacher,'Bob')).includes('not-participated'));
-  await alice.locator('#student-answer').waitFor({state:type==='poll'?'attached':'visible',timeout:9000}).catch(()=>{});
+  if(type!=='poll')await alice.locator('#student-answer').waitFor({state:'visible',timeout:9000});
   if(type==='poll'){
    await alice.locator('input[name="student-vote"]').first().check();
    await alice.locator('#submit-answer').click();
