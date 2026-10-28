@@ -496,3 +496,53 @@ test('whiteboard object validation rejects unsafe geometry, overflowing tables a
  assert.equal((await call(store,{action:'board',operation:'edit',token:room.teacherToken,id:textId,
    changes:{text:'hello',fontSize:80}})).status,409);
 });
+
+
+test('finish activity returns student and teacher to classroom home without ending the room',async()=>{
+ const store=new FakeStore();
+ const room=(await created(store)).body;
+ const student=(await join(store,room.code,'Student One')).body;
+ for(const type of ['poll','answers','cloud']){
+  const payload=type==='poll'?{options:['Yes','No'],prompt:'Which one?'}:{prompt:'What is your answer?'};
+  const started=await start(store,room.teacherToken,type,payload);
+  assert.equal(started.status,200);
+  const id=started.body.active.id;
+  const value=type==='poll'?0:type==='cloud'?'Flow':'My answer';
+  assert.equal((await call(store,{action:'submit',token:student.token,roundId:id,value,revision:0})).status,200);
+  assert.equal((await state(store,student.token)).body.active.id,id);
+  assert.equal((await call(store,{action:'control',token:student.token,control:'finish',roundId:id})).status,403);
+  assert.equal((await call(store,{action:'control',token:room.displayToken,control:'finish',roundId:id})).status,403);
+  const finished=await call(store,{action:'control',token:room.teacherToken,control:'finish',roundId:id});
+  assert.equal(finished.status,200);
+  assert.equal(finished.body.active,null);
+  const t=await state(store,room.teacherToken),s=await state(store,student.token);
+  assert.equal(t.body.active,null);
+  assert.equal(s.body.active,null);
+  assert.equal(t.body.roomOpen,true);
+  assert.equal(s.body.roomOpen,true);
+  assert.equal((await state(store,room.displayToken)).body.active,null);
+  assert.equal((await call(store,{action:'submit',token:student.token,roundId:id,value,revision:1})).status,409);
+  assert.equal((await call(store,{action:'control',token:room.teacherToken,control:'finish',roundId:id})).status,409);
+  // Finished answers remain stored in history, but they are not the active round.
+  const old=await store.get('response/'+room.code+'/'+id+'/');
+  const keys=[...store.values.keys()].filter(k=>k.startsWith('response/'+room.code+'/'+id+'/'));
+  assert.equal(keys.length,1);
+  const next=await start(store,room.teacherToken,type,payload);
+  assert.equal(next.status,200);
+  assert.notEqual(next.body.active.id,id);
+  // New active round cannot be closed by a stale request targeting old id.
+  assert.equal((await call(store,{action:'control',token:room.teacherToken,control:'finish',roundId:id})).status,409);
+  assert.equal((await state(store,room.teacherToken)).body.active.id,next.body.active.id);
+  await call(store,{action:'control',token:room.teacherToken,control:'finish',roundId:next.body.active.id});
+ }
+});
+test('finish activity preserves unrelated screen-share and work access within classroom',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body,student=(await join(store,room.code,'Learner')).body;
+ const round=(await start(store,room.teacherToken,'answers',{prompt:'Observation?'})).body.active.id;
+ await call(store,{action:'control',token:room.teacherToken,control:'finish',roundId:round});
+ const submitted=await call(store,{action:'work',operation:'submit',token:student.token,kind:'problem',note:'I need assistance'});
+ assert.equal(submitted.status,201);
+ const results=(await call(store,{action:'work',operation:'list',token:room.teacherToken})).body;
+ assert.equal(results.items.length,1);
+ assert.equal((await state(store,student.token)).body.roomOpen,true);
+});
