@@ -1,10 +1,12 @@
 import {mountWhiteboard} from './toolkit-whiteboard.mjs';
+import {createLiveCloud} from './toolkit-cloud.mjs';
 const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides',work:'Work & Problems',whiteboard:'Whiteboard'};
 let teacherWhiteboard=null,studentWhiteboard=null,displayWhiteboard=null,lastDisplayBoardId=null;
+let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound=null,cloudReviewSignature=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
 const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0};
 let toastTimer=null;
@@ -106,6 +108,9 @@ function teacherShell(){
  void loadSavedQuestions('cloud');
 }
 function configTool(){
+ if(state.tool!=='cloud'&&teacherCloud){
+  teacherCloud.destroy();teacherCloud=null;teacherCloudRound=null;cloudReviewSignature=null;
+ }
  app.classList.toggle('screen-focus',state.tool==='screen');
  app.classList.toggle('slides-focus',state.tool==='documents');
  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
@@ -294,6 +299,38 @@ async function controlRound(command){
  try{await request('control',{token:state.token,control:command,roundId:state.snapshot?.active?.id});await refresh();}
  catch(e){announce(e.message,true)}
 }
+function reviewCloudAnswers(answers,roundId){
+ const target=$('cloud-review');if(!target)return;
+ const rows=answers||[];
+ const sig=roundId+'|'+rows.map(a=>[a.subject,a.revision,a.hidden,a.value].join(':')).join('|');
+ if(sig===cloudReviewSignature)return;
+ cloudReviewSignature=sig;
+ target.innerHTML='<div class="cloud-review-heading"><h3>Review incoming words</h3><span class="pill grey">'+rows.length+' submissions</span></div>'+
+ (rows.length?rows.map(a=>'<article class="answer-card"><div class="answer-meta" style="margin:0">'+
+ '<span><strong>'+esc(a.value)+'</strong> · '+esc(a.name||'Student')+'</span>'+
+ '<button class="secondary" type="button" data-cloud-subject="'+esc(a.subject)+'" data-hidden="'+a.hidden+'">'+
+ (a.hidden?'Restore word':'Hide word')+'</button></div></article>').join(''):
+ '<p class="small">Words will arrive as students submit them.</p>');
+ target.querySelectorAll('[data-cloud-subject]').forEach(button=>button.onclick=async()=>{
+  button.disabled=true;
+  try{
+   await request('moderate',{token:state.token,roundId,subject:button.dataset.cloudSubject,
+     hidden:button.dataset.hidden!=='true'});
+   cloudReviewSignature=null;
+   await refresh();await teacherCloud?.refresh();
+  }catch(err){announce(err.message,true);button.disabled=false}
+ });
+}
+function renderTeacherCloud(snapshot){
+ const round=snapshot.active;
+ if(teacherCloudRound!==round.id||!teacherCloud||!$('cloud-live-mount')){
+  teacherCloud?.destroy();teacherCloudRound=round.id;cloudReviewSignature=null;
+  $('live-results').innerHTML='<div id="cloud-live-mount"></div><div id="cloud-review" class="cloud-review"></div>';
+  teacherCloud=createLiveCloud($('cloud-live-mount'),{request,token:state.token,roundId:round.id,role:'teacher'});
+ }
+ reviewCloudAnswers(snapshot.answers,round.id);
+}
+
 function renderTeacher(snapshot){
  $('participants-count').textContent=String(snapshot.participants??0);
  const round=snapshot.active;
@@ -307,7 +344,11 @@ function renderTeacher(snapshot){
  $('current-label').textContent=NAMES[round.type];
  $('round-status').textContent=round.status==='closed'?'Closed':'Receiving';
  $('round-status').className='pill '+(round.status==='open'?'':'grey');
- $('live-results').innerHTML=resultsHtml(snapshot);
+ if(round.type==='cloud')renderTeacherCloud(snapshot);
+ else{
+  if(teacherCloud){teacherCloud.destroy();teacherCloud=null;teacherCloudRound=null;cloudReviewSignature=null}
+  $('live-results').innerHTML=resultsHtml(snapshot);
+ }
  $('round-actions').innerHTML=
    btn(round.revealed?'◉ Hide projected results':'◉ Reveal projected results','secondary','toggle-reveal')+
    btn('■ Close responses','ghost','close-responses',round.status==='closed'?'disabled':'');
@@ -515,6 +556,15 @@ function displayShell(){
 }
 function renderDisplay(snapshot){
  const r=snapshot.active;$('display-title').textContent=r?.prompt||NAMES[r?.type]||'Live classroom';
+ if(r?.type==='cloud'){
+  if(displayCloudRound!==r.id||!displayCloud||!$('cloud-display-mount')){
+   displayCloud?.destroy();displayCloudRound=r.id;
+   $('display-work').innerHTML='<div id="cloud-display-mount"></div>';
+   displayCloud=createLiveCloud($('cloud-display-mount'),{request,token:state.token,roundId:r.id,role:'display'});
+  }
+  return;
+ }
+ if(displayCloud){displayCloud.destroy();displayCloud=null;displayCloudRound=null}
  if(r?.type==='whiteboard'){
   if(r.id!==lastDisplayBoardId||!displayWhiteboard){
    if(displayWhiteboard){displayWhiteboard.destroy();displayWhiteboard=null}
@@ -557,7 +607,10 @@ async function refresh(){
    }
  }finally{state.busy=false}
 }
-function stopPolling(){state.epoch++;if(state.pollTimer)clearTimeout(state.pollTimer);state.pollTimer=null}
+function stopPolling(){
+ teacherCloud?.destroy();teacherCloud=null;teacherCloudRound=null;
+ displayCloud?.destroy();displayCloud=null;displayCloudRound=null;cloudReviewSignature=null;
+ state.epoch++;if(state.pollTimer)clearTimeout(state.pollTimer);state.pollTimer=null}
 function startPolling(){
  const epoch=state.epoch;
  const schedule=()=>{if(epoch!==state.epoch||!state.token)return;
