@@ -4,7 +4,7 @@ const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides',work:'Work & Problems',whiteboard:'Whiteboard'};
+const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides',web:'Web Browser',work:'Work & Problems',whiteboard:'Whiteboard'};
 let teacherWhiteboard=null,studentWhiteboard=null,displayWhiteboard=null,lastDisplayBoardId=null;
 let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound=null,cloudReviewSignature=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
@@ -75,11 +75,11 @@ function teacherShell(){
  app.classList.add('lecturer-layout');
  const railPref=(()=>{try{return localStorage.getItem('classroom-toolkit-rail-collapsed')==='true'}catch{return false}})();
  app.classList.toggle('rail-collapsed',railPref);
- const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides']];
+ const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides'],['web','◎','Web Browser']];
  app.innerHTML='<div class="workspace"><aside class="rail"><div class="rail-top"><p class="rail-title">Interactive tools</p><button type="button" class="rail-toggle" id="rail-toggle" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="tool-nav" title="Collapse sidebar">☰</button></div><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'" title="'+text+'" aria-label="'+text+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span><span class="tool-text">'+text+'</span></button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div class="activity-view-tabs" id="activity-view-tabs" role="tablist" aria-label="Activity views" hidden>'+
   '<button type="button" id="activity-questions" role="tab" aria-controls="tool-config" aria-selected="true">Questions</button>'+
   '<button type="button" id="activity-results" role="tab" aria-controls="live-results-panel" aria-selected="false" disabled>Live Results</button>'+
- '</div><div id="tool-config" role="tabpanel" aria-labelledby="activity-questions"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="live-results-panel" class="activity-results-view" role="tabpanel" aria-labelledby="activity-results" hidden><div class="results-head"><div><p class="eyebrow" id="results-kind">Live activity</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></div></section>'+notices()+'</div></div>';
+ '</div><div id="tool-config" role="tabpanel" aria-labelledby="activity-questions"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-web-host" class="lecturer-embed" hidden><iframe id="teacher-web-frame" title="Saved website browser" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="live-results-panel" class="activity-results-view" role="tabpanel" aria-labelledby="activity-results" hidden><div class="results-head"><div><p class="eyebrow" id="results-kind">Live activity</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></div></section>'+notices()+'</div></div>';
  const updateRail=collapsed=>{
   app.classList.toggle('rail-collapsed',collapsed);
   const toggle=$('rail-toggle');
@@ -101,6 +101,11 @@ function teacherShell(){
     ['poll','answers','cloud'].includes(state.tool)?'results':'questions';
   configTool();
   if(state.snapshot)renderTeacher(state.snapshot);
+ });
+ const webFrame=$('teacher-web-frame');
+ webFrame?.addEventListener('load',()=>{
+  if(state.role==='teacher'&&state.token&&webFrame.contentWindow)
+   webFrame.contentWindow.postMessage({type:'toolkit:web-session',token:state.token},location.origin);
  });
  const liveFrame=$('teacher-screen-frame');
  liveFrame?.addEventListener('load',()=>{
@@ -162,14 +167,16 @@ function configTool(){
  }
  app.classList.toggle('screen-focus',state.tool==='screen');
  app.classList.toggle('slides-focus',state.tool==='documents');
+ app.classList.toggle('web-focus',state.tool==='web');
  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
- const screenHost=$('teacher-screen-host'),slidesHost=$('teacher-slides-host');
+ const screenHost=$('teacher-screen-host'),slidesHost=$('teacher-slides-host'),webHost=$('teacher-web-host');
  if(screenHost)screenHost.hidden=state.tool!=='screen';
  if(slidesHost)slidesHost.hidden=state.tool!=='documents';
+ if(webHost)webHost.hidden=state.tool!=='web';
  syncActivityTabs();
  document.querySelectorAll('[data-tool]').forEach(b=>{const on=b.dataset.tool===state.tool;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false')});
  $('tool-title').textContent=NAMES[state.tool];
- const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.'};
+ const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',web:'Browse lesson websites and save frequently used URLs for future classes.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='screen'){
   $('tool-config').innerHTML='';
@@ -181,6 +188,12 @@ function configTool(){
   $('tool-config').innerHTML='';
   const frame=$('document-frame');
   if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/presenter/';
+  return;
+ }
+ if(state.tool==='web'){
+  $('tool-config').innerHTML='';
+  const frame=$('teacher-web-frame');
+  if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/browser/';
   return;
  }
  if(state.tool==='whiteboard'){
@@ -723,6 +736,12 @@ function startPolling(){
 
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||state.role!=='teacher'||!state.token)return;
+ if(event.data?.type==='toolkit:web-ready'){
+  const frame=$('teacher-web-frame');
+  if(frame?.contentWindow===event.source)
+   frame.contentWindow.postMessage({type:'toolkit:web-session',token:state.token},location.origin);
+  return;
+ }
  if(event.data?.type!=='toolkit:screen-ready')return;
  const frame=$('teacher-screen-frame');
  if(frame?.contentWindow!==event.source)return;
