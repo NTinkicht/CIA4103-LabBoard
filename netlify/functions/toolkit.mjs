@@ -375,9 +375,10 @@ export async function handleToolkit(request,storeProvider=getStore){
       }
       if(operation==='delete'){
         if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/i.test(data.id))return fail(400,'Invalid saved link ID');
-        const updated=await change(store,key('saved-web-link',data.id),item=>({
-          ...item,archived:true,revision:item.revision+1,updatedAt:new Date().toISOString()
-        }));
+        const updated=await change(store,key('saved-web-link',data.id),item=>
+          item.archived?{error:'Saved link was already removed'}:{
+            ...item,archived:true,revision:item.revision+1,updatedAt:new Date().toISOString()
+          });
         return updated?.error?fail(409,updated.error):updated?reply({ok:true}):fail(404,'Saved link not found');
       }
       return fail(400,'Unknown bookmark operation');
