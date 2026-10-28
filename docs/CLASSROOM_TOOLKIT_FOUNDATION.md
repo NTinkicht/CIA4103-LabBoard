@@ -304,3 +304,18 @@ The lecturer has a **Web Browser** entry in the same collapsible left menu as Fi
 - Saved bookmarks and URL validation are tested with Node API tests and a real Chromium synthetic website test covering navigation, editing/deleting saved links and preserved iframe state. The existing student three-tab flow remains unchanged.
 
 Security note: URLs are user-initiated, the system does not proxy or scrape pages, and external sites see normal requests from the lecturer's own browser. The viewer cannot automatically detect all frame refusal reasons; a visible Open in Chrome alternative is always present for loaded URLs.
+
+
+## Lecturer-only student participation panel
+
+The lecturer workspace now shows a compact **Students** companion column directly to the left of the selected tool's content, beside the existing collapsible navigation rail.
+
+- **Live Poll, Live Answers and Word Cloud:** while that tool has the active round, each joined student is labelled **✓ Participated** when an answer for the round has been submitted, or **○ Not participated** when none has been submitted yet. Counters update with the classroom's usual ~1.75-second sync. A hidden/moderated answer still counts because the student participated. In **pair mode**, a single submitted team response marks all students who joined with the matching pair name as participated.
+- **Work & Problems:** students who have submitted at least one work/problem item in the current room are marked Participated; the rest are Not participated. This list refreshes with the existing lecturer work-fetch interval (approximately every five seconds).
+- **Timer and Files & Slides:** the classroom roster is visible, but individual student submissions are not available. Each status is **— Not tracked**, not incorrectly counted as absent participation.
+- **Before an activity starts or after Close activity:** the roster stays visible but shows Not tracked until the next matching response round starts; statuses are not carried over between rounds.
+- **Whiteboard, Screen Sharing and Web Browser:** no extra participation sidebar, because they have specialized collaboration/sharing controls or no response submission.
+- The student names and individual participation statuses are available only to the authenticated lecturer in the classroom snapshot. Students and projectors do not receive the roster.
+- The roster scrolls independently of results on desktop and compresses to a horizontally scrollable row on tablet/mobile. Collapsing the tool menu still leaves the participation panel visible.
+
+The roster is based on **joined** members, not verified current presence or attendance. It is a participation/submission indicator, not an attendance register.
