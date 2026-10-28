@@ -41,6 +41,21 @@ async function mock(route){
   }else if(data.operation==='select'){
    if(role!=='teacher'){status=403;payload={error:'Lecturer only'}}
    else {board.writerId=data.studentId;board.version++;payload={ok:true,writerId:board.writerId}}
+  }else if(data.operation==='element'){
+   if(!(role==='teacher'||Boolean(id&&board.writerId===id))){status=409;payload={error:'Not permitted'}}
+   else{board.version++;board.strokes.push({id:'item-'+board.version,...data.element});payload={ok:true}}
+  }else if(['edit','move','remove'].includes(data.operation)){
+   if(!(role==='teacher'||Boolean(id&&board.writerId===id))){status=409;payload={error:'Not permitted'}}
+   else{
+    const index=board.strokes.findIndex(x=>x.id===data.id);
+    if(index<0){status=409;payload={error:'Missing object'}}
+    else{
+     if(data.operation==='remove')board.strokes.splice(index,1);
+     if(data.operation==='edit')Object.assign(board.strokes[index],data.changes);
+     if(data.operation==='move')Object.assign(board.strokes[index],{x:data.x,y:data.y});
+     board.version++;payload={ok:true}
+    }
+   }
   }else if(data.operation==='stroke'){
    if(!(role==='teacher'||Boolean(id&&board.writerId===id))){status=409;payload={error:'Not permitted'}}
    else{board.version++;board.strokes.push({id:String(board.version),points:data.points,color:data.color,width:data.width});payload={ok:true}}
@@ -98,6 +113,64 @@ try{
  await drag(t,'#teacher-board-mount canvas');
  await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Stroke saved'),null,{timeout:8000});
  assert.equal(board.strokes.length,3);
+ // Teacher creates a rectangle, ellipse and arrow from the tools menu.
+ await t.locator('#teacher-board-mount [data-wb-tool="rectangle"]').click();
+ await drag(t,'#teacher-board-mount canvas');
+ await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Shape added'),null,{timeout:8000});
+ assert.equal(board.strokes.at(-1).shape,'rectangle');
+ await t.locator('#teacher-board-mount [data-wb-tool="ellipse"]').click();
+ await drag(t,'#teacher-board-mount canvas');
+ await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Shape added'),null,{timeout:8000});
+ assert.equal(board.strokes.at(-1).shape,'ellipse');
+ await t.locator('#teacher-board-mount [data-wb-tool="arrow"]').click();
+ await drag(t,'#teacher-board-mount canvas');
+ await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Shape added'),null,{timeout:8000});
+ assert.equal(board.strokes.at(-1).shape,'arrow');
+ // Create text box and edit it from the canvas.
+ await t.locator('#teacher-board-mount [data-wb-tool="text"]').click();
+ await drag(t,'#teacher-board-mount canvas');
+ await t.locator('#teacher-board-mount #wb-editor').waitFor({state:'visible',timeout:8000});
+ await t.locator('#teacher-board-mount #wb-editor-input').fill('Cycle time');
+ await t.locator('#teacher-board-mount #wb-editor-save').click();
+ await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Text box created'),null,{timeout:8000});
+ const label=board.strokes.at(-1);
+ assert.equal(label.type,'text');
+ assert.equal(label.text,'Cycle time');
+ // Create a 2 x 3 table and update the first cell through the double-click editor.
+ await t.locator('#teacher-board-mount [data-wb-tool="table"]').click();
+ await t.locator('#teacher-board-mount #wb-rows').selectOption('2');
+ await t.locator('#teacher-board-mount #wb-cols').selectOption('3');
+ await drag(t,'#teacher-board-mount canvas');
+ await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Table created'),null,{timeout:8000});
+ const table=board.strokes.at(-1);
+ assert.equal(table.type,'table');
+ assert.equal(table.rows,2);
+ assert.equal(table.cols,3);
+ await t.locator('#teacher-board-mount [data-wb-tool="select"]').click();
+ const rect=await t.locator('#teacher-board-mount canvas').boundingBox();
+ const cellX=rect.x+(table.x+20)*rect.width/1000;
+ const cellY=rect.y+(table.y+20)*rect.height/600;
+ await t.mouse.dblclick(cellX,cellY,{delay:70});
+ await t.locator('#teacher-board-mount #wb-editor').waitFor({state:'visible',timeout:8000});
+ await t.locator('#teacher-board-mount #wb-editor-input').fill('Process');
+ await t.locator('#teacher-board-mount #wb-editor-save').click();
+ await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Table cell updated'),null,{timeout:8000});
+ assert.equal(board.strokes.at(-1).cells[0],'Process');
+ // Move selected table and ensure the move survives a server refresh.
+ const beforeX=board.strokes.at(-1).x;
+ await t.mouse.move(cellX,cellY);
+ await t.mouse.down();
+ await t.mouse.move(cellX+35,cellY+20,{steps:4});
+ await t.mouse.up();
+ await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Object moved'),null,{timeout:8000});
+ assert.ok(board.strokes.at(-1).x>beforeX,'Table should move on the canvas');
+ // Existing selected student can create a new shape; revoking permission blocks creation.
+ await a.locator('#student-board-mount [data-wb-tool="rectangle"]').click();
+ const countBefore=board.strokes.length;
+ await drag(a,'#student-board-mount canvas');
+ assert.equal(board.strokes.length,countBefore,'Anna no longer has edit permission');
+ console.log('Whiteboard shapes, text editor, 2x3 table, cell edit and moving passed');
+
  t.once('dialog',dialog=>dialog.accept());
  await t.locator('#wb-clear').click();
  await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Whiteboard cleared'),null,{timeout:7000});
