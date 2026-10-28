@@ -247,3 +247,68 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .lecturer-layout.slides-focus #document-frame{height:78dvh;min-height:470px}
  .lecturer-layout .rail-top{padding-bottom:4px}
 }
+
+
+/* Word Cloud Live — stable items, incoming-word rain and frequency weighting.
+   Unlike the previous flex cloud, the DOM nodes are not destroyed every poll. */
+.live-word-cloud{width:100%;min-width:0;background:linear-gradient(160deg,#fcfeff,#f4f9ff 68%,#f8f7ff);
+ border:1px solid #e0e9f3;border-radius:18px;overflow:hidden}
+.cloud-bar{display:flex;justify-content:space-between;align-items:center;gap:15px;
+ padding:15px 20px 11px;border-bottom:1px solid #e6edf5;flex-wrap:wrap}
+.cloud-bar h3{font-size:18px;font-weight:800;color:#1b3a56;margin:2px 0}
+.cloud-bar .eyebrow{font-size:10px;margin-bottom:3px}
+.cloud-metrics{display:flex;align-items:center;gap:7px;white-space:nowrap;color:#637c92;font-size:12px}
+.cloud-metrics strong{font-size:24px;color:#204d78;font-variant-numeric:tabular-nums}
+.cloud-live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+ background:#0ea584;box-shadow:0 0 0 4px #d9f7ee}
+.cloud-stage{position:relative;min-height:360px;overflow:hidden;padding:25px 30px;
+ display:flex;align-items:center;justify-content:center}
+.cloud-empty{text-align:center;color:#8296ac;display:flex;flex-direction:column;align-items:center;
+ gap:7px;max-width:460px;margin:auto}
+.cloud-empty[hidden]{display:none!important}
+.cloud-empty strong{font-size:16px;color:#385e7b}
+.cloud-empty p{font-size:12px;margin:0}
+.cloud-empty-icon{font-size:40px;color:#9cb5d0;line-height:1}
+.cloud-words{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;align-content:center;
+ justify-content:center;position:relative;z-index:1;width:100%;min-height:130px}
+.cloud-word-live{display:inline-block;max-width:100%;line-height:1.17;font-family:inherit;
+ font-weight:850;letter-spacing:-.025em;word-break:break-word;text-align:center;
+ transition:font-size 260ms cubic-bezier(.2,.8,.2,1),opacity 220ms ease;will-change:transform}
+.cloud-word-live.cloud-new{animation:cloud-word-fall .77s cubic-bezier(.15,.75,.22,1) both}
+.cloud-word-live.cloud-grow{animation:cloud-word-grow .52s cubic-bezier(.23,.85,.25,1)}
+.cloud-rain{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:2}
+.cloud-droplet{position:absolute;top:15%;left:var(--cloud-x);font-size:23px;font-weight:850;
+ padding:4px 10px;max-width:34%;overflow-wrap:anywhere;text-align:center;
+ background:#ffffffd8;border:1px solid #e3ebf4;border-radius:13px;
+ box-shadow:0 8px 22px #244d6c23;animation:cloud-drop 1.15s cubic-bezier(.18,.75,.25,1) forwards}
+.cloud-foot{display:flex;justify-content:space-between;gap:15px;align-items:center;
+ color:#738ca3;border-top:1px solid #e4edf5;padding:10px 19px;font-size:11px}
+.cloud-foot #cloud-last-word{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+@keyframes cloud-word-fall{
+ 0%{opacity:0;transform:translate3d(0,-120px,0) rotate(-5deg) scale(1.17)}
+ 58%{opacity:1;transform:translate3d(0,9px,0) rotate(1deg) scale(.97)}
+ 80%{transform:translate3d(0,-4px,0) rotate(0) scale(1.03)}
+ 100%{opacity:1;transform:translate3d(0,0,0) rotate(0) scale(1)}
+}
+@keyframes cloud-word-grow{
+ 0%{transform:scale(1)}
+ 48%{transform:scale(1.17)}
+ 100%{transform:scale(1)}
+}
+@keyframes cloud-drop{
+ 0%{opacity:0;transform:translate3d(-50%,-170px,0) scale(.86)}
+ 35%{opacity:1}
+ 75%{opacity:1;transform:translate3d(-50%,100px,0) scale(1)}
+ 100%{opacity:0;transform:translate3d(-50%,170px,0) scale(.91)}
+}
+@media(max-width:590px){
+ .cloud-bar{padding:12px 13px}
+ .cloud-stage{min-height:290px;padding:25px 12px}
+ .cloud-words{gap:9px 14px}
+ .cloud-word-live{max-width:100%;font-size:min(40px,8vw)!important}
+ .cloud-droplet{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){
+ .cloud-word-live,.cloud-droplet{animation:none!important;transition:none!important}
+ .cloud-droplet{display:none}
+}
