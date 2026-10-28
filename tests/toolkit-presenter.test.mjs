@@ -37,7 +37,8 @@ test('the lecturer screen-sharing menu contains only the LiveKit viewer and stud
  const main=readFileSync(new URL('../public/assets/toolkit-app.mjs',import.meta.url),'utf8');
  const screen=readFileSync(new URL('../public/toolkit/screen-sharing/index.html',import.meta.url),'utf8');
  assert.match(main,/id="teacher-screen-frame"/);
- assert.match(main,/id="live-results-panel" hidden/);
+ assert.match(main,/id="live-results-panel" class="activity-results-view"/);
+ assert.match(main,/id="activity-view-tabs"/);
  assert.match(main,/id="teacher-slides-host"/);
  assert.match(main,/\/toolkit\/screen-sharing\//);
  assert.doesNotMatch(main,/dashboard\/\?embed=1/);

@@ -387,6 +387,18 @@ export async function handleToolkit(request,storeProvider=getStore){
         const updated=await change(store,key('room',claims.code),prev=>({...prev,ended:true}));
         return updated?.error?fail(409,updated.error):reply({ok:true});
       }
+      if(data.control==='finish'){
+        // Finishing an activity is different from ending the classroom.
+        // Stop accepting answers then clear only the matching active round.
+        if(!room.active||data.roundId!==room.active)
+          return fail(409,'Activity changed. Refresh before closing it');
+        const roundPath=key('round',claims.code,room.active);
+        const stopped=await change(store,roundPath,r=>({...r,status:'closed'}));
+        if(stopped?.error||!stopped)return fail(409,'Could not stop the current activity');
+        const updated=await change(store,key('room',claims.code),r=>
+          r.active===data.roundId?{...r,active:null}:{error:'Activity changed; newer activity preserved'});
+        return updated?.error?fail(409,updated.error):reply({ok:true,active:null});
+      }
       if(!['close','reveal','hide'].includes(data.control))return fail(400,'Invalid control');
       if(!room.active||data.roundId!==room.active)return fail(409,'Activity changed. Refresh the classroom before updating controls');
       const updated=await change(store,key('round',claims.code,room.active),r=>({...r,status:data.control==='close'?'closed':r.status,revealed:data.control==='reveal'?true:data.control==='hide'?false:r.revealed}));

@@ -260,3 +260,19 @@ The existing lecturer-selected collaborative canvas also supports:
 All item types are stored in the existing room-scoped Netlify Blobs whiteboard history. Existing freehand strokes remain readable and are rendered alongside structured elements; no conversion of old room data is required. Each create/edit/move/delete operation is bounded, atomically serialized via compare-and-set and rechecks the currently authorized student writer. No extra student tab, account, or PIN is required.
 
 Current limitations: canvas objects are not an infinite-vector design editor; resizing or rotating an existing object is not yet supported, and table dimensions (row/column count) are fixed after insertion. The classroom student roster still allows only one selected student to edit alongside the lecturer. The underlying board refresh still uses near-live polling at approximately 1.7 seconds.
+
+
+## Focused activity flow: Questions → Live Results → Close activity
+
+**Poll, Live Answers and Word Cloud** have two compact tabs within the same selected lecturer tool:
+- **Questions** shows the question form, answer choices (for polls), Save and the saved-question library, all unchanged.
+- **Live Results** shows only the active question and its live response chart/list/animated cloud, with result visibility controls and a prominent **Close activity** button. It does not show the preparation form or saved library, so no scrolling past saved questions is necessary.
+- Starting a response activity automatically switches the lecturer to Live Results and scrolls the workspace to the top. Selecting Questions temporarily returns to question preparation without stopping the active activity.
+- Only the matching tool's active round enables Live Results. Switch tools and return to the live one to resume its focused results screen.
+- The existing Timer countdown remains visible while active; other lecturer tools and student screen sharing are unchanged.
+
+**Close activity** is distinct from End room. The lecturer requests \`action=control, control=finish\` against the current active round. The server checks lecturer role and exact active round ID, marks the round closed, and atomically clears the classroom's active round ID. This retains responses for that historical round but rejects new submissions to it. A stale close request cannot remove a newer activity.
+
+The lecturer returns immediately to the selected tool's Questions tab (or initial Timer setup) and can launch another round in the same classroom. On the next student classroom refresh, each student returns to the **Activities home** view and switches to the Activities tab, with the original three fixed student tabs — Activities, Screen Share, Share Work / Problem — still available. Screen-sharing connections are not explicitly torn down.
+
+Automated API tests cover each response tool, ongoing room validity, student submission denial after closure, no stale-round closure and unrelated work submissions. Chromium browser tests cover the complete Questions → Live Results → Close activity journey for all three tools, with the lecturer/learner views and no hidden scrolling dependency.
