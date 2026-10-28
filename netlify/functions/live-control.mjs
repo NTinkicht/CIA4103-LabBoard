@@ -32,6 +32,14 @@ export async function release(store,lease){
 }
 // A lecturer switches the displayed screen, NOT a student's browser capture.
 // Published student tracks remain available in standby and can resume instantly.
+// Restrict the draw to students currently connected to the sharing queue.
+// This cannot launch screen capture: that browser permission remains student-only.
+export function randomScreenParticipant(participants,choose){
+ const eligible=participants.filter(p=>meta(p).role==='student'&&
+   /^student-[a-f0-9-]{36}$/.test(p.identity));
+ const current=eligible.find(p=>['active','approved'].includes(meta(p).status))?.identity||null;
+ return pickStudent(eligible,current,p=>p.identity,choose);
+}
 export async function switchPresenter(api,identity){
  let people=await api.listParticipants(ROOM);
  const students=people.filter(p=>meta(p).role==='student');
@@ -96,11 +104,8 @@ export default async function handler(req){
     // Only connected LiveKit students are eligible; other classroom members
     // must first join the sharing queue from their own browser.
     const participants=await api.listParticipants(ROOM);
-    const eligible=participants.filter(p=>meta(p).role==='student'&&
-      /^student-[a-f0-9-]{36}$/.test(p.identity));
-    if(!eligible.length)return respond({error:'No students are connected to Screen Sharing yet. Ask students to open Screen Share and join the queue.'},409);
-    const current=eligible.find(p=>['active','approved'].includes(meta(p).status))?.identity||null;
-    const winner=pickStudent(eligible,current,p=>p.identity);
+    const winner=randomScreenParticipant(participants);
+    if(!winner)return respond({error:'No students are connected to Screen Sharing yet. Ask students to open Screen Share and join the queue.'},409);
     targetId=winner.identity;
     chosenName=winner.name||'Student';
   }
