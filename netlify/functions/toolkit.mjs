@@ -331,6 +331,58 @@ export async function handleToolkit(request,storeProvider=getStore){
       return fail(400,'Unknown work operation');
     }
 
+    if(data.action==='web-links'){
+      // Lecturer-only shared bookmark library. Saved across classroom sessions
+      // without exposing the lecturer's session token to external websites.
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      const operation=data.operation||'list',prefix='saved-web-link/';
+      const cleanUrl=value=>{
+        if(typeof value!=='string'||value.length>1500||!/^https:\/\//i.test(value.trim()))return null;
+        try{
+          const parsed=new URL(value.trim());
+          const host=parsed.hostname.toLowerCase();
+          if(parsed.protocol!=='https:'||!host||parsed.username||parsed.password||
+             host==='localhost'||host.endsWith('.localhost')||
+             host==='127.0.0.1'||host==='0.0.0.0'||host==='[::1]'||
+             /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host))return null;
+          return parsed.href;
+        }catch{return null}
+      };
+      if(operation==='list'){
+        const items=(await entries(store,prefix,120)).filter(item=>!item.archived)
+          .sort((a,b)=>a.title.localeCompare(b.title));
+        return reply({items});
+      }
+      if(operation==='save'){
+        const input=data.item;
+        const title=typeof input?.title==='string'?input.title.trim():'';
+        const url=cleanUrl(input?.url);
+        if(!title||!validText(title,100)||!url)return fail(400,'Enter a title and a valid public HTTPS URL');
+        const id=data.id||randomUUID();
+        if(typeof id!=='string'||!/^[a-f0-9-]{36}$/i.test(id))return fail(400,'Invalid bookmark ID');
+        const path=key('saved-web-link',id);
+        const old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+        const revision=Number(data.revision||0);
+        if((old?.data?.revision||0)!==revision||old?.data?.archived)
+          return fail(409,'Saved link changed. Refresh the library and retry');
+        if(!old&&(await store.list({prefix})).blobs.length>=100)
+          return fail(409,'Saved link library is full (100 entries)');
+        const item={id,title,url,revision:revision+1,archived:false,
+          createdAt:old?.data?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+        const saved=await store.setJSON(path,item,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
+        if(!saved.modified)return fail(409,'Saved link changed. Refresh the library');
+        return reply({item},old?200:201);
+      }
+      if(operation==='delete'){
+        if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/i.test(data.id))return fail(400,'Invalid saved link ID');
+        const updated=await change(store,key('saved-web-link',data.id),item=>({
+          ...item,archived:true,revision:item.revision+1,updatedAt:new Date().toISOString()
+        }));
+        return updated?.error?fail(409,updated.error):updated?reply({ok:true}):fail(404,'Saved link not found');
+      }
+      return fail(400,'Unknown bookmark operation');
+    }
+
     if(data.action==='library'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       const operation=data.operation||'list',kind=data.kind||'poll';
