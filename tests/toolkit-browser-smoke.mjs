@@ -82,7 +82,9 @@ try{
 
  const docsFrameBounds=await lecturer.locator('#document-frame').boundingBox();
  const railBounds=await lecturer.locator('.rail').boundingBox();
- assert.ok(docsFrameBounds.width>820,'PDF/PowerPoint viewer should use most of the lecturer workspace at desktop width');
+ assert.ok(docsFrameBounds.width>620,'PDF/PowerPoint viewer should remain readable alongside student roster');
+ assert.equal(await lecturer.locator('#participation-panel').isVisible(),true,'Files & Slides shows student roster');
+ assert.match(await lecturer.locator('#participation-summary').innerText(),/not tracked|no students have joined/i);
  assert.ok(railBounds.x<35&&railBounds.width<=230,'Compact sidebar should start at left viewport edge');
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'No unrelated activity results beneath files');
  console.log('Wide Files & Slides frame:',Math.round(docsFrameBounds.width),'Sidebar width:',Math.round(railBounds.width));
@@ -115,6 +117,7 @@ try{
  assert.equal(await screenFrame.locator('#stream-video-stage').count(),0,'No incorrect screen stage ID');
  assert.equal(await screenFrame.locator('.stream-video-stage').count(),1,'Live screen viewer should be shown directly');
  assert.equal(await screenFrame.locator('.stream-sidebar').count(),1,'Student approval queue should be shown directly');
+ assert.equal(await lecturer.locator('#participation-panel').isVisible(),false,'Screen Sharing keeps its dedicated queue, not the participation panel');
  assert.equal(await screenFrame.locator('.lab-tabs, #board-view, #labs-view, #tab-labs, #tab-board').count(),0,'No legacy lab/dashboard sections inside Screen Sharing');
  assert.equal(await screenFrame.locator('h1').count(),0,'No duplicated Live classroom code board heading');
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'Whiteboard should not reappear below Screen Sharing');

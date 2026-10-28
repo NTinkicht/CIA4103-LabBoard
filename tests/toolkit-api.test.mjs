@@ -634,3 +634,61 @@ test('saved website URL validation rejects dangerous schemes, credentials, local
  assert.equal((await call(store,{action:'web-links',operation:'delete',token:room.teacherToken,id:'not-uuid'})).status,400);
  assert.equal((await call(store,{action:'web-links',operation:'save',token:room.teacherToken,id:'no-id',item:{title:'Title',url:'https://example.com'}})).status,400);
 });
+
+
+test('teacher-only participation roster reflects individual responses and moderation',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const alice=(await join(store,room.code,'Alice')).body;
+ const bob=(await join(store,room.code,'Bob')).body;
+ let before=await state(store,room.teacherToken);
+ assert.equal(before.body.students.length,2);
+ assert.ok(before.body.students.every(s=>s.participated===null));
+ assert.equal((await state(store,alice.token)).body.students,undefined);
+ assert.equal((await state(store,room.displayToken)).body.students,undefined);
+ for(const type of ['poll','answers','cloud']){
+  const started=await start(store,room.teacherToken,type,{prompt:'Class question',
+    ...(type==='poll'?{options:['A','B']}:{})});
+  const id=started.body.active.id;
+  const snap=await state(store,room.teacherToken);
+  assert.ok(snap.body.students.every(s=>s.participated===false));
+  const submission=await call(store,{action:'submit',token:alice.token,roundId:id,
+    value:type==='poll'?0:type==='cloud'?'Flow':'An answer',revision:0});
+  assert.equal(submission.status,200);
+  const after=(await state(store,room.teacherToken)).body;
+  assert.equal(after.students.find(s=>s.name==='Alice').participated,true);
+  assert.equal(after.students.find(s=>s.name==='Bob').participated,false);
+  assert.equal((await state(store,bob.token)).body.students,undefined);
+  const answer=after.answers.find(a=>a.name==='Alice');
+  assert.equal((await call(store,{action:'moderate',token:room.teacherToken,roundId:id,
+    subject:answer.subject,hidden:true})).status,200);
+  const hidden=(await state(store,room.teacherToken)).body;
+  assert.equal(hidden.students.find(s=>s.name==='Alice').participated,true,
+    'A hidden answer is still a submitted answer');
+  await call(store,{action:'control',token:room.teacherToken,control:'finish',roundId:id});
+  assert.ok((await state(store,room.teacherToken)).body.students.every(s=>s.participated===null));
+ }
+});
+test('pair answer marks both students in same pair but not classmates in other pair',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const a=(await join(store,room.code,'A','Team A')).body;
+ await join(store,room.code,'B','Team A');
+ await join(store,room.code,'C','Team B');
+ const started=await start(store,room.teacherToken,'poll',{unit:'pair',prompt:'Vote',
+   options:['Option A','Option B']});
+ const id=started.body.active.id;
+ assert.equal((await call(store,{action:'submit',token:a.token,roundId:id,value:1,revision:0})).status,200);
+ const snapshot=(await state(store,room.teacherToken)).body;
+ assert.deepEqual(snapshot.students.map(s=>[s.name,s.participated]),
+  [['A',true],['B',true],['C',false]]);
+ assert.equal(snapshot.participants,3);
+});
+test('student roster reflects joined classmates without leaking names to projector',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ await join(store,room.code,'Zara');
+ await join(store,room.code,'Ahmed');
+ const teacher=(await state(store,room.teacherToken)).body;
+ assert.deepEqual(teacher.students.map(s=>s.name),['Ahmed','Zara']);
+ assert.equal(teacher.participants,2);
+ const projector=(await state(store,room.displayToken)).body;
+ assert.equal(projector.students,undefined);
+});

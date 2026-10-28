@@ -49,3 +49,4 @@ jobs:
           node tests/toolkit-cloud-browser.mjs
           node tests/toolkit-activity-tabs-browser.mjs
           node tests/toolkit-web-browser-browser.mjs
+          node tests/toolkit-participation-browser.mjs

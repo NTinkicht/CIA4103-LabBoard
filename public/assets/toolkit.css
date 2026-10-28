@@ -437,3 +437,74 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .lecturer-layout.web-focus .mainstack>.surface:first-child{padding:8px}
  .lecturer-layout.web-focus #teacher-web-frame{height:80dvh;min-height:480px}
 }
+
+
+/* Live student participation companion column.
+   Sits between lecturer navigation and activity, without inserting result content
+   below the question. Scrolls independently on desktop. */
+.participation-panel[hidden]{display:none!important}
+.lecturer-layout.has-participation .workspace{
+ grid-template-columns:216px minmax(195px,220px) minmax(0,1fr);gap:13px
+}
+.lecturer-layout.rail-collapsed.has-participation .workspace{
+ grid-template-columns:64px minmax(195px,220px) minmax(0,1fr);gap:12px
+}
+.participation-panel{min-width:0;position:sticky;top:12px;max-height:calc(100dvh - 26px);
+ border:1px solid #dfe8f1;border-radius:16px;background:#fff;
+ box-shadow:0 5px 24px #1b426509;display:flex;flex-direction:column;overflow:hidden;padding:12px 9px}
+.participation-head{display:flex;align-items:center;justify-content:space-between;gap:7px;
+ padding:5px 4px 8px}
+.participation-head .eyebrow{font-size:9px;color:#8aa0b4;margin:0 0 4px}
+.participation-head h2{font-size:16px;line-height:1.2;margin:0;color:#244765}
+.participation-total{border:1px solid #cfe0ed;background:#f1f7fc;color:#1f658e;
+ border-radius:9px;padding:6px 8px;font-size:14px;min-width:29px;text-align:center}
+.participation-context{font-size:11px;color:#6b8399;margin:0 4px 8px}
+.participation-summary{border:1px solid #e0e8f0;border-radius:10px;background:#f5f8fc;
+ font-size:11px;font-weight:800;line-height:1.4;color:#627c95;padding:9px 10px}
+.participation-summary.is-tracked{background:#eaf4fc;color:#225e8b;border-color:#c9deef}
+.participation-list{display:flex;flex-direction:column;gap:5px;margin-top:10px;
+ overflow-y:auto;min-height:40px;flex:1;scrollbar-gutter:stable;
+ overscroll-behavior:contain;padding:0 2px 2px}
+.participation-student{display:grid;grid-template-columns:28px minmax(0,1fr);
+ align-items:center;gap:6px;min-height:48px;padding:6px;border:1px solid #e4eaf1;
+ background:#fff;border-radius:10px}
+.participation-student.participated{background:#f2fbf6;border-color:#c8ecd8}
+.participation-avatar{width:28px;height:28px;display:grid;place-items:center;
+ color:#32719c;background:#e8f1fb;border-radius:8px;font-size:12px;font-weight:850}
+.participation-student.participated .participation-avatar{color:#147a51;background:#dff3e6}
+.participation-identity{min-width:0}
+.participation-identity strong{display:block;font-size:11px;line-height:1.3;font-weight:800;
+ color:#2d4d67;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.participation-identity small{display:block;font-size:10px;color:#7b90a1;line-height:1.3;
+ overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.participation-state{grid-column:2;display:flex;align-items:center;gap:4px;
+ font-size:10px;color:#8b99a7;line-height:1.2;min-width:0}
+.participation-status-text{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.participation-symbol{display:grid;place-items:center;border:1px solid #cbd5df;
+ border-radius:99px;width:16px;height:16px;font-size:10px;flex:0 0 auto;color:#8b9cad}
+.participation-student.participated .participation-state{color:#187951;font-weight:800}
+.participation-student.participated .participation-symbol{color:#fff;border-color:#189568;background:#189568}
+.participation-student.not-participated .participation-state{color:#996343}
+.participation-footnote{font-size:10px;line-height:1.45;color:#8a9aa9;
+ border-top:1px solid #edf1f5;margin:9px 3px 0;padding:8px 0 0}
+.participation-empty{font-size:11px;text-align:center;color:#8295a6;padding:12px 6px}
+@media(min-width:951px) and (max-width:1180px){
+ .lecturer-layout.has-participation .workspace{grid-template-columns:196px minmax(170px,188px) minmax(0,1fr);gap:10px}
+ .lecturer-layout.rail-collapsed.has-participation .workspace{grid-template-columns:64px minmax(170px,188px) minmax(0,1fr);gap:10px}
+ .participation-panel{padding:10px 7px}
+}
+@media(max-width:950px){
+ .lecturer-layout.has-participation .workspace,
+ .lecturer-layout.rail-collapsed.has-participation .workspace{
+  grid-template-columns:minmax(0,1fr);gap:10px
+ }
+ .participation-panel{position:static;max-height:none;min-height:0;padding:10px 12px}
+ .participation-head{padding:2px 2px 4px}
+ .participation-context{margin-bottom:5px}
+ .participation-list{display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;
+  max-height:none;flex:none;gap:7px;scrollbar-gutter:auto;padding:1px 0 7px}
+ .participation-student{flex:0 0 154px;max-width:200px;min-width:0}
+ .participation-summary{padding:7px 10px}
+ .participation-footnote{margin-top:0}
+ .lecturer-layout.rail-collapsed.has-participation .rail{grid-row:auto}
+}
