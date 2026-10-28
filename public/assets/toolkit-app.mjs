@@ -515,13 +515,19 @@ function renderStudent(snapshot){
   else if(r.status==='closed')content+='<div class="notice show good">This activity is closed. Your responses are saved.</div>';
   else{
    if(r.type==='poll')content+=r.options.map((o,i)=>'<label class="choice"><input type="radio" name="student-vote" value="'+i+'"><span>'+esc(o)+'</span></label>').join('');
-   else content+='<label for="student-answer">'+(r.type==='cloud'?'Enter one word or short phrase':'Write a short answer')+'</label><textarea id="student-answer" maxlength="'+(r.type==='cloud'?40:500)+'" placeholder="'+(r.type==='cloud'?'Your word…':'Your answer…')+'"></textarea>';
+   else if(r.type==='cloud')content+='<label for="student-answer">Your word or short phrase</label><input type="text" id="student-answer" maxlength="40" enterkeyhint="send" autocomplete="off" placeholder="Type a word and press Enter…"><p class="small">Press Enter to send your word instantly.</p>';
+   else content+='<label for="student-answer">Write a short answer</label><textarea id="student-answer" maxlength="500" placeholder="Your answer…"></textarea>';
    content+='<div class="buttons student-submit">'+btn('Submit '+(r.unit==='pair'?'pair answer':'answer')+' →','primary','submit-answer')+'</div>';
    if(r.unit==='pair')content+='<p class="small">Pair mode: the response is shared between members of your named pair.</p>';
   }
   content+='<div id="submitted-status"></div>';
   area.innerHTML=content;
-  if(r.status==='open'&&r.type!=='timer')$('submit-answer').onclick=submitAnswer;
+  if(r.status==='open'&&r.type!=='timer'){
+   $('submit-answer').onclick=submitAnswer;
+   if(r.type==='cloud')$('student-answer').onkeydown=e=>{
+    if(e.key==='Enter'&&!e.isComposing){e.preventDefault();if(!$('submit-answer').disabled)void submitAnswer()}
+   };
+  }
  }
  if(snapshot.mine){
   if(r.type==='poll'){
@@ -543,7 +549,7 @@ async function submitAnswer(){
  if(r.type==='poll'&&!chosen)return announce('Choose an option before submitting.',true);
  const value=r.type==='poll'?Number(chosen.value):$('student-answer')?.value||'';
  if(r.type!=='poll'&&!String(value).trim())return announce('Enter an answer first.',true);
- const button=$('submit-answer');button.disabled=true;
+ const button=$('submit-answer');if(!button||button.disabled)return;button.disabled=true;
  try{
   const result=await request('submit',{token:state.token,value,roundId:r.id,revision:state.snapshot?.mine?.revision||0});
   announce('Response saved for this activity.');if($('student-answer'))delete $('student-answer').dataset.dirty;
