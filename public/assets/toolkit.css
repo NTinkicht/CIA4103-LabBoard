@@ -360,3 +360,47 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .wb-style-tools,.wb-tool-actions{gap:5px}
  .wb-editor{padding:17px}
 }
+
+
+/* Per-tool activity pages: Questions and Live Results occupy the same workspace.
+   Result mode hides preparation controls rather than forcing the lecturer to scroll. */
+.activity-view-tabs{display:flex;align-items:center;gap:6px;padding:5px;margin:15px 0 19px;
+ width:max-content;max-width:100%;border:1px solid #dce8f3;border-radius:12px;background:#f1f5fa}
+.activity-view-tabs[hidden],.activity-results-view[hidden],#tool-config[hidden]{display:none!important}
+.activity-view-tabs button{min-width:128px;min-height:41px;padding:9px 17px;border:0;border-radius:9px;
+ background:transparent;color:#506b85;font-size:13px;font-weight:800;white-space:nowrap}
+.activity-view-tabs button.active,.activity-view-tabs button[aria-selected="true"]{
+ background:#fff;color:#1166ae;box-shadow:0 2px 8px #174c7120}
+.activity-view-tabs button:disabled{opacity:.48;cursor:not-allowed}
+.activity-view-tabs button:not(:disabled):hover:not(.active){background:#e6eef7}
+.activity-results-focus .mainstack>.surface:first-child{padding-top:17px}
+.activity-results-focus .mainstack>.surface:first-child>.headrow{display:none}
+.activity-results-focus .activity-view-tabs{margin:0 0 16px}
+.activity-results-view{min-width:0;min-height:360px}
+.activity-results-view .results-head{margin:0 0 17px;gap:15px;padding:0 0 13px;
+ border-bottom:1px solid #e4edf4}
+.activity-results-view .results-head h2{font-size:clamp(20px,2.3vw,30px);line-height:1.3;
+ font-weight:820;overflow-wrap:anywhere;max-width:920px}
+.activity-results-view .results-head .metric-pair{flex-shrink:0}
+.activity-results-view .live-area{min-height:330px}
+.activity-results-view .buttons{margin-top:16px;gap:9px}
+.activity-results-view #finish-activity{margin-left:auto}
+.activity-results-view .cloud-stage{min-height:440px}
+.student-activities-home{display:flex;min-height:310px;flex-direction:column;align-items:center;
+ justify-content:center;text-align:center;gap:13px;padding:40px 23px;
+ border:1px solid #e1eaf3;border-radius:16px;background:linear-gradient(155deg,#fbfdff,#eef6fe)}
+.student-activities-home h2{font-size:clamp(21px,3vw,29px);line-height:1.25;color:#193c5c}
+.student-activities-home p:not(.eyebrow){max-width:440px;font-size:14px;line-height:1.7;color:#627f98;margin:0}
+.student-home-icon{display:grid;place-items:center;width:60px;height:60px;border-radius:17px;
+ background:#e0edf9;color:#246ba8;font-size:30px}
+@media(max-width:590px){
+ .activity-view-tabs{width:100%;margin:12px 0 15px}
+ .activity-view-tabs button{min-width:0;flex:1;padding:10px 8px}
+ .activity-results-view .results-head{align-items:start}
+ .activity-results-view .results-head h2{font-size:20px}
+ .activity-results-view .results-head .metric-pair{gap:9px}
+ .activity-results-view .live-area{min-height:240px}
+ .activity-results-view .cloud-stage{min-height:310px}
+ .activity-results-view #finish-activity{margin-left:0}
+ .student-activities-home{min-height:245px;padding:25px 14px}
+}
