@@ -399,3 +399,20 @@ test('concurrent cloud submissions keep every student word',async()=>{
  assert.equal(result.total,12);
  assert.deepEqual(result.words.map(w=>w.count),[6,6]);
 });
+
+
+test('migration of an already-running word cloud retains previously submitted words',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const old=(await join(store,room.code,'Old Student')).body,newcomer=(await join(store,room.code,'New Student')).body;
+ const id=(await start(store,room.teacherToken,'cloud')).body.active.id;
+ const oldAns=await call(store,{action:'submit',token:old.token,roundId:id,value:'Old word',revision:0});
+ assert.equal(oldAns.status,200);
+ // Simulate a room created by an earlier release with no fast projection.
+ store.values.delete('cloud-fast/'+room.code+'/'+id);
+ const quick=(await call(store,{action:'cloud-live',token:room.teacherToken,roundId:id})).body;
+ assert.equal(quick.total,1);
+ assert.equal((await call(store,{action:'submit',token:newcomer.token,roundId:id,value:'New word',revision:0})).status,200);
+ const updated=(await call(store,{action:'cloud-live',token:room.teacherToken,roundId:id})).body;
+ assert.equal(updated.total,2);
+ assert.deepEqual(updated.words.map(w=>w.word).sort(),['New word','Old word']);
+});
