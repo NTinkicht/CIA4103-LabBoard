@@ -79,7 +79,7 @@ try{
  const a=await student('Alpha');
  const b=await student('Beta');
  await a.locator('#student-answer').fill('Flow');const before=Date.now();
- await a.locator('#submit-answer').click();
+ await a.locator('#student-answer').press('Enter');
  await teacher.waitForFunction(()=>document.querySelector('#cloud-words')?.textContent.includes('Flow'),null,{timeout:6000});
  const delay=Date.now()-before;
  assert.ok(delay<5000,'Cloud should update promptly; observed '+delay+'ms');
