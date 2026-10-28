@@ -3,6 +3,7 @@ import {getStore} from '@netlify/blobs';
 import {cloudProjection,cloudAccept} from './cloud-ledger.mjs';
 import {validateElement,validateUpdate,validateMoved} from './whiteboard-elements.mjs';
 import {pickStudent} from '../lib/random-student.mjs';
+import {studentParticipation} from '../lib/toolkit-participation.mjs';
 
 const STORE='classroom-toolkit-v1';
 const HEAD={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -96,11 +97,19 @@ export function aggregate(round,answers){
 async function snapshot(store,room,claims){
   const round=room.active?await get(store,key('round',claims.code,room.active)):null;
   const result={code:claims.code,roomOpen:!room.ended,active:publicRound(round),serverTime:Date.now()};
-  if(claims.role==='teacher')result.participants=(await entries(store,key('member',claims.code)+'/',250)).length;
+  let members=null;
+  if(claims.role==='teacher'){
+    members=await entries(store,key('member',claims.code)+'/',250);
+    result.participants=members.length;
+    // Student names and response status are lecturer-private. Never send
+    // this list to student or projector snapshots.
+    result.students=studentParticipation(members,round,[]);
+  }
   if(!round||round.type==='whiteboard')return result;
   const answerPrefix=key('response',claims.code,round.id)+'/';
   if(claims.role==='teacher'){
     const items=await entries(store,answerPrefix,250);
+    result.students=studentParticipation(members,round,items);
     result.answers=items.sort((a,b)=>a.submittedAt.localeCompare(b.submittedAt));
     result.results=aggregate(round,items);
   }else if(claims.role==='display'){
