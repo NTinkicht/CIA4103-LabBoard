@@ -29,6 +29,7 @@ jobs:
       - run: node --check public/assets/toolkit-presenter.mjs
       - run: node --check public/assets/toolkit-whiteboard.mjs
       - run: node --check public/assets/toolkit-cloud.mjs
+      - run: node --check public/assets/toolkit-web-browser.mjs
 
   browser:
     runs-on: ubuntu-latest
@@ -47,3 +48,4 @@ jobs:
           node tests/toolkit-whiteboard-browser.mjs
           node tests/toolkit-cloud-browser.mjs
           node tests/toolkit-activity-tabs-browser.mjs
+          node tests/toolkit-web-browser-browser.mjs
