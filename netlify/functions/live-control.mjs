@@ -2,6 +2,7 @@ import {randomUUID} from 'node:crypto';
 import {getStore} from '@netlify/blobs';
 import {RoomServiceClient,TrackSource} from 'livekit-server-sdk';
 import {ROOM,configured,lecturerAuthorized,teacherAuthorized} from '../lib/live-auth.mjs';
+import {pickStudent} from '../lib/random-student.mjs';
 
 // One lecturer action at a time. The distributed lease serializes approvals
 // from independent browsers/functions. Fail CLOSED if lease storage is unavailable.
@@ -80,7 +81,7 @@ export default async function handler(req){
   data=JSON.parse(body);
  }catch{return respond({error:'Invalid request'},400)}
  if(!await lecturerAuthorized(data))return respond({error:'Lecturer authorization failed'},403);
- if(!['approve','stop'].includes(data.action))return respond({error:'Unknown action'},400);
+ if(!['approve','stop','random'].includes(data.action))return respond({error:'Unknown action'},400);
  if(data.action==='approve'&&(!/^student-[a-f0-9-]{36}$/.test(data.identity||'')))return respond({error:'Invalid student'},400);
  let lease,store;
  try{
@@ -88,8 +89,24 @@ export default async function handler(req){
   lease=await acquire(store);
   if(!lease)return respond({error:'A lecturer action is already in progress. Please retry in a moment.'},409);
   // Stop means hide the selected screen; students may remain in standby.
-  const result=await switchPresenter(service(),data.action==='approve'?data.identity:null);
-  return result.error?respond({error:result.error},result.status):respond(result);
+  const api=service();
+  let targetId=data.action==='approve'?data.identity:null;
+  let chosenName=null;
+  if(data.action==='random'){
+    // Only connected LiveKit students are eligible; other classroom members
+    // must first join the sharing queue from their own browser.
+    const participants=await api.listParticipants(ROOM);
+    const eligible=participants.filter(p=>meta(p).role==='student'&&
+      /^student-[a-f0-9-]{36}$/.test(p.identity));
+    if(!eligible.length)return respond({error:'No students are connected to Screen Sharing yet. Ask students to open Screen Share and join the queue.'},409);
+    const current=eligible.find(p=>['active','approved'].includes(meta(p).status))?.identity||null;
+    const winner=pickStudent(eligible,current,p=>p.identity);
+    targetId=winner.identity;
+    chosenName=winner.name||'Student';
+  }
+  const result=await switchPresenter(api,targetId);
+  return result.error?respond({error:result.error},result.status):
+    respond({...result,...(data.action==='random'?{selectedName:chosenName,selectedIdentity:targetId}:{})});
  }catch(err){
   console.error('Live classroom control failure',{name:err?.name,category:'control'});
   return respond({error:'Could not switch the screen safely. Try again or check Netlify Functions logs.'},502);
