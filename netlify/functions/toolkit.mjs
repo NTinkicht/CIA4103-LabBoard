@@ -1,6 +1,7 @@
 import {createHmac,createHash,randomInt,randomUUID,timingSafeEqual} from 'node:crypto';
 import {getStore} from '@netlify/blobs';
 import {cloudProjection,cloudAccept} from './cloud-ledger.mjs';
+import {validateElement,validateUpdate,validateMoved} from './whiteboard-elements.mjs';
 
 const STORE='classroom-toolkit-v1';
 const HEAD={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -224,6 +225,38 @@ export async function handleToolkit(request,storeProvider=getStore){
           generation:op==='clear'?b.generation+1:b.generation,
           strokes:op==='clear'?[]:b.strokes.slice(0,-1),version:b.version+1}));
         return updated?.error?fail(409,updated.error):reply({ok:true,version:updated.version});
+      }
+      if(['element','edit','move','remove'].includes(op)){
+        if(claims.role==='display')return fail(403,'Projector cannot change the whiteboard');
+        const item=op==='element'?validateElement(data.element):null;
+        if(op==='element'&&!item)return fail(400,'Invalid shape, table or text box');
+        if(op!=='element'&&(typeof data.id!=='string'||!/^[0-9a-f-]{36}$/i.test(data.id)))
+          return fail(400,'Invalid element ID');
+        const changed=await change(store,path,board=>{
+          if(claims.role==='student'&&board.writerId!==claims.id)
+            return {error:'Drawing permission has been revoked. Ask your lecturer'};
+          const objects=board.strokes||[];
+          if(op==='element'){
+            if(objects.length>=350)return {error:'Board is full. Clear it before adding more'};
+            return {...board,version:board.version+1,strokes:[...objects,{
+              id:randomUUID(),by:claims.role==='teacher'?'Lecturer':claims.name,
+              ...item,createdAt:Date.now()
+            }]};
+          }
+          const index=objects.findIndex(e=>e.id===data.id);
+          if(index<0)return {error:'Selected element no longer exists'};
+          const current=objects[index];
+          if(!['shape','text','table'].includes(current.type))
+            return {error:'Only objects can be edited or moved'};
+          if(op==='remove')return {...board,version:board.version+1,
+            strokes:objects.filter((_,i)=>i!==index)};
+          const revised=op==='edit'?validateUpdate(current,data.changes):
+            validateMoved(current,data.x,data.y);
+          if(!revised)return {error:'Invalid object edit'};
+          const next=[...objects];next[index]={...current,...revised};
+          return {...board,version:board.version+1,strokes:next};
+        });
+        return changed?.error?fail(409,changed.error):reply({ok:true,version:changed.version});
       }
       if(op==='stroke'){
         if(claims.role==='display')return fail(403,'Projector cannot draw');

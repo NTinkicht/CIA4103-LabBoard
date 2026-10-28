@@ -25,6 +25,7 @@ jobs:
       - run: npm test
       - run: node --check public/assets/toolkit-app.mjs
       - run: node --check netlify/functions/toolkit.mjs
+      - run: node --check netlify/functions/whiteboard-elements.mjs
       - run: node --check public/assets/toolkit-presenter.mjs
       - run: node --check public/assets/toolkit-whiteboard.mjs
       - run: node --check public/assets/toolkit-cloud.mjs

@@ -245,3 +245,18 @@ A new browser-side renderer:
 - Caps the display at 75 distinct words and the event animation history at 48 entries. Moderation and current counts are always derived from the current per-student word contribution.
 
 Tests include 55 backend/unit regressions, privacy/permission and concurrent-submission cases, and real Chrome interaction with two students. In the synthetic browser check, the first submitted word appeared after **675 ms**; this is a test observation rather than a guaranteed production latency.
+
+
+## Whiteboard structured content tools (shapes, text and tables)
+
+The existing lecturer-selected collaborative canvas also supports:
+
+- **Select & Move:** Select an object on the canvas, drag it to a new location, or delete it. Selection does not modify the server until released.
+- **Pen, Rectangle, Ellipse, Line and Arrow:** Draw by dragging with the mouse, stylus or touchscreen. Pen color and thickness also style the shapes; a white pen can act as an eraser.
+- **Text Box:** Drag to place a bounded text rectangle, type in the dialog, and Save. To edit, choose Select and double-click the box (or select and click Edit selection).
+- **Table:** Choose 1–8 rows and 1–8 columns in the toolbar, drag to place the grid, then double-click any cell to enter text. Table cells remain editable later; the selected table can also be moved.
+- **Undo / Clear / PNG / Fullscreen:** Original lecturer controls remain available; Undo removes the latest stored item, Clear removes all canvas content, and PNG exports the whiteboard.
+
+All item types are stored in the existing room-scoped Netlify Blobs whiteboard history. Existing freehand strokes remain readable and are rendered alongside structured elements; no conversion of old room data is required. Each create/edit/move/delete operation is bounded, atomically serialized via compare-and-set and rechecks the currently authorized student writer. No extra student tab, account, or PIN is required.
+
+Current limitations: canvas objects are not an infinite-vector design editor; resizing or rotating an existing object is not yet supported, and table dimensions (row/column count) are fixed after insertion. The classroom student roster still allows only one selected student to edit alongside the lecturer. The underlying board refresh still uses near-live polling at approximately 1.7 seconds.
