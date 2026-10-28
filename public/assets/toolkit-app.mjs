@@ -8,7 +8,7 @@ const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'T
 let teacherWhiteboard=null,studentWhiteboard=null,displayWhiteboard=null,lastDisplayBoardId=null;
 let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound=null,cloudReviewSignature=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -27,7 +27,7 @@ const noResults=(txt='Waiting for responses…')=>'<div class="empty"><span clas
 function notices(){return '<div id="notice" class="notice" role="status" aria-live="polite"></div>'}
 function btn(text,cls='primary',id='',extra=''){return '<button class="'+cls+'" '+(id?'id="'+id+'"':'')+' '+extra+'>'+text+'</button>'}
 function welcome(){
- stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.studentTab='activities';state.studentName='';state.workImage=null;state.shareLoaded=false;state.workItems=[];state.workLastFetch=0;state.workSignature=null;state.savedPolls=[];state.savedQuestionSets={poll:[],cloud:[],answers:[]};state.editingPollId=null;state.editingRevision=0;state.activityView='questions';setRoom(null);connected(null);
+ stopPolling();state.role=null;state.token=null;state.room=null;state.displayToken=null;state.snapshot=null;state.lastStudentKey=null;state.errors=0;state.studentTab='activities';state.studentName='';state.workImage=null;state.shareLoaded=false;state.workItems=[];state.workLastFetch=0;state.workSignature=null;state.savedPolls=[];state.savedQuestionSets={poll:[],cloud:[],answers:[]};state.editingPollId=null;state.editingRevision=0;state.activityView='questions';state.participationSignature=null;setRoom(null);connected(null);
  app.className='container';
  app.innerHTML='<div class="join-shell"><section class="join-card"><p class="eyebrow">Welcome to your teaching companion</p><h1>Make every voice part of the room.</h1><p style="max-width:515px;margin-top:15px">Live polls, open answers, word clouds and screen sharing. No course setup. No new link for every question.</p><div class="entry-grid"><div class="entry-card"><span class="entry-icon">↗</span><h3>Join as student</h3><p>Enter your room code once, then respond to activities on any device.</p>'+btn('Join classroom →','primary','open-student')+'</div><div class="entry-card"><span class="entry-icon">▦</span><h3>Start as lecturer</h3><p>Create a classroom and choose your teaching tools as you go.</p>'+btn('Start classroom →','secondary','open-teacher')+'</div></div>'+notices()+'</section></div>';
  $('open-student').onclick=joinForm;$('open-teacher').onclick=teacherForm;
@@ -76,7 +76,13 @@ function teacherShell(){
  const railPref=(()=>{try{return localStorage.getItem('classroom-toolkit-rail-collapsed')==='true'}catch{return false}})();
  app.classList.toggle('rail-collapsed',railPref);
  const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides'],['web','◎','Web Browser']];
- app.innerHTML='<div class="workspace"><aside class="rail"><div class="rail-top"><p class="rail-title">Interactive tools</p><button type="button" class="rail-toggle" id="rail-toggle" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="tool-nav" title="Collapse sidebar">☰</button></div><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'" title="'+text+'" aria-label="'+text+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span><span class="tool-text">'+text+'</span></button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div class="activity-view-tabs" id="activity-view-tabs" role="tablist" aria-label="Activity views" hidden>'+
+ app.innerHTML='<div class="workspace"><aside class="rail"><div class="rail-top"><p class="rail-title">Interactive tools</p><button type="button" class="rail-toggle" id="rail-toggle" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="tool-nav" title="Collapse sidebar">☰</button></div><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'" title="'+text+'" aria-label="'+text+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span><span class="tool-text">'+text+'</span></button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><aside id="participation-panel" class="participation-panel" aria-label="Student participation" hidden>'+
+  '<div class="participation-head"><div><p class="eyebrow">Classroom roster</p><h2>Students</h2></div><strong id="participation-total" class="participation-total">0</strong></div>'+
+  '<p id="participation-context" class="participation-context">Joined students</p>'+
+  '<div id="participation-summary" class="participation-summary" role="status" aria-live="polite">Waiting for students…</div>'+
+  '<div id="participation-list" class="participation-list" role="list"></div>'+
+  '<p id="participation-footnote" class="participation-footnote">Students who joined this classroom</p>'+
+ '</aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><span class="pill blue">All courses</span></div><div class="activity-view-tabs" id="activity-view-tabs" role="tablist" aria-label="Activity views" hidden>'+
   '<button type="button" id="activity-questions" role="tab" aria-controls="tool-config" aria-selected="true">Questions</button>'+
   '<button type="button" id="activity-results" role="tab" aria-controls="live-results-panel" aria-selected="false" disabled>Live Results</button>'+
  '</div><div id="tool-config" role="tabpanel" aria-labelledby="activity-questions"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-web-host" class="lecturer-embed" hidden><iframe id="teacher-web-frame" title="Saved website browser" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="live-results-panel" class="activity-results-view" role="tabpanel" aria-labelledby="activity-results" hidden><div class="results-head"><div><p class="eyebrow" id="results-kind">Live activity</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></div></section>'+notices()+'</div></div>';
@@ -161,6 +167,57 @@ function syncActivityTabs(){
  app.classList.toggle('activity-results-focus',showingResults);
 }
 
+const PARTICIPATION_TOOLS=['poll','answers','cloud','timer','work','documents'];
+const RESPONSE_PARTICIPATION=['poll','answers','cloud'];
+function updateParticipationVisibility(){
+ const enabled=PARTICIPATION_TOOLS.includes(state.tool);
+ app.classList.toggle('has-participation',enabled);
+ const panel=$('participation-panel');
+ if(panel)panel.hidden=!enabled;
+ state.participationSignature=null;
+}
+function renderParticipationRoster(snapshot){
+ const panel=$('participation-panel');
+ if(!panel||panel.hidden||!snapshot)return;
+ const students=Array.isArray(snapshot.students)?snapshot.students:[];
+ const active=RESPONSE_PARTICIPATION.includes(state.tool)&&snapshot.active?.type===state.tool;
+ const workMode=state.tool==='work';
+ const tracked=active||workMode;
+ const uploaded=new Set(workMode?state.workItems.map(item=>item.studentId):[]);
+ const statusFor=student=>active?Boolean(student.participated):
+   workMode?uploaded.has(student.id):null;
+ const submitted=tracked?students.filter(student=>statusFor(student)).length:0;
+ const mode=active?(snapshot.active.unit==='pair'?'Pair submissions':'Individual submissions'):
+   workMode?'Work submitted':RESPONSE_PARTICIPATION.includes(state.tool)?'Waiting for this activity':
+   state.tool==='timer'?'Timer has no answer submission':'Slides have no answer submission';
+ const signature=[state.tool,mode,students.map(student=>[student.id,student.name,student.team,
+   statusFor(student)].join('|')).join(';')].join('::');
+ if(signature===state.participationSignature)return;
+ state.participationSignature=signature;
+ $('participation-total').textContent=String(students.length);
+ $('participation-context').textContent=mode;
+ $('participation-summary').textContent=!students.length?'No students have joined yet':
+   tracked?submitted+' of '+students.length+' participated':'Participation not tracked for this tool';
+ $('participation-summary').classList.toggle('is-tracked',tracked);
+ $('participation-footnote').textContent=active?'Based on answers to the current activity':
+   workMode?'Based on work submitted in this classroom':
+   RESPONSE_PARTICIPATION.includes(state.tool)?'Statuses activate when this tool starts':
+   'Joined students shown; there is no submission to measure here';
+ const list=$('participation-list');
+ list.innerHTML=students.map(student=>{
+  const result=statusFor(student);
+  const text=result===true?'Participated':result===false?'Not participated':'Not tracked';
+  const css=result===true?'participated':result===false?'not-participated':'untracked';
+  return '<div class="participation-student '+css+'" role="listitem" aria-label="'+esc(student.name)+': '+text+'">'+
+   '<span class="participation-avatar" aria-hidden="true">'+esc(student.name.trim().charAt(0).toUpperCase()||'?')+'</span>'+
+   '<span class="participation-identity"><strong>'+esc(student.name)+'</strong>'+
+   (student.team?'<small>'+esc(student.team)+'</small>':'')+'</span>'+
+   '<span class="participation-state" title="'+text+'" aria-label="'+text+'">'+
+    '<span class="participation-symbol" aria-hidden="true">'+(result===true?'✓':result===false?'○':'—')+'</span>'+
+    '<span class="participation-status-text">'+text+'</span></span></div>';
+ }).join('')||'<p class="participation-empty">Students will appear here after joining the classroom.</p>';
+}
+
 function configTool(){
  if(state.tool!=='cloud'&&teacherCloud){
   teacherCloud.destroy();teacherCloud=null;teacherCloudRound=null;cloudReviewSignature=null;
@@ -168,6 +225,7 @@ function configTool(){
  app.classList.toggle('screen-focus',state.tool==='screen');
  app.classList.toggle('slides-focus',state.tool==='documents');
  app.classList.toggle('web-focus',state.tool==='web');
+ updateParticipationVisibility();
  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
  const screenHost=$('teacher-screen-host'),slidesHost=$('teacher-slides-host'),webHost=$('teacher-web-host');
  if(screenHost)screenHost.hidden=state.tool!=='screen';
@@ -425,6 +483,7 @@ function renderTeacherCloud(snapshot){
 }
 
 function renderTeacher(snapshot){
+ renderParticipationRoster(snapshot);
  $('participants-count').textContent=String(snapshot.participants??0);
  const round=snapshot.active;
  const matches=Boolean(round&&round.type===state.tool&&['poll','answers','cloud','timer'].includes(round.type));
