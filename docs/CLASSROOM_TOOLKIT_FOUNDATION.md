@@ -276,3 +276,16 @@ Current limitations: canvas objects are not an infinite-vector design editor; re
 The lecturer returns immediately to the selected tool's Questions tab (or initial Timer setup) and can launch another round in the same classroom. On the next student classroom refresh, each student returns to the **Activities home** view and switches to the Activities tab, with the original three fixed student tabs — Activities, Screen Share, Share Work / Problem — still available. Screen-sharing connections are not explicitly torn down.
 
 Automated API tests cover each response tool, ongoing room validity, student submission denial after closure, no stale-round closure and unrelated work submissions. Chromium browser tests cover the complete Questions → Live Results → Close activity journey for all three tools, with the lecturer/learner views and no hidden scrolling dependency.
+
+
+## Random student selection — Whiteboard and Screen Sharing
+
+Each lecturer tool now has a compact **🎲 Pick random student** action, without new navigation:
+
+- **Whiteboard:** The button sits above the joined-student roster. The server uniformly picks from members of the current Toolkit classroom, excluding the currently selected student when another is available. The selected name is announced in the lecturer UI and becomes the single student who can draw, move objects or edit text/tables; every write still checks the existing server permission. The lecturer can always draw and may manually choose or deselect a student. **Note:** the roster includes students who joined the room, not reliable real-time online presence.
+- **Screen Sharing:** **🎲 Pick random presenter** sits with the connected-student queue. Only LiveKit participants presently connected as students are eligible; the current presenter is excluded when possible. Selection goes through the existing serialized switch/approval operation and retains standby windows for other students. The lecturer sees the winner's name. Students must join the screen-sharing queue before they can be selected.
+- Screen sharing cannot initiate a student's browser window picker without that student's click. If the randomly selected student has not shared yet, the student must click **Share application window** from their own browser; existing active capture resumes automatically after selection.
+- The legacy LiveKit queue is global rather than per-Toolkit-classroom. For simultaneous independent classes, screen-sharing random selection is not guaranteed to remain within a single Toolkit room. Do not use concurrent unrelated classrooms for screen sharing until media-room isolation is implemented.
+- No new PIN, account requirement, student tab or special permissions are added. The original CIA4103 backup and standalone dashboard are untouched.
+
+Backend tests cover empty and single-student rosters, no immediate repeat, one writable student, no unauthorized selection, eligible LiveKit queue identities and preservation of captured standby windows. Chromium tests exercise the Whiteboard random button and the winner announcement.
