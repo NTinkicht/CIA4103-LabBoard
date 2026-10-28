@@ -77,7 +77,9 @@ export function mountWhiteboard(root,{request,token,role}){
    '<p class="wb-help">Choose a tool, then drag on the board. Use Select to move an object. Double-click a text box or table cell to edit.</p></div>'+
    (teacher?'<aside class="wb-sidebar" aria-label="Students in classroom">'+
     '<div class="wb-side-title"><h3>Students</h3><span class="pill grey" id="wb-count">0</span></div>'+
-    '<p class="small">Select one student to write alongside you. Select again to return everyone to view-only.</p>'+
+    '<p class="small">Select a student to write alongside you, or pick a name at random from the joined classroom roster.</p>'+
+    '<button type="button" class="wb-random-button" id="wb-random" disabled>🎲 Pick random student</button>'+
+    '<p class="wb-random-result" id="wb-random-result" role="status" aria-live="polite"></p>'+
     '<div id="wb-roster" class="wb-roster"></div></aside>':'')+
   '</div>'+
   '<dialog id="wb-editor" class="wb-editor" aria-labelledby="wb-editor-title">'+
@@ -339,6 +341,7 @@ export function mountWhiteboard(root,{request,token,role}){
   const sig=students.map(s=>s.id+':'+s.name+':'+s.team).join('|')+'|'+selectedId;
   if(sig===rosterSignature)return;rosterSignature=sig;
   $('wb-count').textContent=String(students.length);
+  $('wb-random').disabled=!students.length;
   const roster=$('wb-roster');
   roster.innerHTML=students.length?students.map(student=>{
    const chosen=student.id===selectedId;
@@ -348,6 +351,22 @@ export function mountWhiteboard(root,{request,token,role}){
     '<span class="wb-person-right">'+(chosen?'✎ Writing':'Select')+'</span></button>';
   }).join(''):'<div class="empty"><strong>No students yet</strong><p>Names appear here as students join the classroom.</p></div>';
   roster.querySelectorAll('[data-student-id]').forEach(button=>button.onclick=()=>select(button.dataset.studentId));
+ }
+ async function pickRandom(){
+  if(!teacher)return;
+  const button=$('wb-random');if(button.disabled)return;
+  button.disabled=true;
+  try{
+   const chosen=await request('board',{token,operation:'random'});
+   selectedId=chosen.writerId;rosterSignature='';
+   const text=chosen.name+' was randomly selected to write on the board.';
+   $('wb-random-result').textContent='🎲 '+text;
+   say(text);
+   await refresh(true);renderRoster();
+  }catch(error){
+   $('wb-random-result').textContent='';
+   say('Random selection failed: '+error.message,true);
+  }finally{button.disabled=!students.length}
  }
  async function select(id){
   if(!teacher)return;
@@ -408,7 +427,7 @@ export function mountWhiteboard(root,{request,token,role}){
  $('wb-editor-cancel').onclick=cancelEditor;
  $('wb-edit').onclick=editSelected;
  $('wb-delete').onclick=removeSelected;
- if(teacher){$('wb-clear').onclick=()=>control('clear');$('wb-undo').onclick=()=>control('undo')}
+ if(teacher){$('wb-clear').onclick=()=>control('clear');$('wb-undo').onclick=()=>control('undo');$('wb-random').onclick=pickRandom}
  $('wb-download').onclick=download;
  $('wb-fullscreen').onclick=async()=>{
   try{if(document.fullscreenElement===$('wb-stage'))await document.exitFullscreen();

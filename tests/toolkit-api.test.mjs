@@ -546,3 +546,47 @@ test('finish activity preserves unrelated screen-share and work access within cl
  assert.equal(results.items.length,1);
  assert.equal((await state(store,student.token)).body.roomOpen,true);
 });
+
+
+test('teacher picks a random whiteboard writer and a repeat excludes the current student',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const studentA=(await join(store,room.code,'Anna')).body,studentB=(await join(store,room.code,'Bashir')).body;
+ const other=(await created(store)).body,outsider=(await join(store,other.code,'Outsider')).body;
+ await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ const random=(token)=>call(store,{action:'board',operation:'random',token});
+ assert.equal((await random(studentA.token)).status,403);
+ assert.equal((await random(room.displayToken)).status,403);
+ const first=await random(room.teacherToken);
+ assert.equal(first.status,200);
+ assert.ok(['Anna','Bashir'].includes(first.body.name));
+ const id=first.body.writerId;
+ const boardFirst=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body;
+ assert.equal(boardFirst.writerId,id);
+ assert.equal(boardFirst.students.filter(s=>s.selected).length,1);
+ const second=await random(room.teacherToken);
+ assert.equal(second.status,200);
+ assert.notEqual(second.body.writerId,id,'Random picker should not immediately repeat while two students are joined');
+ const clientA=(await call(store,{action:'board',operation:'read',token:studentA.token})).body;
+ const clientB=(await call(store,{action:'board',operation:'read',token:studentB.token})).body;
+ assert.equal(Number(clientA.canDraw)+Number(clientB.canDraw),1,'exactly one selected student has write rights');
+ assert.equal((await call(store,{action:'board',operation:'read',token:outsider.token})).status,409);
+ const chosen=second.body.writerId===boardFirst.students.find(s=>s.name==='Anna').id?studentA:studentB;
+ const rejected=chosen===studentA?studentB:studentA;
+ const stroke={points:[[5,5],[20,30]],color:'#1976bd',width:4};
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:chosen.token,...stroke})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:rejected.token,...stroke})).status,409);
+ assert.equal((await call(store,{action:'board',operation:'stroke',token:room.teacherToken,...stroke})).status,200);
+});
+test('random whiteboard selection handles empty and single-student rosters',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ const empty=await call(store,{action:'board',operation:'random',token:room.teacherToken});
+ assert.equal(empty.status,409);
+ const student=(await join(store,room.code,'Only Student')).body;
+ const first=await call(store,{action:'board',operation:'random',token:room.teacherToken});
+ const second=await call(store,{action:'board',operation:'random',token:room.teacherToken});
+ assert.equal(first.status,200);
+ assert.equal(second.status,200);
+ assert.equal(first.body.writerId,second.body.writerId);
+ assert.equal((await call(store,{action:'board',operation:'read',token:student.token})).body.canDraw,true);
+});

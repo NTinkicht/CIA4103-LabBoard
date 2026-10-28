@@ -404,3 +404,11 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .activity-results-view #finish-activity{margin-left:0}
  .student-activities-home{min-height:245px;padding:25px 14px}
 }
+
+
+/* Random whiteboard writer is selected from the room's joined student roster. */
+.wb-random-button{width:100%;border:1px solid #a9c4e2;border-radius:11px;background:#eaf3ff;color:#185a91;font-weight:800;
+ padding:11px 12px;min-height:42px;margin:10px 0 2px;font-size:12px}
+.wb-random-button:hover:not(:disabled){background:#dcecff;border-color:#6aa6d6}
+.wb-random-button:disabled{opacity:.48;cursor:not-allowed}
+.wb-random-result{font-size:12px;font-weight:750;color:#137e66;line-height:1.5;margin:5px 0 8px;overflow-wrap:anywhere}

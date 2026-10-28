@@ -2,6 +2,7 @@ import {createHmac,createHash,randomInt,randomUUID,timingSafeEqual} from 'node:c
 import {getStore} from '@netlify/blobs';
 import {cloudProjection,cloudAccept} from './cloud-ledger.mjs';
 import {validateElement,validateUpdate,validateMoved} from './whiteboard-elements.mjs';
+import {pickStudent} from '../lib/random-student.mjs';
 
 const STORE='classroom-toolkit-v1';
 const HEAD={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -208,6 +209,17 @@ export async function handleToolkit(request,storeProvider=getStore){
         return reply(result);
       }
       if(!isActive)return fail(409,'Start the whiteboard before editing it');
+      if(op==='random'){
+        if(claims.role!=='teacher')return fail(403,'Lecturer only');
+        const members=(await entries(store,key('member',claims.code)+'/',250))
+          .filter(m=>typeof m.id==='string'&&typeof m.name==='string');
+        if(!members.length)return fail(409,'No students have joined this classroom yet');
+        // Select from the active classroom only; teacher remains able to write.
+        const winner=pickStudent(members,board.writerId);
+        const changed=await change(store,path,b=>({...b,writerId:winner.id,version:b.version+1}));
+        return changed?.error?fail(409,changed.error):
+          reply({ok:true,writerId:changed.writerId,name:winner.name});
+      }
       if(op==='select'){
         if(claims.role!=='teacher')return fail(403,'Lecturer only');
         const id=data.studentId??null;

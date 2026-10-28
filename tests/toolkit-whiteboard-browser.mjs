@@ -38,6 +38,13 @@ async function mock(route){
     canDraw:role==='teacher'||Boolean(id&&board.writerId===id),active:true};
    if(data.since!==board.version)payload.strokes=structuredClone(board.strokes);
    if(role==='teacher')payload.students=members;
+  }else if(data.operation==='random'){
+   if(role!=='teacher'){status=403;payload={error:'Lecturer only'}}
+   else{
+    const chosen=members.find(m=>m.id!==board.writerId)||members[0];
+    board.writerId=chosen.id;board.version++;
+    payload={ok:true,writerId:chosen.id,name:chosen.name};
+   }
   }else if(data.operation==='select'){
    if(role!=='teacher'){status=403;payload={error:'Lecturer only'}}
    else {board.writerId=data.studentId;board.version++;payload={ok:true,writerId:board.writerId}}
@@ -176,6 +183,20 @@ try{
  await t.waitForFunction(()=>document.querySelector('#teacher-board-mount #wb-status')?.textContent?.includes('Whiteboard cleared'),null,{timeout:7000});
  assert.equal(board.strokes.length,0);
  console.log('Whiteboard clear and writer switching passed');
+ // The random button grants writing rights immediately and does not repeat
+ // the same student while another is eligible.
+ const priorWriter=board.writerId;
+ await t.locator('#teacher-board-mount #wb-random').click();
+ await t.waitForFunction(()=>document.querySelector('#wb-random-result')?.textContent?.includes('randomly selected'),null,{timeout:8000});
+ assert.notEqual(board.writerId,priorWriter);
+ const selectedAfterFirst=board.writerId;
+ const pickedName=members.find(m=>m.id===selectedAfterFirst).name;
+ assert.match(await t.locator('#teacher-board-mount #wb-random-result').innerText(),new RegExp(pickedName));
+ await t.locator('#teacher-board-mount #wb-random').click();
+ await t.waitForFunction(expected=>document.querySelector('#teacher-board-mount #wb-random-result')?.textContent?.includes(expected),members.find(m=>m.id!==selectedAfterFirst).name,{timeout:8000});
+ assert.notEqual(board.writerId,selectedAfterFirst);
+ console.log('Whiteboard random writer picker and no-immediate-repeat passed');
+
  await a.locator('#tab-screen').click();
  await a.locator('#tab-activities').click();
  assert.equal(await a.locator('#student-board-mount canvas').count(),1);
