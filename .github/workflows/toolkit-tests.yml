@@ -46,3 +46,4 @@ jobs:
           node tests/toolkit-browser-smoke.mjs
           node tests/toolkit-whiteboard-browser.mjs
           node tests/toolkit-cloud-browser.mjs
+          node tests/toolkit-activity-tabs-browser.mjs
