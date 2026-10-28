@@ -416,3 +416,83 @@ test('migration of an already-running word cloud retains previously submitted wo
  assert.equal(updated.total,2);
  assert.deepEqual(updated.words.map(w=>w.word).sort(),['New word','Old word']);
 });
+
+
+test('whiteboard shape/text/table objects stay room-scoped and require writing permission',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body,foreign=(await created(store)).body;
+ const anna=(await join(store,room.code,'Anna')).body,bob=(await join(store,room.code,'Bob')).body;
+ await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ const shape={type:'shape',shape:'rectangle',x:40,y:55,w:160,h:110,color:'#1976bd',width:4};
+ const textBox={type:'text',x:250,y:60,w:280,h:100,color:'#24374f',fontSize:20,text:'Value stream map'};
+ const table={type:'table',x:100,y:210,w:480,h:180,color:'#24374f',rows:3,cols:4,cells:Array(12).fill('')};
+ const add=(token,element)=>call(store,{action:'board',operation:'element',token,element});
+ assert.equal((await add(anna.token,shape)).status,409);
+ assert.equal((await add(room.displayToken,shape)).status,403);
+ assert.equal((await add(foreign.teacherToken,shape)).status,409);
+ assert.equal((await add(room.teacherToken,shape)).status,200);
+ assert.equal((await add(room.teacherToken,textBox)).status,200);
+ assert.equal((await add(room.teacherToken,table)).status,200);
+ const view=(await call(store,{action:'board',operation:'read',token:anna.token})).body.strokes;
+ assert.equal(view.length,3);
+ assert.deepEqual(view.map(x=>x.type),['shape','text','table']);
+ const teacherView=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body;
+ const writer=teacherView.students.find(s=>s.name==='Anna').id;
+ await call(store,{action:'board',operation:'select',token:room.teacherToken,studentId:writer});
+ const studentShape=(await add(anna.token,{...shape,shape:'ellipse',x:500,y:35})).status;
+ assert.equal(studentShape,200);
+ assert.equal((await add(bob.token,shape)).status,409);
+ const tableId=view[2].id,txtId=view[1].id,shapeId=view[0].id;
+ assert.equal((await call(store,{action:'board',operation:'edit',token:anna.token,id:txtId,changes:{text:'Updated workflow'}})).status,200);
+ const cells=Array(12).fill('');cells[5]='Analyze';
+ assert.equal((await call(store,{action:'board',operation:'edit',token:anna.token,id:tableId,changes:{cells}})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'move',token:anna.token,id:tableId,x:150,y:220})).status,200);
+ let data=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.strokes;
+ assert.equal(data.find(e=>e.id===txtId).text,'Updated workflow');
+ assert.equal(data.find(e=>e.id===tableId).cells[5],'Analyze');
+ assert.equal(data.find(e=>e.id===tableId).x,150);
+ assert.equal((await call(store,{action:'board',operation:'remove',token:anna.token,id:shapeId})).status,200);
+ await call(store,{action:'board',operation:'select',token:room.teacherToken,studentId:null});
+ assert.equal((await call(store,{action:'board',operation:'move',token:anna.token,id:tableId,x:80,y:80})).status,409);
+ assert.equal((await call(store,{action:'board',operation:'edit',token:bob.token,id:tableId,changes:{cells}})).status,409);
+ assert.equal((await call(store,{action:'board',operation:'remove',token:room.displayToken,id:tableId})).status,403);
+ assert.equal((await call(store,{action:'board',operation:'remove',token:room.teacherToken,id:tableId})).status,200);
+ data=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.strokes;
+ assert.equal(data.length,2);
+ assert.equal((await call(store,{action:'board',operation:'undo',token:room.teacherToken})).status,200);
+ assert.equal((await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.strokes.length,1);
+});
+test('whiteboard object validation rejects unsafe geometry, overflowing tables and edits',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ await call(store,{action:'board',operation:'activate',token:room.teacherToken});
+ const shape={type:'shape',shape:'rectangle',x:20,y:20,w:120,h:75,color:'#24374f',width:4};
+ const invalid=[
+  {...shape,x:-1},{...shape,w:1000},{...shape,color:'javascript:alert(1)'},
+  {...shape,shape:'hexagon'},{...shape,width:100}, {...shape,w:1},
+  {type:'text',x:1,y:1,w:180,h:90,color:'#24374f',fontSize:20,text:''},
+  {type:'text',x:1,y:1,w:180,h:90,color:'#24374f',fontSize:20,text:'X'.repeat(501)},
+  {type:'table',x:0,y:0,w:300,h:100,color:'#24374f',rows:9,cols:3,cells:Array(27).fill('')},
+  {type:'table',x:0,y:0,w:300,h:100,color:'#24374f',rows:3,cols:3,cells:['only one']},
+  {type:'table',x:0,y:0,w:300,h:100,color:'#24374f',rows:3,cols:3,cells:['<img src=x onerror=alert(1)>'.repeat(4),...Array(8).fill('')]}
+ ];
+ for(const element of invalid){
+  const res=await call(store,{action:'board',operation:'element',token:room.teacherToken,element});
+  assert.equal(res.status,400,JSON.stringify(element).slice(0,130));
+ }
+ assert.equal((await call(store,{action:'board',operation:'element',token:room.teacherToken,element:shape})).status,200);
+ const id=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.strokes[0].id;
+ for(const payload of [
+  {operation:'edit',changes:{text:'not a shape'}},
+  {operation:'move',x:990,y:590},
+  {operation:'move',x:-1,y:90},
+  {operation:'edit',changes:{shape:'rectangle'}},
+  {operation:'remove',id:'bad-id'}
+ ]){
+  const res=await call(store,{action:'board',token:room.teacherToken,id,...payload});
+  assert.ok([400,409].includes(res.status));
+ }
+ assert.equal((await call(store,{action:'board',operation:'element',token:room.teacherToken,
+   element:{type:'text',x:200,y:200,w:200,h:100,color:'#24374f',fontSize:20,text:'A'}})).status,200);
+ const textId=(await call(store,{action:'board',operation:'read',token:room.teacherToken})).body.strokes[1].id;
+ assert.equal((await call(store,{action:'board',operation:'edit',token:room.teacherToken,id:textId,
+   changes:{text:'hello',fontSize:80}})).status,409);
+});
