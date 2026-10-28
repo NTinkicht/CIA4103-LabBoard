@@ -590,3 +590,47 @@ test('random whiteboard selection handles empty and single-student rosters',asyn
  assert.equal(first.body.writerId,second.body.writerId);
  assert.equal((await call(store,{action:'board',operation:'read',token:student.token})).body.canDraw,true);
 });
+
+
+test('saved website URLs persist across classrooms with lecturer-only access',async()=>{
+ const store=new FakeStore(),first=(await created(store)).body;
+ const learner=(await join(store,first.code,'Student')).body;
+ const nextRoom=(await created(store)).body;
+ const request=(token,operation,other={})=>call(store,{action:'web-links',token,operation,...other});
+ assert.equal((await request(learner.token,'list')).status,403);
+ assert.equal((await request(first.displayToken,'save',{item:{title:'Example',url:'https://example.com/'}})).status,403);
+ assert.deepEqual((await request(first.teacherToken,'list')).body.items,[]);
+ const saved=await request(first.teacherToken,'save',{item:{title:'Example Reference',url:'https://example.com/guide?topic=web'}});
+ assert.equal(saved.status,201);
+ assert.equal(saved.body.item.revision,1);
+ assert.equal(saved.body.item.url,'https://example.com/guide?topic=web');
+ assert.equal((await request(learner.token,'delete',{id:saved.body.item.id})).status,403);
+ const otherClass=await request(nextRoom.teacherToken,'list');
+ assert.equal(otherClass.body.items.length,1);
+ assert.equal(otherClass.body.items[0].title,'Example Reference');
+ const updated=await request(nextRoom.teacherToken,'save',{id:saved.body.item.id,revision:1,item:{
+  title:'Updated reference',url:'https://developer.mozilla.org/en-US/docs/Web'
+ }});
+ assert.equal(updated.status,200);
+ assert.equal(updated.body.item.revision,2);
+ assert.equal((await request(first.teacherToken,'save',{id:saved.body.item.id,revision:1,item:{title:'Old title',url:'https://example.com'}})).status,409);
+ assert.equal((await request(first.teacherToken,'delete',{id:saved.body.item.id})).status,200);
+ assert.deepEqual((await request(nextRoom.teacherToken,'list')).body.items,[]);
+ assert.equal((await request(nextRoom.teacherToken,'delete',{id:saved.body.item.id})).status,409);
+});
+test('saved website URL validation rejects dangerous schemes, credentials, local hosts and oversized text',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const bad=['javascript:alert(1)','data:text/html,test','http://example.com',
+  'https://user:pass@example.com','https://localhost:8443/admin','https://127.0.0.1',
+  'https://192.168.1.15','https://[::1]/','file:///etc/passwd','https://'+'x'.repeat(1600)];
+ for(const url of bad){
+  const response=await call(store,{action:'web-links',operation:'save',token:room.teacherToken,item:{title:'Bad URL',url}});
+  assert.equal(response.status,400,url.slice(0,80));
+ }
+ for(const title of ['', 'X'.repeat(101)]){
+  const response=await call(store,{action:'web-links',operation:'save',token:room.teacherToken,item:{title,url:'https://example.com'}});
+  assert.equal(response.status,400);
+ }
+ assert.equal((await call(store,{action:'web-links',operation:'delete',token:room.teacherToken,id:'not-uuid'})).status,400);
+ assert.equal((await call(store,{action:'web-links',operation:'save',token:room.teacherToken,id:'no-id',item:{title:'Title',url:'https://example.com'}})).status,400);
+});
