@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {TrackSource} from 'livekit-server-sdk';
-import {switchPresenter,acquire,release} from '../netlify/functions/live-control.mjs';
+import {switchPresenter,acquire,release,randomScreenParticipant} from '../netlify/functions/live-control.mjs';
+import {pickStudent} from '../netlify/lib/random-student.mjs';
 import {readFileSync} from 'node:fs';
 const p=(id,status='waiting',canPublish=false)=>({
  identity:id,name:id,metadata:JSON.stringify({role:'student',status}),
@@ -198,4 +199,36 @@ test('PDF limit is 50MB and green 5Es labels are removed',()=>{
  assert.match(pdf,/MAX=50\*1024\*1024/);
  assert.doesNotMatch(student,/<div class="kicker">5Es/i);
  assert.doesNotMatch(teacher,/<div class="kicker">5Es/i);
+});
+
+
+test('random student helper is uniform over eligible peers and avoids immediate repeats',()=>{
+ const list=[{id:'a'},{id:'b'},{id:'c'}];
+ assert.equal(pickStudent([],null),null);
+ assert.equal(pickStudent([{id:'a'}],'a')?.id,'a');
+ assert.equal(pickStudent(list,'a',x=>x.id,()=>0)?.id,'b');
+ assert.equal(pickStudent(list,'a',x=>x.id,n=>n-1)?.id,'c');
+ assert.equal(pickStudent(list,null,x=>x.id,()=>0)?.id,'a');
+});
+test('screen random selection includes only currently connected valid student queue identities',()=>{
+ const active=p('student-aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa','active',true);
+ const waiting=p('student-bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb','waiting',false);
+ const teacher={identity:'teacher-123',name:'Lecturer',metadata:'{"role":"teacher","status":"active"}'};
+ const outsider=p('random-invalid-identity','waiting',false);
+ const chosen=randomScreenParticipant([active,waiting,teacher,outsider],()=>0);
+ assert.equal(chosen.identity,waiting.identity,'avoid the current presenter when another student waits');
+ assert.equal(randomScreenParticipant([teacher,outsider],()=>0),null);
+ assert.equal(randomScreenParticipant([active],()=>0).identity,active.identity);
+});
+test('randomly chosen presenter uses the original permission preserving LiveKit switch',async()=>{
+ const {data,api}=fakeRoom();
+ data[0].metadata='{"role":"student","status":"active"}';
+ const chosen=randomScreenParticipant(data,()=>0);
+ assert.equal(chosen.identity,data[1].identity);
+ const result=await switchPresenter(api,chosen.identity);
+ assert.equal(result.active,chosen.identity);
+ assert.equal(data[0].permission.canPublish,true,'existing student capture is preserved');
+ assert.equal(data[1].permission.canPublish,true);
+ assert.equal(JSON.parse(data[0].metadata).status,'standby');
+ assert.equal(JSON.parse(data[1].metadata).status,'active');
 });
