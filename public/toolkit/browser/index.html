@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f6f9fc">
+<title>Web Browser · Classroom Toolkit</title>
+<meta name="description" content="Lecturer web viewer with saved website links and Chrome fallback.">
+<link rel="stylesheet" href="/assets/toolkit-web-browser.css">
+<script type="module" src="/assets/toolkit-web-browser.mjs"></script>
+</head>
+<body>
+<main class="web-browser" id="web-browser">
+ <nav class="web-toolbar" aria-label="Browser navigation">
+  <button type="button" id="web-back" class="web-icon" title="Back" aria-label="Back" disabled>‹</button>
+  <button type="button" id="web-forward" class="web-icon" title="Forward" aria-label="Forward" disabled>›</button>
+  <button type="button" id="web-reload" class="web-icon" title="Reload website" aria-label="Reload" disabled>↻</button>
+  <form id="web-address-form" class="web-address-form">
+   <span aria-hidden="true" class="web-lock">⌕</span>
+   <input id="web-address" type="url" inputmode="url" autocomplete="url" spellcheck="false"
+    aria-label="Website address" placeholder="https://example.com" required>
+   <button type="submit" class="web-go">Go</button>
+  </form>
+  <button type="button" id="web-new-tab" class="web-action" title="Open website in a new Chrome tab" disabled>↗ Open in Chrome</button>
+  <button type="button" id="web-fullscreen" class="web-icon" aria-label="Fullscreen web viewer" title="Fullscreen">⛶</button>
+ </nav>
+ <div class="web-saved-bar">
+  <span class="web-saved-title">Saved websites</span>
+  <select id="web-bookmarks" aria-label="Select a saved website" disabled><option value="">Choose saved URL…</option></select>
+  <button type="button" id="web-add" class="web-secondary" disabled>☆ Save URL</button>
+  <button type="button" id="web-manage" class="web-secondary" disabled>Manage</button>
+  <span id="web-status" role="status" aria-live="polite">Connecting to classroom…</span>
+ </div>
+ <section class="web-stage" id="web-stage">
+  <div class="web-empty" id="web-empty">
+   <span aria-hidden="true" class="web-globe">◎</span>
+   <h1>Browse websites during your lesson</h1>
+   <p>Enter a secure website address, or select one of your saved URLs.</p>
+   <p class="web-disclaimer">Some sites do not allow embedding. Use <strong>Open in Chrome</strong> when a page does not display here.</p>
+  </div>
+  <iframe id="web-frame" title="Embedded website" hidden loading="eager" referrerpolicy="no-referrer"
+   sandbox="allow-forms allow-scripts allow-popups allow-popups-to-escape-sandbox"
+   allow="fullscreen" allowfullscreen></iframe>
+ </section>
+ <div class="web-foot">Websites that block embedded viewing, sign-in or cookies must be opened in a regular browser tab. The viewer does not control or bypass third-party restrictions.</div>
+ <dialog id="web-editor" aria-labelledby="web-dialog-title">
+  <form id="web-editor-form">
+   <h2 id="web-dialog-title">Save a website</h2>
+   <label for="web-title">Website name</label><input id="web-title" maxlength="100" required placeholder="e.g. Developer documentation">
+   <label for="web-link">HTTPS address</label><input id="web-link" type="url" required placeholder="https://example.com" maxlength="1500">
+   <p>Bookmarks are saved for the lecturer across classroom sessions.</p>
+   <div class="web-dialog-actions"><button type="button" id="web-cancel" class="web-secondary">Cancel</button><button type="submit" class="web-primary" id="web-save">Save website</button></div>
+  </form>
+ </dialog>
+ <dialog id="web-library" aria-labelledby="web-library-title">
+  <div class="web-library-head"><h2 id="web-library-title">Saved websites</h2><button type="button" id="web-library-close" class="web-secondary">Close</button></div>
+  <p>Open, rename or remove your prepared website links.</p>
+  <div id="web-library-list"></div>
+ </dialog>
+</main>
+</body>
+</html>

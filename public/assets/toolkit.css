@@ -412,3 +412,28 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 .wb-random-button:hover:not(:disabled){background:#dcecff;border-color:#6aa6d6}
 .wb-random-button:disabled{opacity:.48;cursor:not-allowed}
 .wb-random-result{font-size:12px;font-weight:750;color:#137e66;line-height:1.5;margin:5px 0 8px;overflow-wrap:anywhere}
+
+
+/* Dedicated web presenter: browser address bar gets nearly the whole viewport. */
+.lecturer-layout.web-focus .mainstack{gap:0}
+.lecturer-layout.web-focus .mainstack>.surface:first-child{padding:10px 12px 12px}
+.lecturer-layout.web-focus .mainstack>.surface:first-child .headrow{
+  min-height:33px;align-items:center;gap:7px
+}
+.lecturer-layout.web-focus .mainstack>.surface:first-child .headrow h1{
+  font-size:19px;line-height:1.2;margin:0
+}
+.lecturer-layout.web-focus .headrow .eyebrow,
+.lecturer-layout.web-focus .headrow .pill,
+.lecturer-layout.web-focus #tool-description{display:none}
+.lecturer-layout.web-focus #teacher-web-host{margin-top:8px;border-radius:10px}
+.lecturer-layout.web-focus #teacher-web-frame{
+  height:calc(100dvh - 164px);min-height:600px;max-height:none
+}
+@media(max-width:950px){
+ .lecturer-layout.web-focus #teacher-web-frame{height:calc(100dvh - 205px);min-height:540px}
+}
+@media(max-width:590px){
+ .lecturer-layout.web-focus .mainstack>.surface:first-child{padding:8px}
+ .lecturer-layout.web-focus #teacher-web-frame{height:80dvh;min-height:480px}
+}

@@ -69,3 +69,15 @@
     Referrer-Policy = "no-referrer"
     X-Frame-Options = "SAMEORIGIN"
     Content-Security-Policy = "default-src 'none'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https: wss:; frame-src blob: 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'"
+
+
+# Dedicated external web viewer only. Other Toolkit routes keep the default
+# frame-src 'self' policy. Third-party framing remains constrained by those
+# websites' X-Frame-Options/CSP and the iframe's restrictive sandbox.
+[[headers]]
+  for = "/toolkit/browser/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "SAMEORIGIN"
+    Content-Security-Policy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-src https: 'self'; form-action 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'"

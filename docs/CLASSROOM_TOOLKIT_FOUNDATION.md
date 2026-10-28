@@ -289,3 +289,18 @@ Each lecturer tool now has a compact **🎲 Pick random student** action, withou
 - No new PIN, account requirement, student tab or special permissions are added. The original CIA4103 backup and standalone dashboard are untouched.
 
 Backend tests cover empty and single-student rosters, no immediate repeat, one writable student, no unauthorized selection, eligible LiveKit queue identities and preservation of captured standby windows. Chromium tests exercise the Whiteboard random button and the winner announcement.
+
+
+## Lecturer Web Browser and persistent saved websites
+
+The lecturer has a **Web Browser** entry in the same collapsible left menu as Files & Slides, Screen Sharing and Whiteboard. It opens a full-width, persistent browser-like viewer *inside the Toolkit* at \`/toolkit/browser/\`, with:
+
+- HTTPS address bar with Go, Reload, Back/Forward navigation for addresses opened through the toolbar, **Open in Chrome** (new external browser tab) and Fullscreen.
+- A compact Saved websites dropdown plus **☆ Save URL** and **Manage** actions to create, edit, and delete prepared links. Saved URLs use the existing teacher-authenticated Netlify Blobs store under \`saved-web-link/*\`, are available across classroom sessions and are private from students and projector tokens. Limits: 100 saved entries, HTTPS URLs up to 1,500 characters and titles up to 100 characters.
+- A retained iframe when switching teaching tools; selected URLs do not reset when moving from Web Browser to Poll, Whiteboard, slides or screen sharing and back.
+- The external page is displayed only where its own headers permit embedding. Websites commonly block iframes using CSP frame-ancestors or X-Frame-Options, and many sites restrict third-party authentication or cookies. The viewer does **not** bypass such restrictions. Use Open in Chrome for full site behavior.
+- The Toolkit does not install or remotely operate the Chrome executable. It is a web viewer embedded in the browser the lecturer already uses, not a full remote Chrome instance.
+- External sites are framed only on the dedicated \`/toolkit/browser/*\` route through a restrictive \`sandbox\` (scripts/forms/popups allowed, no same-origin grant to the embedded page); the server security policy permits only \`https:\` external frames on that route. No student access or exposure of lecturer room token to third-party pages.
+- Saved bookmarks and URL validation are tested with Node API tests and a real Chromium synthetic website test covering navigation, editing/deleting saved links and preserved iframe state. The existing student three-tab flow remains unchanged.
+
+Security note: URLs are user-initiated, the system does not proxy or scrape pages, and external sites see normal requests from the lecturer's own browser. The viewer cannot automatically detect all frame refusal reasons; a visible Open in Chrome alternative is always present for loaded URLs.
