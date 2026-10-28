@@ -92,7 +92,7 @@ export function mountWhiteboard(root,{request,token,role}){
  const status=$('wb-status'),dialog=$('wb-editor'),input=$('wb-editor-input');
  const say=(message,bad=false)=>{status.textContent=message;status.classList.toggle('error',bad)};
  function putPermission(){
-  const message=teacher?'Lecturer · Can edit':canDraw?'✓ You can edit':'View only · Teacher selects editor';
+  const message=teacher?'Lecturer · Can write and edit':canDraw?'✓ You can write and edit':'View only · Teacher selects writer';
   $('wb-permission').textContent=message;
   $('wb-permission').className='pill '+(canDraw?'blue':'grey');
   canvas.style.cursor=canDraw?(tool==='select'?'grab':tool==='text'?'text':'crosshair'):'not-allowed';
