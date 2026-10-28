@@ -124,6 +124,7 @@ function setActivityView(view){
  const ready=state.snapshot?.active?.type===state.tool;
  state.activityView=view==='results'&&ready?'results':'questions';
  syncActivityTabs();
+ window.scrollTo({top:0,behavior:'instant'});
 }
 function syncActivityTabs(){
  const isResponse=RESPONSE_TOOLS.includes(state.tool);
@@ -298,6 +299,7 @@ async function startRound(){
   if(RESPONSE_TOOLS.includes(type)){
    state.activityView='results';
    syncActivityTabs();
+   window.scrollTo({top:0,behavior:'instant'});
   }
   await refresh();
   if(state.snapshot?.active?.id===started.active.id){
@@ -366,6 +368,7 @@ async function finishActivity(){
   // from the authoritative room state on their next classroom refresh.
   state.snapshot={...state.snapshot,active:null,answers:[],results:null};
   state.activityView='questions';
+  window.scrollTo({top:0,behavior:'instant'});
   if(teacherCloud){teacherCloud.destroy();teacherCloud=null;teacherCloudRound=null;cloudReviewSignature=null}
   configTool();
   announce('Activity closed. Students are returning to the classroom home.');
