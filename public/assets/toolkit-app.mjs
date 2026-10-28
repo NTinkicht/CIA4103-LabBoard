@@ -130,6 +130,8 @@ function syncActivityTabs(){
  const matching=Boolean(isResponse&&state.snapshot?.active?.type===state.tool);
  if(!matching&&state.activityView==='results')state.activityView='questions';
  const results=isResponse&&matching&&state.activityView==='results';
+ const timerResults=state.tool==='timer'&&state.snapshot?.active?.type==='timer';
+ const showingResults=results||timerResults;
  const tabs=$('activity-view-tabs');
  if(tabs)tabs.hidden=!isResponse;
  const q=$('activity-questions'),r=$('activity-results');
@@ -147,10 +149,10 @@ function syncActivityTabs(){
   r.classList.toggle('active',results);
  }
  const form=$('tool-config');
- if(form)form.hidden=results;
+ if(form)form.hidden=showingResults;
  const panel=$('live-results-panel');
- if(panel)panel.hidden=!results;
- app.classList.toggle('activity-results-focus',results);
+ if(panel)panel.hidden=!showingResults;
+ app.classList.toggle('activity-results-focus',showingResults);
 }
 
 function configTool(){
