@@ -229,3 +229,19 @@ To maximize the teaching display:
 - If a lecturer chooses browser native fullscreen, only the presentation canvas is fullscreen; toolbars remain available outside fullscreen for changing files. Slides remain centered and are never distorted to fill an incompatible aspect ratio.
 
 Acceptance tests verify toolbar height, real PPTX loaded in embedded viewer, slide display height, collapsible rail width/expanded iframe gain, accessibility labels, preference persistence and loaded file continuity.
+
+
+## Low-latency animated Word Cloud
+
+The lecturer and projector Word Cloud use a lightweight, room/round-scoped \`cloud-live\` feed instead of reloading every classroom member and answer on every animation frame. A fast word projection is stored separately in Netlify Blobs and updated with compare-and-set when students submit/revise a word or the lecturer hides/restores one. Existing saved question libraries are unaffected.
+
+The active lecturer/projector Word Cloud checks for updates approximately every **640 ms** while visible (slower when the tab is hidden or the connection fails). This is **near-live adaptive polling**, not a continuous WebSocket stream. Network and cloud-function delays may add latency. The standard classroom status loop remains unchanged.
+
+A new browser-side renderer:
+- Retains the DOM element for each existing word instead of rebuilding the cloud on every general classroom refresh.
+- Animates new words dropping from above, including extra falling arrivals when an already-present word is submitted again.
+- Enlarges and pulses repeated words while retaining correct vote/response counts.
+- Preserves case-insensitive word aggregation, individual/pair revision behavior, lecturer hide/restore controls, projector reveal, keyboard/mobile layouts and reduced-motion accessibility.
+- Caps the display at 75 distinct words and the event animation history at 48 entries. Moderation and current counts are always derived from the current per-student word contribution.
+
+Tests include 55 backend/unit regressions, privacy/permission and concurrent-submission cases, and real Chrome interaction with two students. In the synthetic browser check, the first submitted word appeared after **675 ms**; this is a test observation rather than a guaranteed production latency.
