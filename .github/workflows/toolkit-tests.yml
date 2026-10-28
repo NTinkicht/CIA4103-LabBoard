@@ -27,6 +27,7 @@ jobs:
       - run: node --check netlify/functions/toolkit.mjs
       - run: node --check public/assets/toolkit-presenter.mjs
       - run: node --check public/assets/toolkit-whiteboard.mjs
+      - run: node --check public/assets/toolkit-cloud.mjs
 
   browser:
     runs-on: ubuntu-latest
@@ -43,3 +44,4 @@ jobs:
           echo "Chrome: $(command -v google-chrome || true)"
           node tests/toolkit-browser-smoke.mjs
           node tests/toolkit-whiteboard-browser.mjs
+          node tests/toolkit-cloud-browser.mjs
