@@ -336,3 +336,66 @@ test('multiple writers do not overwrite strokes and input is bounded',async()=>{
  assert.equal(reopen.body.active.type,'whiteboard');
  assert.equal((await call(store,{action:'board',operation:'read',token:writer.token})).body.strokes.length,2);
 });
+
+
+test('fast cloud feed updates counts, preserves repeated words and remains private',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const alice=(await join(store,room.code,'Alice')).body;
+ const bob=(await join(store,room.code,'Bob')).body;
+ const id=(await start(store,room.teacherToken,'cloud',{prompt:'One word for quality?'})).body.active.id;
+ const read=(token,since)=>call(store,{action:'cloud-live',token,roundId:id,...(since!==undefined?{since}:{})});
+ assert.equal((await read(alice.token)).status,403);
+ let first=await read(room.teacherToken);
+ assert.equal(first.status,200);
+ assert.equal(first.body.total,0);
+ assert.deepEqual(first.body.words,[]);
+ assert.equal((await read(room.teacherToken,first.body.version)).body.unchanged,true);
+ assert.equal((await read(room.displayToken)).body.visible,false);
+ assert.equal((await call(store,{action:'submit',token:alice.token,roundId:id,value:'Delay',revision:0})).status,200);
+ assert.equal((await call(store,{action:'submit',token:bob.token,roundId:id,value:'delay',revision:0})).status,200);
+ const cloud=(await read(room.teacherToken)).body;
+ assert.equal(cloud.total,2);
+ assert.deepEqual(cloud.words,[{word:'Delay',count:2}]);
+ assert.equal(cloud.events.length,2);
+ assert.deepEqual(cloud.events.map(e=>e.value),['Delay','delay']);
+ const revised=await call(store,{action:'submit',token:alice.token,roundId:id,value:'Flow',revision:1});
+ assert.equal(revised.status,200);
+ const after=(await read(room.teacherToken)).body;
+ assert.equal(after.total,2);
+ assert.equal(after.events.length,3);
+ assert.equal(after.words.reduce((a,w)=>a+w.count,0),2);
+ assert.deepEqual(after.words.map(w=>w.word).sort(),['Flow','delay']);
+ assert.equal((await read(room.displayToken)).body.visible,false);
+ await call(store,{action:'control',token:room.teacherToken,roundId:id,control:'reveal'});
+ const shown=(await read(room.displayToken)).body;
+ assert.equal(shown.visible,true);
+ assert.equal(shown.total,2);
+ assert.equal((await call(store,{action:'cloud-live',token:room.teacherToken,roundId:'another'})).status,409);
+});
+test('cloud moderation promptly removes and restores words without resubmission',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const student=(await join(store,room.code,'Student')).body;
+ const id=(await start(store,room.teacherToken,'cloud')).body.active.id;
+ await call(store,{action:'submit',token:student.token,roundId:id,value:'bottleneck',revision:0});
+ const original=(await state(store,room.teacherToken)).body.answers[0];
+ assert.equal((await call(store,{action:'moderate',token:room.teacherToken,roundId:id,subject:original.subject,hidden:true})).status,200);
+ let hidden=(await call(store,{action:'cloud-live',token:room.teacherToken,roundId:id})).body;
+ assert.equal(hidden.total,0);
+ assert.deepEqual(hidden.words,[]);
+ assert.equal((await call(store,{action:'moderate',token:room.teacherToken,roundId:id,subject:original.subject,hidden:false})).status,200);
+ let restored=(await call(store,{action:'cloud-live',token:room.teacherToken,roundId:id})).body;
+ assert.equal(restored.total,1);
+ assert.equal(restored.words[0].word,'bottleneck');
+});
+test('concurrent cloud submissions keep every student word',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const students=await Promise.all(Array.from({length:12},(_,i)=>join(store,room.code,'Student '+i)));
+ const id=(await start(store,room.teacherToken,'cloud')).body.active.id;
+ const attempts=await Promise.all(students.map((student,i)=>call(store,{
+  action:'submit',token:student.body.token,roundId:id,value:i%2?'Wait':'Flow',revision:0
+ })));
+ assert.ok(attempts.every(x=>x.status===200));
+ const result=(await call(store,{action:'cloud-live',token:room.teacherToken,roundId:id})).body;
+ assert.equal(result.total,12);
+ assert.deepEqual(result.words.map(w=>w.count),[6,6]);
+});
