@@ -17,6 +17,9 @@ root.innerHTML=`
  <aside class="stream-sidebar" aria-label="Student waiting queue">
   <div class="stream-sidebar-head"><h3>Connected students</h3><span id="stream-count">0</span></div>
   <p class="hint">Use ▶ to approve or resume a screen; ⏸ to put the current screen on standby.</p>
+  <button type="button" class="stream-random-button" id="stream-pick-random" disabled>🎲 Pick random presenter</button>
+  <p id="stream-random-result" class="stream-random-result" role="status" aria-live="polite"></p>
+  <p class="stream-random-hint">Only students connected to this sharing queue can be selected.</p>
   <label for="stream-filter" class="stream-filter-label">Find student
     <input id="stream-filter" type="search" placeholder="Search names…" autocomplete="off">
   </label>
@@ -59,6 +62,7 @@ function renderPeople(items){
  const panel=$('stream-list'),scroll=panel.scrollTop;
  panel.replaceChildren();
  $('stream-count').textContent=String(items.length);
+ $('stream-pick-random').disabled=!room||changing||items.length===0;
  const term=$('stream-filter').value.trim().toLocaleLowerCase();
  const visible=items.filter(p=>(p.name||'Student').toLocaleLowerCase().includes(term));
  if(!visible.length){
@@ -127,6 +131,27 @@ async function switchTo(identity){
  }catch(err){status('Presenter switch failed: '+err.message,true);}
  finally{changing=false;await refresh();}
 }
+async function pickRandomPresenter(){
+ if(!room||changing)return;
+ changing=true;
+ const button=$('stream-pick-random');button.disabled=true;
+ status('Choosing a random connected student…');
+ try{
+  const response=await fetch('/api/live-control',{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({...credentials(),action:'random'})
+  });
+  const data=await response.json();
+  if(!response.ok)throw Error(data.error||'Random presenter selection failed');
+  const name=data.selectedName||'Student';
+  $('stream-random-result').textContent='🎲 '+name+' was selected to present.';
+  status(name+' was randomly selected. If they are not already sharing, ask them to click Share application window.');
+ }catch(error){
+  $('stream-random-result').textContent='';
+  status('Random selection failed: '+error.message,true);
+ }finally{changing=false;await refresh()}
+}
+$('stream-pick-random').addEventListener('click',pickRandomPresenter);
 $('stream-stop-all').addEventListener('click',()=>switchTo(null));
 $('stream-toggle-queue').addEventListener('click',()=>{
  const collapsed=root.classList.toggle('queue-collapsed');
