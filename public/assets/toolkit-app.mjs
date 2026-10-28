@@ -626,6 +626,7 @@ async function loadStudentWork(force=false){
   const signature=next.map(x=>x.id+':'+x.submittedAt).join('|');
   if(!force&&signature===state.workSignature)return;
   state.workSignature=signature;state.workItems=next;
+  if(state.snapshot&&state.tool==='work')renderParticipationRoster(state.snapshot);
   if(!state.workItems.length){container.innerHTML=noResults('Student solutions and problems will appear here.');return}
   container.innerHTML=state.workItems.map(item=>'<article class="answer-card work-card">'+
    '<div class="work-meta"><span class="pill '+(item.kind==='problem'?'warn':'')+'">'+(item.kind==='problem'?'Needs help':'Solution')+'</span> <span>'+esc(item.name)+' · '+esc(new Date(item.submittedAt).toLocaleTimeString())+'</span></div>'+
