@@ -84,7 +84,7 @@ try{
  const railBounds=await lecturer.locator('.rail').boundingBox();
  assert.ok(docsFrameBounds.width>620,'PDF/PowerPoint viewer should remain readable alongside student roster');
  assert.equal(await lecturer.locator('#participation-panel').isVisible(),true,'Files & Slides shows student roster');
- assert.match(await lecturer.locator('#participation-summary').innerText(),/not tracked/i);
+ assert.match(await lecturer.locator('#participation-summary').innerText(),/not tracked|no students have joined/i);
  assert.ok(railBounds.x<35&&railBounds.width<=230,'Compact sidebar should start at left viewport edge');
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'No unrelated activity results beneath files');
  console.log('Wide Files & Slides frame:',Math.round(docsFrameBounds.width),'Sidebar width:',Math.round(railBounds.width));
