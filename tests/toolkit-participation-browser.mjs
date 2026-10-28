@@ -89,7 +89,14 @@ try{
   await teacher.waitForFunction(()=>document.querySelector('#participation-summary')?.textContent?.includes('0 of 2'),null,{timeout:10000});
   assert.ok((await statusOf(teacher,'Alice')).includes('not-participated'));
   assert.ok((await statusOf(teacher,'Bob')).includes('not-participated'));
-  if(type!=='poll')await alice.locator('#student-answer').waitFor({state:'visible',timeout:9000});
+  // Wait for the student's *new round* to render, not a stale textarea
+  // from the preceding Live Answers round.
+  await alice.waitForFunction(kind=>{
+   const field=document.querySelector('#student-answer');
+   if(kind==='cloud')return field?.tagName==='INPUT';
+   if(kind==='answers')return field?.tagName==='TEXTAREA';
+   return document.querySelector('input[name="student-vote"]')!==null;
+  },type,{timeout:9000});
   if(type==='poll'){
    await alice.locator('input[name="student-vote"]').first().check();
    await alice.locator('#submit-answer').click();
