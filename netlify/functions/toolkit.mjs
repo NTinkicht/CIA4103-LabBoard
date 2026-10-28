@@ -49,7 +49,17 @@ async function updateCloudLedger(store,roomCode,roundId,entry){
  const path=key('cloud-fast',roomCode,roundId);
  for(let attempt=0;attempt<12;attempt++){
   const previous=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
-  const next=cloudAccept(previous?.data,entry);
+  let baseline=previous?.data;
+  if(!baseline){
+    // Upgrade active rooms created by the older Word Cloud without dropping
+    // students' already-saved words when the first new response arrives.
+    const answers=await entries(store,key('response',roomCode,roundId)+'/',250);
+    const subjects={};
+    for(const answer of answers)if(answer.subject!==entry.subject)
+      subjects[answer.subject]={value:answer.value,revision:answer.revision,hidden:answer.hidden};
+    baseline={version:0,subjects,events:[]};
+  }
+  const next=cloudAccept(baseline,entry);
   if(previous?.data===next)return true;
   const result=await store.setJSON(path,next,previous?{onlyIfMatch:previous.etag}:{onlyIfNew:true});
   if(result.modified)return true;
