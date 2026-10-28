@@ -1,5 +1,6 @@
 import {createHmac,createHash,randomInt,randomUUID,timingSafeEqual} from 'node:crypto';
 import {getStore} from '@netlify/blobs';
+import {cloudProjection,cloudAccept} from './cloud-ledger.mjs';
 
 const STORE='classroom-toolkit-v1';
 const HEAD={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -43,6 +44,17 @@ async function change(store,k,mutate){
     if(result.modified)return updated;
   }
   return {error:'Concurrent update. Please retry.'};
+}
+async function updateCloudLedger(store,roomCode,roundId,entry){
+ const path=key('cloud-fast',roomCode,roundId);
+ for(let attempt=0;attempt<12;attempt++){
+  const previous=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+  const next=cloudAccept(previous?.data,entry);
+  if(previous?.data===next)return true;
+  const result=await store.setJSON(path,next,previous?{onlyIfMatch:previous.etag}:{onlyIfNew:true});
+  if(result.modified)return true;
+ }
+ return false;
 }
 async function entries(store,prefix,cap=150){
   const list=await store.list({prefix});
@@ -131,6 +143,26 @@ export async function handleToolkit(request,storeProvider=getStore){
     const room=await get(store,key('room',claims.code));
     if(!room||room.ended||room.expiresAt<Date.now())return fail(410,'Classroom has ended');
     if(data.action==='state')return reply(await snapshot(store,room,claims));
+    // Lightweight viewer-only update avoids roster/response listings on every frame.
+    // This stays separate from the slower general classroom snapshot.
+    if(data.action==='cloud-live'){
+      if(!['teacher','display'].includes(claims.role))return fail(403,'Lecturer or projector only');
+      if(!room.active||data.roundId!==room.active)return fail(409,'Activity changed');
+      const round=await get(store,key('round',claims.code,room.active));
+      if(!round||round.type!=='cloud')return fail(409,'Word cloud is not active');
+      if(claims.role==='display'&&!round.revealed)
+        return reply({roundId:round.id,visible:false,version:-1,total:0,words:[],events:[]});
+      const ledger=await get(store,key('cloud-fast',claims.code,round.id));
+      if(!ledger){
+        // Migration path for word-cloud rounds started before this release.
+        const answers=await entries(store,key('response',claims.code,round.id)+'/',250);
+        return reply({roundId:round.id,visible:true,version:0,...aggregate(round,answers),events:[]});
+      }
+      if(Number.isInteger(data.since)&&data.since===ledger.version)
+        return reply({roundId:round.id,visible:true,version:ledger.version,unchanged:true});
+      return reply({roundId:round.id,visible:true,version:ledger.version,
+        ...cloudProjection(ledger),events:ledger.events||[]});
+    }
 
 
     if(data.action==='board'){
@@ -300,6 +332,8 @@ export async function handleToolkit(request,storeProvider=getStore){
       const id=randomUUID(),now=Date.now();
       const round={id,type:data.type,prompt,unit,options:options.map(s=>s.trim()),status:'open',createdAt:now,revealed:false,endsAt:duration?now+duration*1000:null};
       await store.setJSON(key('round',claims.code,id),round,{onlyIfNew:true});
+      if(data.type==='cloud')
+        await store.setJSON(key('cloud-fast',claims.code,id),{version:0,subjects:{},events:[]},{onlyIfNew:true});
       const updated=await change(store,key('room',claims.code),prev=>({...prev,active:id}));
       if(updated?.error)return fail(409,updated.error);
       return reply({active:publicRound(round)});
@@ -339,13 +373,31 @@ export async function handleToolkit(request,storeProvider=getStore){
       const answer={subject,value,revision:expected+1,submittedAt:new Date().toISOString(),name:round.unit==='pair'?'Pair '+claims.teamLabel:claims.name,hidden:old?.data?.hidden??(round.type==='answers')};
       const saved=await store.setJSON(path,answer,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
       if(!saved.modified)return fail(409,'Simultaneous edit. Refresh and retry');
+      if(round.type==='cloud'){
+        const indexed=await updateCloudLedger(store,claims.code,round.id,{
+          subject,value:answer.value,revision:answer.revision,hidden:answer.hidden,
+          eventId:randomUUID(),at:Date.now()
+        });
+        // The authoritative answer remains saved even if the projection is
+        // temporarily busy. The normal classroom snapshot still reads it.
+        if(!indexed)console.warn('Cloud fast projection busy',claims.code,round.id);
+      }
       return reply({ok:true,revision:answer.revision});
     }
     if(data.action==='moderate'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       if(typeof data.subject!=='string'||!/^[a-z0-9-]{10,100}$/i.test(data.subject)||!room.active||data.roundId!==room.active)return fail(409,'Activity changed. Refresh before moderating');
+      const activeRound=await get(store,key('round',claims.code,room.active));
       const changed=await change(store,key('response',claims.code,room.active,data.subject),r=>({...r,hidden:!!data.hidden}));
-      return changed?.error?fail(409,changed.error):changed?reply({ok:true}):fail(404,'Answer missing');
+      if(changed?.error)return fail(409,changed.error);
+      if(!changed)return fail(404,'Answer missing');
+      if(activeRound?.type==='cloud'){
+        const indexed=await updateCloudLedger(store,claims.code,activeRound.id,{
+          subject:data.subject,value:changed.value,revision:changed.revision,hidden:changed.hidden
+        });
+        if(!indexed)console.warn('Cloud moderation projection busy',claims.code,activeRound.id);
+      }
+      return reply({ok:true});
     }
     return fail(400,'Unknown action');
   }catch(error){
