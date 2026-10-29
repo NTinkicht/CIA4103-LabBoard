@@ -260,6 +260,7 @@ function configTool(){
    getSnapshot:()=>state.snapshot,
    openBoard:async()=>{await request('board',{token:state.token,operation:'activate'})},
    mountBoard:()=>mountTeacherWhiteboard(),
+   unmountBoard:()=>{if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}},
    stopRound:()=>finishActivity(),
    onRefresh:()=>refresh(),
    onTabChange:id=>{state.collaborateTab=id},initialTab:state.collaborateTab,
