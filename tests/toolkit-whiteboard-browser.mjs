@@ -189,14 +189,14 @@ try{
  // The random button grants writing rights immediately and does not repeat
  // the same student while another is eligible.
  const priorWriter=board.writerId;
- await t.locator('#teacher-board-mount #wb-random').click();
- await t.waitForFunction(()=>document.querySelector('#wb-random-result')?.textContent?.includes('randomly selected'),null,{timeout:8000});
+ await t.locator('#collab-random').click();
+ await t.waitForFunction(()=>document.querySelector('#collab-selected')?.textContent?.includes('can now write'),null,{timeout:8000});
  assert.notEqual(board.writerId,priorWriter);
  const selectedAfterFirst=board.writerId;
  const pickedName=members.find(m=>m.id===selectedAfterFirst).name;
- assert.match(await t.locator('#teacher-board-mount #wb-random-result').innerText(),new RegExp(pickedName));
- await t.locator('#teacher-board-mount #wb-random').click();
- await t.waitForFunction(expected=>document.querySelector('#teacher-board-mount #wb-random-result')?.textContent?.includes(expected),members.find(m=>m.id!==selectedAfterFirst).name,{timeout:8000});
+ assert.match(await t.locator('#collab-selected').innerText(),new RegExp(pickedName));
+ await t.locator('#collab-random').click();
+ await t.waitForFunction(expected=>document.querySelector('#collab-selected')?.textContent?.includes(expected),members.find(m=>m.id!==selectedAfterFirst).name,{timeout:8000});
  assert.notEqual(board.writerId,selectedAfterFirst);
  console.log('Whiteboard random writer picker and no-immediate-repeat passed');
 
