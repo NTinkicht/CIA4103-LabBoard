@@ -709,6 +709,8 @@ function renderStudent(snapshot){
  updateEngagement(snapshot.engagement);
  const r=snapshot.active,area=$('student-work');
  if(r?.type==='text-document'){
+  if(studentWhiteboard){studentWhiteboard.destroy();studentWhiteboard=null}
+  if(evaluationStudent){evaluationStudent.destroy();evaluationStudent=null}
   if(state.lastStudentKey!=='document:'+r.id||!documentStudent){
    documentStudent?.destroy();documentStudent=null;
    state.lastStudentKey='document:'+r.id;
@@ -720,6 +722,7 @@ function renderStudent(snapshot){
  if(documentStudent){documentStudent.destroy();documentStudent=null}
 
  if(r?.type==='evaluation'){
+  if(documentStudent){documentStudent.destroy();documentStudent=null}
   if(state.lastStudentKey!=='evaluation:'+r.id||!evaluationStudent){
    evaluationStudent?.destroy();evaluationStudent=null;
    state.lastStudentKey='evaluation:'+r.id;
@@ -733,6 +736,7 @@ function renderStudent(snapshot){
  if(evaluationStudent){evaluationStudent.destroy();evaluationStudent=null}
 
  if(r?.type==='whiteboard'){
+  if(documentStudent){documentStudent.destroy();documentStudent=null}
   const key=r.id+':'+r.status;
   if(key!==state.lastStudentKey||!studentWhiteboard){
    if(studentWhiteboard){studentWhiteboard.destroy();studentWhiteboard=null}
