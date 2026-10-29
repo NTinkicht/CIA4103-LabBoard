@@ -231,9 +231,9 @@ export function mountCollaborate(root,{request,token,screenHost,getSnapshot,open
  $('collab-screen-slot').appendChild(screenHost);
  tabTo('screen');
  return {update,screenQueue,tab:()=>tab,destroy(){
-  const parent=root.parentElement;
+  const parent=root.closest('.surface');
   // Never destroy the connected LiveKit iframe while switching teaching tools.
-  if(parent&&screenHost)parent.appendChild(screenHost);
+  if(parent&&screenHost){parent.appendChild(screenHost);screenHost.hidden=true}
   root.replaceChildren();
  }};
 }
