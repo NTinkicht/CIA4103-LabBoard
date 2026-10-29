@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 // Lecturer-only participation roster. Pair submissions count for every student
 // in that pair; moderated/hidden responses still count as submissions.
 export function studentParticipation(members,round,answers=[]){
- const isResponse=['poll','answers','cloud','evaluation'].includes(round?.type);
+ const isResponse=['poll','answers','cloud','evaluation','text-document'].includes(round?.type);
  const subjects=new Set(isResponse?answers.map(a=>a.subject):[]);
  return members.filter(m=>typeof m.id==='string'&&typeof m.name==='string')
  .map(m=>{
