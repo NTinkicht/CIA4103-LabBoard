@@ -823,7 +823,7 @@ test('text documents are reusable across sessions, teacher-owned and private to 
  assert.equal(teacher.students.find(x=>x.name==='Alice').participated,true);
  assert.equal(teacher.students.find(x=>x.name==='Bob').participated,false);
  assert.equal((await state(store,a.token)).body.engagement.score,100);
- assert.equal((await state(store,b.token)).body.mine,undefined);
+ assert.equal((await state(store,b.token)).body.mine,null);
  assert.equal((await state(store,first.displayToken)).body.answers,undefined,
   'Document responses must never reach projector without explicit release');
  assert.equal((await call(store,{action:'control',token:first.teacherToken,
