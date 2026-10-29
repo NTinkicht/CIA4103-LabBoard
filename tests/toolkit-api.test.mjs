@@ -692,3 +692,103 @@ test('student roster reflects joined classmates without leaking names to project
  const projector=(await state(store,room.displayToken)).body;
  assert.equal(projector.students,undefined);
 });
+
+
+test('evaluation banks persist and only lecturers can prepare, update and launch questions',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const kid=(await join(store,room.code,'Nora')).body;
+ const mcq={title:'Security question',prompt:'Which principle limits access?',
+   options:['Least privilege','Maximum access','No authentication'],correct:0};
+ const q=await call(store,{action:'evaluation-bank',operation:'save',token:room.teacherToken,
+   kind:'mcq',item:mcq});
+ assert.equal(q.status,201);
+ assert.equal((await call(store,{action:'evaluation-bank',operation:'list',token:kid.token,kind:'mcq'})).status,403);
+ const other=(await created(store)).body;
+ const saved=await call(store,{action:'evaluation-bank',operation:'list',token:other.teacherToken,kind:'mcq'});
+ assert.equal(saved.body.items.length,1);
+ assert.equal(saved.body.items[0].correct,0);
+ const launch=await call(store,{action:'evaluation-start',token:room.teacherToken,kind:'mcq',
+   id:q.body.item.id,duration:30});
+ assert.equal(launch.status,200);
+ assert.equal(launch.body.active.type,'evaluation');
+ assert.equal(launch.body.active.correctAnswer,undefined,'Correct choice must not leak before reveal');
+ assert.equal((await state(store,kid.token)).body.active.correctAnswer,undefined);
+ assert.equal((await state(store,room.displayToken)).body.active.correctAnswer,undefined);
+ assert.equal((await call(store,{action:'control',token:room.teacherToken,
+   roundId:launch.body.active.id,control:'evaluation-reveal'})).status,409);
+ const wrong=await call(store,{action:'submit',token:kid.token,roundId:launch.body.active.id,
+   value:2,revision:0});
+ assert.equal(wrong.status,200);
+ assert.deepEqual((await state(store,kid.token)).body.engagement,
+   {score:100,participated:1,opportunities:1},'Incorrect answer still counts as engagement');
+ const roundKey='round/'+room.code+'/'+launch.body.active.id;
+ const old=store.values.get(roundKey);
+ old.data.endsAt=Date.now()-1000;
+ assert.equal((await call(store,{action:'submit',token:kid.token,roundId:launch.body.active.id,value:0,revision:1})).status,409);
+ const ended=await state(store,kid.token);
+ assert.equal(ended.body.active.status,'closed');
+ assert.equal(ended.body.active.correctAnswer,undefined);
+ const reveal=await call(store,{action:'control',token:room.teacherToken,
+   roundId:launch.body.active.id,control:'evaluation-reveal'});
+ assert.equal(reveal.status,200);
+ assert.equal((await state(store,kid.token)).body.active.correctAnswer,0);
+ assert.equal((await state(store,room.teacherToken)).body.correctCount,0);
+ assert.equal((await call(store,{action:'evaluation-start',token:kid.token,kind:'mcq',id:q.body.item.id,duration:30})).status,403);
+ assert.equal((await call(store,{action:'evaluation-start',token:room.teacherToken,kind:'mcq',
+   id:q.body.item.id,duration:5})).status,400);
+});
+test('jumbled questions enforce unique tile ordering and only reveal secret order after timer',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const learner=(await join(store,room.code,'Sara')).body;
+ const steps=['Engage','Explore','Explain','Extend','Evaluate'];
+ const saved=await call(store,{action:'evaluation-bank',operation:'save',token:room.teacherToken,
+   kind:'jumbled',item:{title:'5E learning',prompt:'Put the phases in order',steps}});
+ assert.equal(saved.status,201);
+ const launched=await call(store,{action:'evaluation-start',token:room.teacherToken,
+   kind:'jumbled',id:saved.body.item.id,duration:25});
+ assert.equal(launched.status,200);
+ const id=launched.body.active.id,visible=(await state(store,learner.token)).body.active;
+ assert.equal(visible.tiles.length,5);
+ assert.equal(visible.correctAnswer,undefined);
+ assert.equal(visible.correctIds,undefined,'Tile order IDs must remain private');
+ assert.ok(visible.tiles.every(tile=>/^[0-9a-f-]{36}$/.test(tile.id)),'Do not encode correct position in tile ID');
+ assert.notDeepEqual(visible.tiles.map(tile=>tile.text),steps,'Tiles should be jumbled');
+ const correctOrder=steps.map(text=>visible.tiles.find(t=>t.text===text).id);
+ assert.equal((await call(store,{action:'submit',token:learner.token,roundId:id,
+   value:[visible.tiles[0].id,visible.tiles[0].id,...visible.tiles.slice(2).map(x=>x.id)],revision:0})).status,400);
+ const submitted=await call(store,{action:'submit',token:learner.token,roundId:id,value:correctOrder,revision:0});
+ assert.equal(submitted.status,200);
+ assert.equal((await state(store,learner.token)).body.engagement.score,100);
+ store.values.get('round/'+room.code+'/'+id).data.endsAt=Date.now()-1;
+ assert.equal((await state(store,learner.token)).body.active.correctIds,undefined);
+ assert.equal((await call(store,{action:'control',token:room.teacherToken,roundId:id,control:'evaluation-reveal'})).status,200);
+ const shown=(await state(store,learner.token)).body.active;
+ assert.deepEqual(shown.correctAnswer,steps);
+ assert.deepEqual(shown.correctIds,correctOrder);
+ assert.equal((await state(store,room.teacherToken)).body.correctCount,1);
+});
+test('session engagement tracks participation not correctness across rounds; late joiner excludes old questions',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const a=(await join(store,room.code,'A')).body;
+ let poll=(await start(store,room.teacherToken,'poll',{options:['X','Y']})).body.active.id;
+ assert.deepEqual((await state(store,a.token)).body.engagement,{score:0,participated:0,opportunities:1});
+ assert.equal((await call(store,{action:'submit',token:a.token,roundId:poll,value:1,revision:0})).status,200);
+ assert.equal((await state(store,a.token)).body.engagement.score,100);
+ await call(store,{action:'control',token:room.teacherToken,roundId:poll,control:'finish'});
+ const b=(await join(store,room.code,'B')).body;
+ const answers=(await start(store,room.teacherToken,'answers',{prompt:'Explain'})).body.active.id;
+ assert.deepEqual((await state(store,a.token)).body.engagement,{score:50,participated:1,opportunities:2});
+ assert.deepEqual((await state(store,b.token)).body.engagement,{score:0,participated:0,opportunities:1});
+ assert.equal((await call(store,{action:'submit',token:b.token,roundId:answers,value:'My idea',revision:0})).status,200);
+ assert.deepEqual((await state(store,b.token)).body.engagement,{score:100,participated:1,opportunities:1});
+ assert.equal((await state(store,a.token)).body.engagement.score,50);
+ const saved=await call(store,{action:'evaluation-bank',operation:'save',token:room.teacherToken,
+   kind:'mcq',item:{title:'Test',prompt:'Choose',options:['Yes','No'],correct:0}});
+ const evalRound=(await call(store,{action:'evaluation-start',token:room.teacherToken,kind:'mcq',
+  id:saved.body.item.id,duration:30})).body.active.id;
+ const late=(await join(store,room.code,'Late')).body;
+ assert.equal((await state(store,late.token)).body.engagement.opportunities,1,
+  'Student joining while evaluation is live may still participate');
+ assert.equal((await call(store,{action:'submit',token:late.token,roundId:evalRound,value:1,revision:0})).status,200);
+ assert.deepEqual((await state(store,late.token)).body.engagement,{score:100,participated:1,opportunities:1});
+});
