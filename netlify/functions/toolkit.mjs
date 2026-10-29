@@ -4,6 +4,7 @@ import {cloudProjection,cloudAccept} from './cloud-ledger.mjs';
 import {validateElement,validateUpdate,validateMoved} from './whiteboard-elements.mjs';
 import {pickStudent} from '../lib/random-student.mjs';
 import {studentParticipation} from '../lib/toolkit-participation.mjs';
+import {validEvaluation,shuffledSteps,validateEvaluationSubmission,evaluationCorrect,studentEngagement} from '../lib/toolkit-evaluation.mjs';
 
 const STORE='classroom-toolkit-v1';
 const HEAD={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -74,7 +75,20 @@ async function entries(store,prefix,cap=150){
   const blobs=list.blobs.slice(0,cap);
   return (await Promise.all(blobs.map(b=>get(store,b.key).catch(()=>null)))).filter(Boolean);
 }
-const publicRound=r=>r&&({id:r.id,type:r.type,prompt:r.prompt||'',options:r.options||[],unit:r.unit,status:r.status,endsAt:r.endsAt||null,revealed:!!r.revealed});
+const publicRound=r=>{
+ if(!r)return null;
+ const ended=r.type==='evaluation'&&(r.status!=='open'||Date.now()>=r.endsAt);
+ const result={id:r.id,type:r.type,prompt:r.prompt||'',options:r.options||[],unit:r.unit,
+  status:ended?'closed':r.status,endsAt:r.endsAt||null,revealed:!!r.revealed};
+ if(r.type==='evaluation'){
+  result.evalKind=r.evalKind;result.title=r.title;result.tiles=r.tiles||[];
+  result.duration=r.duration;
+  // Neither the correct option nor ordered sequence is released until the
+  // lecturer explicitly reveals AND the timer is over (or round is closed).
+  if(ended&&r.revealed)result.correctAnswer=r.evalKind==='mcq'?r.correct:r.steps;
+ }
+ return result;
+};
 export function aggregate(round,answers){
   const shown=answers.filter(a=>!a.hidden);
   const count=shown.length;
@@ -105,6 +119,16 @@ async function snapshot(store,room,claims){
     // this list to student or projector snapshots.
     result.students=studentParticipation(members,round,[]);
   }
+  if(claims.role==='student'){
+    const joined=await get(store,key('member',claims.code,claims.id));
+    const rounds=(room.engagementRounds||[]).filter(r=>r.startedAt>=Number(joined?.joinedAt||Infinity));
+    const responses=await Promise.all(rounds.map(async r=>{
+      const subject=r.unit==='pair'?claims.team:claims.id;
+      return subject?get(store,key('response',claims.code,r.id,subject)):null;
+    }));
+    result.engagement=studentEngagement(rounds,0,new Map(rounds.filter((_,i)=>responses[i])
+      .map(r=>[r.id,true])));
+  }
   if(!round||round.type==='whiteboard')return result;
   const answerPrefix=key('response',claims.code,round.id)+'/';
   if(claims.role==='teacher'){
@@ -112,6 +136,8 @@ async function snapshot(store,room,claims){
     result.students=studentParticipation(members,round,items);
     result.answers=items.sort((a,b)=>a.submittedAt.localeCompare(b.submittedAt));
     result.results=aggregate(round,items);
+    if(round.type==='evaluation'&&round.revealed&&publicRound(round).status==='closed')
+      result.correctCount=items.filter(a=>evaluationCorrect(round,a.value)).length;
   }else if(claims.role==='display'){
     if(round.revealed){
       const items=await entries(store,answerPrefix,250);
@@ -393,6 +419,66 @@ export async function handleToolkit(request,storeProvider=getStore){
       return fail(400,'Unknown bookmark operation');
     }
 
+    if(data.action==='evaluation-bank'){
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      const kind=data.kind;
+      if(!['mcq','jumbled'].includes(kind))return fail(400,'Invalid evaluation type');
+      const prefix='saved-evaluation-'+kind+'/',operation=data.operation||'list';
+      if(operation==='list'){
+        const items=(await entries(store,prefix,100)).filter(q=>!q.archived)
+          .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+        return reply({items});
+      }
+      if(operation==='save'){
+        const item=validEvaluation({...data.item,kind});
+        if(!item)return fail(400,'Enter a question with a valid correct answer');
+        const id=data.id||randomUUID();
+        if(!/^[a-f0-9-]{36}$/i.test(id))return fail(400,'Invalid question ID');
+        const path=key('saved-evaluation-'+kind,id);
+        const old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+        const revision=Number(data.revision||0);
+        if((old?.data?.revision||0)!==revision||old?.data?.archived)
+          return fail(409,'Question changed. Refresh the bank and retry');
+        if(!old&&(await store.list({prefix})).blobs.length>=100)
+          return fail(409,'Question bank full (100 questions per type)');
+        const stored={id,...item,revision:revision+1,archived:false,
+          createdAt:old?.data?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+        const saved=await store.setJSON(path,stored,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
+        return saved.modified?reply({item:stored},old?200:201):fail(409,'Question was edited elsewhere');
+      }
+      if(operation==='delete'){
+        if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/i.test(data.id))return fail(400,'Invalid question ID');
+        const updated=await change(store,key('saved-evaluation-'+kind,data.id),item=>
+          item.archived?{error:'Already deleted'}:{...item,archived:true,revision:item.revision+1,updatedAt:new Date().toISOString()});
+        return updated?.error?fail(409,updated.error):updated?reply({ok:true}):fail(404,'Question unavailable');
+      }
+      return fail(400,'Unknown evaluation bank operation');
+    }
+    if(data.action==='evaluation-start'){
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      // Start only from an existing saved question; an unapproved client cannot
+      // swap out correct answers at launch time.
+      const kind=data.kind,id=data.id;
+      if(!['mcq','jumbled'].includes(kind)||typeof id!=='string'||!/^[a-f0-9-]{36}$/i.test(id))
+        return fail(400,'Choose a saved question');
+      const saved=await get(store,key('saved-evaluation-'+kind,id));
+      if(!saved||saved.archived)return fail(404,'Saved question unavailable');
+      const duration=Number(data.duration);
+      if(!Number.isInteger(duration)||duration<10||duration>3600)
+        return fail(400,'Duration must be 10–3600 seconds');
+      const now=Date.now(),roundId=randomUUID();
+      const round={id:roundId,type:'evaluation',evalKind:kind,title:saved.title,
+        prompt:saved.prompt,options:kind==='mcq'?saved.options:[],
+        steps:kind==='jumbled'?saved.steps:[],tiles:kind==='jumbled'?shuffledSteps(saved.steps):[],
+        correct:kind==='mcq'?saved.correct:null,unit:'individual',
+        status:'open',createdAt:now,duration,endsAt:now+duration*1000,revealed:false};
+      await store.setJSON(key('round',claims.code,roundId),round,{onlyIfNew:true});
+      const updated=await change(store,key('room',claims.code),r=>({
+        ...r,active:roundId,engagementRounds:[...(r.engagementRounds||[]),
+          {id:roundId,type:'evaluation',unit:'individual',startedAt:now}].slice(-120)
+      }));
+      return updated?.error?fail(409,updated.error):reply({active:publicRound(round)});
+    }
     if(data.action==='library'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       const operation=data.operation||'list',kind=data.kind||'poll';
@@ -451,7 +537,11 @@ export async function handleToolkit(request,storeProvider=getStore){
       await store.setJSON(key('round',claims.code,id),round,{onlyIfNew:true});
       if(data.type==='cloud')
         await store.setJSON(key('cloud-fast',claims.code,id),{version:0,subjects:{},events:[]},{onlyIfNew:true});
-      const updated=await change(store,key('room',claims.code),prev=>({...prev,active:id}));
+      const updated=await change(store,key('room',claims.code),prev=>({
+        ...prev,active:id,engagementRounds:['poll','answers','cloud'].includes(data.type)?
+          [...(prev.engagementRounds||[]),{id,type:data.type,unit,startedAt:now}].slice(-120):
+          (prev.engagementRounds||[])
+      }));
       if(updated?.error)return fail(409,updated.error);
       return reply({active:publicRound(round)});
     }
@@ -473,6 +563,15 @@ export async function handleToolkit(request,storeProvider=getStore){
           r.active===data.roundId?{...r,active:null}:{error:'Activity changed; newer activity preserved'});
         return updated?.error?fail(409,updated.error):reply({ok:true,active:null});
       }
+      if(data.control==='evaluation-reveal'){
+        if(!room.active||data.roundId!==room.active)return fail(409,'Activity changed');
+        const round=await get(store,key('round',claims.code,room.active));
+        if(round?.type!=='evaluation')return fail(400,'Not an evaluation');
+        if(round.status==='open'&&Date.now()<round.endsAt)
+          return fail(409,'Wait until the timer ends before revealing correct answers');
+        const result=await change(store,key('round',claims.code,round.id),r=>({...r,revealed:true}));
+        return result?.error?fail(409,result.error):reply({active:publicRound(result)});
+      }
       if(!['close','reveal','hide'].includes(data.control))return fail(400,'Invalid control');
       if(!room.active||data.roundId!==room.active)return fail(409,'Activity changed. Refresh the classroom before updating controls');
       const updated=await change(store,key('round',claims.code,room.active),r=>({...r,status:data.control==='close'?'closed':r.status,revealed:data.control==='reveal'?true:data.control==='hide'?false:r.revealed}));
@@ -482,9 +581,14 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(claims.role!=='student')return fail(403,'Student only');
       if(!room.active)return fail(409,'No active activity');
       const round=await get(store,key('round',claims.code,room.active));
-      if(!round||round.status!=='open'||round.type==='timer'||data.roundId!==round.id)return fail(409,'Activity changed or is no longer accepting answers');
+      if(!round||round.status!=='open'||round.type==='timer'||data.roundId!==round.id||
+        (round.type==='evaluation'&&Date.now()>=round.endsAt))
+        return fail(409,'Activity changed, or the submission timer has ended');
       let value=data.value;
-      if(round.type==='poll'){
+      if(round.type==='evaluation'){
+        value=validateEvaluationSubmission(round,value);
+        if(value===null)return fail(400,'Complete the evaluation answer before submitting');
+      }else if(round.type==='poll'){
         if(!Number.isInteger(value)||value<0||value>=round.options.length)return fail(400,'Invalid option');
       }else if(round.type==='cloud'){
         if(!validText(value,40)||!value.trim())return fail(400,'Enter one word or short phrase');
