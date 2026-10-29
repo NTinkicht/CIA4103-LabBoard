@@ -70,6 +70,20 @@ async function updateCloudLedger(store,roomCode,roundId,entry){
  }
  return false;
 }
+async function recordEngagementCredit(store,roomCode,subject,roundId){
+ // A single compact CAS record per individual/pair avoids re-reading the
+ // entire answer history on every ~2.5 second student refresh.
+ const path=key('engagement-credit',roomCode,subject);
+ for(let i=0;i<15;i++){
+  const old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+  const ids=old?.data?.roundIds||[];
+  if(ids.includes(roundId))return true;
+  const next={roundIds:[...ids,roundId].slice(-120)};
+  const saved=await store.setJSON(path,next,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
+  if(saved.modified)return true;
+ }
+ return false;
+}
 async function entries(store,prefix,cap=150){
   const list=await store.list({prefix});
   const blobs=list.blobs.slice(0,cap);
@@ -125,12 +139,14 @@ async function snapshot(store,room,claims){
   if(claims.role==='student'){
     const joined=await get(store,key('member',claims.code,claims.id));
     const rounds=(room.engagementRounds||[]).filter(r=>r.startedAt>=Number(joined?.joinedAt||Infinity)||r.id===room.active);
-    const responses=await Promise.all(rounds.map(async r=>{
-      const subject=r.unit==='pair'?claims.team:claims.id;
-      return subject?get(store,key('response',claims.code,r.id,subject)):null;
-    }));
-    result.engagement=studentEngagement(rounds,0,new Map(rounds.filter((_,i)=>responses[i])
-      .map(r=>[r.id,true])));
+    const [individual,pair]=await Promise.all([
+      get(store,key('engagement-credit',claims.code,claims.id)),
+      claims.team?get(store,key('engagement-credit',claims.code,claims.team)):Promise.resolve(null)
+    ]);
+    const personalIds=new Set(individual?.roundIds||[]),pairIds=new Set(pair?.roundIds||[]);
+    const participated=new Set(rounds.filter(r=>
+      r.unit==='pair'?pairIds.has(r.id):personalIds.has(r.id)).map(r=>r.id));
+    result.engagement=studentEngagement(rounds,0,participated);
   }
   if(!round||round.type==='whiteboard')return result;
   const answerPrefix=key('response',claims.code,round.id)+'/';
@@ -610,6 +626,10 @@ export async function handleToolkit(request,storeProvider=getStore){
       const answer={subject,value,revision:expected+1,submittedAt:new Date().toISOString(),name:round.unit==='pair'?'Pair '+claims.teamLabel:claims.name,hidden:old?.data?.hidden??(round.type==='answers')};
       const saved=await store.setJSON(path,answer,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
       if(!saved.modified)return fail(409,'Simultaneous edit. Refresh and retry');
+      if(['poll','answers','cloud','evaluation'].includes(round.type)){
+        const recorded=await recordEngagementCredit(store,claims.code,subject,round.id);
+        if(!recorded)console.warn('Engagement credit projection busy',claims.code,round.id);
+      }
       if(round.type==='cloud'){
         const indexed=await updateCloudLedger(store,claims.code,round.id,{
           subject,value:answer.value,revision:answer.revision,hidden:answer.hidden,
