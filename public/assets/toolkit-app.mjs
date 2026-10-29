@@ -252,6 +252,7 @@ function configTool(){
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='collaborate'){
   if(collaborateTeacher){collaborateTeacher.destroy();collaborateTeacher=null}
+  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
   $('tool-config').innerHTML='<div id="collab-teacher-mount"></div>';
   const frame=$('teacher-screen-frame');
   if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/screen-sharing/?collaborate=1';
