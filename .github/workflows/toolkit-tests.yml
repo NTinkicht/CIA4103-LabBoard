@@ -30,6 +30,8 @@ jobs:
       - run: node --check public/assets/toolkit-whiteboard.mjs
       - run: node --check public/assets/toolkit-cloud.mjs
       - run: node --check public/assets/toolkit-web-browser.mjs
+      - run: node --check public/assets/toolkit-evaluation.mjs
+      - run: node --check netlify/lib/toolkit-evaluation.mjs
 
   browser:
     runs-on: ubuntu-latest
@@ -50,3 +52,4 @@ jobs:
           node tests/toolkit-activity-tabs-browser.mjs
           node tests/toolkit-web-browser-browser.mjs
           node tests/toolkit-participation-browser.mjs
+          node tests/toolkit-evaluation-browser.mjs
