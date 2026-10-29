@@ -140,7 +140,10 @@ async function snapshot(store,room,claims){
   }
   if(claims.role==='student'){
     const joined=await get(store,key('member',claims.code,claims.id));
-    const rounds=(room.engagementRounds||[]).filter(r=>r.startedAt>=Number(joined?.joinedAt||Infinity)||r.id===room.active);
+    const rounds=(room.engagementRounds||[]).filter(r=>
+      (Number.isInteger(joined?.joinedEngagementSeq)&&Number.isInteger(r.seq)?
+        r.seq>=joined.joinedEngagementSeq:r.startedAt>=Number(joined?.joinedAt||Infinity))||
+      r.id===room.active||r.id===joined?.joinedActiveRoundId);
     const [individual,pair]=await Promise.all([
       get(store,key('engagement-credit',claims.code,claims.id)),
       claims.team?get(store,key('engagement-credit',claims.code,claims.team)):Promise.resolve(null)
@@ -186,7 +189,7 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(!pinOk(data.pin))return fail(403,'Lecturer authentication failed');
       for(let i=0;i<12;i++){
         const code=String(randomInt(100000,1000000));
-        const now=Date.now(),room={code,createdAt:now,expiresAt:now+4*3600000,active:null,ended:false};
+        const now=Date.now(),room={code,createdAt:now,expiresAt:now+4*3600000,active:null,ended:false,engagementSeq:0};
         const saved=await store.setJSON(key('room',code),room,{onlyIfNew:true});
         if(!saved.modified)continue;
         return reply({code,teacherToken:signed({role:'teacher',code,exp:room.expiresAt}),displayToken:signed({role:'display',code,exp:room.expiresAt})},201);
@@ -203,7 +206,7 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(!validText(name,60)||!validText(team,32))return fail(400,'Invalid name or team');
       if(!name)return fail(400,'Enter a display name');
       const id=randomUUID(),subject=team?'team-'+createHash('sha256').update(team.toLocaleLowerCase()).digest('hex').slice(0,24):'student-'+id;
-      await store.setJSON(key('member',code,id),{id,name,team,joinedAt:Date.now()});
+      await store.setJSON(key('member',code,id),{id,name,team,joinedAt:Date.now(),joinedEngagementSeq:room.engagementSeq||0,joinedActiveRoundId:room.active});
       return reply({code,token:signed({role:'student',code,id,name,team:team?subject:null,teamLabel:team,exp:room.expiresAt})},201);
     }
     const claims=verify(data.token);
@@ -484,7 +487,8 @@ export async function handleToolkit(request,storeProvider=getStore){
       await store.setJSON(key('round',claims.code,id),round,{onlyIfNew:true});
       const changed=await change(store,key('room',claims.code),r=>({
         ...r,active:id,engagementRounds:[...(r.engagementRounds||[]),
-          {id,type:'text-document',unit:'individual',startedAt:now}].slice(-120)
+          {id,type:'text-document',unit:'individual',startedAt:now,seq:r.engagementSeq||0}].slice(-120),
+        engagementSeq:(r.engagementSeq||0)+1
       }));
       return changed?.error?fail(409,changed.error):reply({active:publicRound(round)});
     }
@@ -545,7 +549,8 @@ export async function handleToolkit(request,storeProvider=getStore){
       await store.setJSON(key('round',claims.code,roundId),round,{onlyIfNew:true});
       const updated=await change(store,key('room',claims.code),r=>({
         ...r,active:roundId,engagementRounds:[...(r.engagementRounds||[]),
-          {id:roundId,type:'evaluation',unit:'individual',startedAt:now}].slice(-120)
+          {id:roundId,type:'evaluation',unit:'individual',startedAt:now,seq:r.engagementSeq||0}].slice(-120),
+        engagementSeq:(r.engagementSeq||0)+1
       }));
       return updated?.error?fail(409,updated.error):reply({active:publicRound(round)});
     }
@@ -608,9 +613,11 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(data.type==='cloud')
         await store.setJSON(key('cloud-fast',claims.code,id),{version:0,subjects:{},events:[]},{onlyIfNew:true});
       const updated=await change(store,key('room',claims.code),prev=>({
-        ...prev,active:id,engagementRounds:['poll','answers','cloud'].includes(data.type)?
-          [...(prev.engagementRounds||[]),{id,type:data.type,unit,startedAt:now}].slice(-120):
-          (prev.engagementRounds||[])
+        ...prev,active:id,
+        engagementRounds:['poll','answers','cloud'].includes(data.type)?
+          [...(prev.engagementRounds||[]),{id,type:data.type,unit,startedAt:now,seq:prev.engagementSeq||0}].slice(-120):
+          (prev.engagementRounds||[]),
+        engagementSeq:(prev.engagementSeq||0)+(['poll','answers','cloud'].includes(data.type)?1:0)
       }));
       if(updated?.error)return fail(409,updated.error);
       return reply({active:publicRound(round)});
