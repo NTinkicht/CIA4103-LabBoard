@@ -94,11 +94,12 @@ async function drag(p,selector){
 try{
  const t=await page();await t.locator('#open-teacher').click();await t.locator('#teacher-pin').fill('synthetic-pin');
  await t.locator('#create-submit').click();
- await t.locator('[data-tool="whiteboard"]').click();
- await t.locator('#wb-open').click();
+ await t.locator('[data-tool="collaborate"]').click();
+ await t.locator('#collab-tab-whiteboard').click();
+ await t.locator('#collab-open-board').click();
  await t.locator('#teacher-board-mount canvas').waitFor({timeout:8000});
- await t.locator('#wb-roster .wb-person').first().waitFor({timeout:8000});
- assert.equal(await t.locator('#wb-roster .wb-person').count(),2);
+ await t.locator('#collab-students .collab-person').first().waitFor({timeout:8000});
+ assert.equal(await t.locator('#collab-students .collab-person').count(),2);
  const a=await student('Anna'),b=await student('Bashir');
  assert.equal(await a.locator('.student-tabs [role="tab"]').count(),3);
  await a.locator('#wb-permission').waitFor({state:'attached'});
@@ -107,12 +108,12 @@ try{
  const before=board.strokes.length;
  await drag(a,'#student-board-mount canvas');
  assert.equal(board.strokes.length,before,'Nonselected student should not draw');
- await t.locator('#wb-roster .wb-person').filter({hasText:'Anna'}).click();
+ await t.locator('#collab-students .collab-person').filter({hasText:'Anna'}).click();
  await a.waitForFunction(()=>document.querySelector('#student-board-mount #wb-permission')?.textContent?.includes('You can write'),null,{timeout:7000});
  await drag(a,'#student-board-mount canvas');
  await a.waitForFunction(()=>document.querySelector('#wb-status')?.textContent?.includes('Stroke saved'),null,{timeout:8000});
  assert.equal(board.strokes.length,1);
- await t.locator('#wb-roster .wb-person').filter({hasText:'Bashir'}).click();
+ await t.locator('#collab-students .collab-person').filter({hasText:'Bashir'}).click();
  await a.waitForFunction(()=>document.querySelector('#student-board-mount #wb-permission')?.textContent?.includes('View only'),null,{timeout:7000});
  await b.waitForFunction(()=>document.querySelector('#student-board-mount #wb-permission')?.textContent?.includes('You can write'),null,{timeout:7000});
  await drag(b,'#student-board-mount canvas');
