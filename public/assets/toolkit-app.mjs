@@ -167,7 +167,7 @@ function syncActivityTabs(){
   r.classList.toggle('active',results);
  }
  const form=$('tool-config');
- if(form)form.hidden=showingResults;
+ if(form)form.hidden=showingResults||state.tool==='collaborate';
  const panel=$('live-results-panel');
  if(panel)panel.hidden=!showingResults;
  app.classList.toggle('activity-results-focus',showingResults);
