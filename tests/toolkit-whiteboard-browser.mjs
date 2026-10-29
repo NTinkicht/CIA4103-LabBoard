@@ -83,6 +83,7 @@ async function student(name){
  await p.locator('#student-board-mount canvas').waitFor({state:'visible',timeout:10000});return p;
 }
 async function drag(p,selector){
+ await p.locator(selector).scrollIntoViewIfNeeded();
  const rect=await p.locator(selector).boundingBox();
  assert.ok(rect,'Missing board canvas');
  await p.mouse.move(rect.x+rect.width*.2,rect.y+rect.height*.25);
