@@ -1,4 +1,4 @@
-import {randomInt} from 'node:crypto';
+import {randomInt,randomUUID} from 'node:crypto';
 export const KINDS=['jumbled','mcq'];
 export function validEvaluation(value){
  if(!value||!KINDS.includes(value.kind)||typeof value.title!=='string'||!value.title.trim()||value.title.length>100||
@@ -16,12 +16,13 @@ export function validEvaluation(value){
  return {kind:'jumbled',title:value.title.trim(),prompt:value.prompt.trim(),steps:steps.map(x=>x.trim())};
 }
 export function shuffledSteps(steps,choose=randomInt){
- const tiles=steps.map((text,i)=>({id:String(i),text}));
+ const tiles=steps.map(text=>({id:randomUUID(),text}));
+ const correctOrder=tiles.map(t=>t.id);
  for(let i=tiles.length-1;i>0;i--){const j=choose(i+1);[tiles[i],tiles[j]]=[tiles[j],tiles[i]]}
- if(tiles.length>1&&tiles.every((tile,i)=>tile.id===String(i))){
+ if(tiles.length>1&&tiles.every((tile,i)=>tile.id===correctOrder[i])){
   const last=tiles.length-1;[tiles[0],tiles[last]]=[tiles[last],tiles[0]];
  }
- return tiles;
+ return {tiles,correctOrder};
 }
 export function validateEvaluationSubmission(round,value){
  if(round.evalKind==='mcq')return Number.isInteger(value)&&value>=0&&value<round.options.length?value:null;
@@ -32,7 +33,7 @@ export function validateEvaluationSubmission(round,value){
 }
 export function evaluationCorrect(round,value){
  return round.evalKind==='mcq'?value===round.correct:
-  Array.isArray(value)&&value.every((id,i)=>id===String(i));
+  Array.isArray(value)&&value.every((id,i)=>id===round.correctOrder[i]);
 }
 export function studentEngagement(rounds,joinedAt,answers){
  const opportunities=rounds.filter(r=>r.startedAt>=joinedAt);
