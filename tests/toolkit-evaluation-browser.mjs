@@ -114,7 +114,7 @@ try{
  await student.locator('#student-eval-submit').click();
  await until(student,()=>document.querySelector('#student-eval-status')?.textContent?.includes('submitted'));
  await until(teacher,()=>document.querySelector('#eval-summary')?.textContent?.includes('1 of 2'));
- assert.equal(await student.locator('#engagement-score').innerText(),'100%');
+ await until(student,()=>document.querySelector('#engagement-score')?.textContent==='100%');
  await student.locator('#tab-work').click();
  assert.equal(await student.locator('#engagement-score').isVisible(),true,'Score remains across student tabs');
  await student.locator('#tab-activities').click();
@@ -137,7 +137,7 @@ try{
  await teacher.locator('#eval-duration').fill('15');
  await teacher.locator('[data-eval-launch]').first().click();
  await student.locator('.eval-mcq-choices input').first().waitFor({state:'visible',timeout:10000});
- assert.equal(await student.locator('#engagement-score').innerText(),'50%','Second opportunity starts before submission');
+ await until(student,()=>document.querySelector('#engagement-score')?.textContent==='50%');
  await student.locator('.eval-mcq-choices input[value="0"]').check();
  await student.locator('#student-eval-submit').click();
  await until(student,()=>document.querySelector('#engagement-score')?.textContent==='100%');
