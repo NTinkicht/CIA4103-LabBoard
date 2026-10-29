@@ -1,14 +1,16 @@
 import {mountWhiteboard} from './toolkit-whiteboard.mjs';
 import {createLiveCloud} from './toolkit-cloud.mjs';
+import {mountEvaluationLecturer,mountEvaluationStudent} from './toolkit-evaluation.mjs';
 const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides',web:'Web Browser',work:'Work & Problems',whiteboard:'Whiteboard'};
+const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',documents:'Files & Slides',web:'Web Browser',work:'Work & Problems',whiteboard:'Whiteboard',evaluation:'Evaluation'};
 let teacherWhiteboard=null,studentWhiteboard=null,displayWhiteboard=null,lastDisplayBoardId=null;
 let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound=null,cloudReviewSignature=null;
+let evaluationTeacher=null,evaluationStudent=null,evaluationStudentRound=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'jumbled'};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -75,7 +77,7 @@ function teacherShell(){
  app.classList.add('lecturer-layout');
  const railPref=(()=>{try{return localStorage.getItem('classroom-toolkit-rail-collapsed')==='true'}catch{return false}})();
  app.classList.toggle('rail-collapsed',railPref);
- const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides'],['web','◎','Web Browser']];
+ const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['screen','▣','Screen Sharing'],['work','▤','Work & Problems'],['whiteboard','✎','Whiteboard'],['documents','▧','Files & Slides'],['web','◎','Web Browser'],['evaluation','◈','Evaluation']];
  app.innerHTML='<div class="workspace"><aside class="rail"><div class="rail-top"><p class="rail-title">Interactive tools</p><button type="button" class="rail-toggle" id="rail-toggle" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="tool-nav" title="Collapse sidebar">☰</button></div><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'" title="'+text+'" aria-label="'+text+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span><span class="tool-text">'+text+'</span></button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><aside id="participation-panel" class="participation-panel" aria-label="Student participation" hidden>'+
   '<div class="participation-head"><div><p class="eyebrow">Classroom roster</p><h2>Students</h2></div><strong id="participation-total" class="participation-total">0</strong></div>'+
   '<p id="participation-context" class="participation-context">Joined students</p>'+
@@ -167,7 +169,7 @@ function syncActivityTabs(){
  app.classList.toggle('activity-results-focus',showingResults);
 }
 
-const PARTICIPATION_TOOLS=['poll','answers','cloud','timer','work','documents'];
+const PARTICIPATION_TOOLS=['poll','answers','cloud','timer','work','documents','evaluation'];
 const RESPONSE_PARTICIPATION=['poll','answers','cloud'];
 function updateParticipationVisibility(){
  const enabled=PARTICIPATION_TOOLS.includes(state.tool);
@@ -180,14 +182,16 @@ function renderParticipationRoster(snapshot){
  const panel=$('participation-panel');
  if(!panel||panel.hidden||!snapshot)return;
  const students=Array.isArray(snapshot.students)?snapshot.students:[];
- const active=RESPONSE_PARTICIPATION.includes(state.tool)&&snapshot.active?.type===state.tool;
+ const active=RESPONSE_PARTICIPATION.includes(state.tool)&&snapshot.active?.type===state.tool ||
+    state.tool==='evaluation'&&snapshot.active?.type==='evaluation'&&snapshot.active.evalKind===state.evalKind;
  const workMode=state.tool==='work';
  const tracked=active||workMode;
  const uploaded=new Set(workMode?state.workItems.map(item=>item.studentId):[]);
  const statusFor=student=>active?Boolean(student.participated):
    workMode?uploaded.has(student.id):null;
  const submitted=tracked?students.filter(student=>statusFor(student)).length:0;
- const mode=active?(snapshot.active.unit==='pair'?'Pair submissions':'Individual submissions'):
+ const mode=active?(snapshot.active.unit==='pair'?'Pair submissions':
+     state.tool==='evaluation'?'Evaluation submissions':'Individual submissions'):
    workMode?'Work submitted':RESPONSE_PARTICIPATION.includes(state.tool)?'Waiting for this activity':
    state.tool==='timer'?'Timer has no answer submission':'Slides have no answer submission';
  const signature=[state.tool,mode,students.map(student=>[student.id,student.name,student.team,
@@ -219,6 +223,9 @@ function renderParticipationRoster(snapshot){
 }
 
 function configTool(){
+ if(state.tool!=='evaluation'&&evaluationTeacher){
+  evaluationTeacher.destroy();evaluationTeacher=null;
+ }
  if(state.tool!=='cloud'&&teacherCloud){
   teacherCloud.destroy();teacherCloud=null;teacherCloudRound=null;cloudReviewSignature=null;
  }
@@ -234,7 +241,7 @@ function configTool(){
  syncActivityTabs();
  document.querySelectorAll('[data-tool]').forEach(b=>{const on=b.dataset.tool===state.tool;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false')});
  $('tool-title').textContent=NAMES[state.tool];
- const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',web:'Browse lesson websites and save frequently used URLs for future classes.'};
+ const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',web:'Browse lesson websites and save frequently used URLs for future classes.',evaluation:'Prepare timed Jumbled Questions and MCQs, then reveal answers after the timer ends.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='screen'){
   $('tool-config').innerHTML='';
@@ -252,6 +259,19 @@ function configTool(){
   $('tool-config').innerHTML='';
   const frame=$('teacher-web-frame');
   if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/browser/';
+  return;
+ }
+ if(state.tool==='evaluation'){
+  $('tool-config').innerHTML='<div id="teacher-evaluation"></div>';
+  evaluationTeacher=mountEvaluationLecturer($('teacher-evaluation'),{
+   request,token:state.token,onFinish:finishActivity,getOffset:()=>state.clockOffset,
+   onChange:(kind,needsRefresh)=>{
+    state.evalKind=kind;state.participationSignature=null;
+    if(state.snapshot)renderParticipationRoster(state.snapshot);
+    if(needsRefresh)void refresh();
+   }
+  });
+  if(state.snapshot)evaluationTeacher.update(state.snapshot);
   return;
  }
  if(state.tool==='whiteboard'){
@@ -484,6 +504,10 @@ function renderTeacherCloud(snapshot){
 
 function renderTeacher(snapshot){
  renderParticipationRoster(snapshot);
+ if(state.tool==='evaluation'){
+  evaluationTeacher?.update(snapshot);
+  return;
+ }
  $('participants-count').textContent=String(snapshot.participants??0);
  const round=snapshot.active;
  const matches=Boolean(round&&round.type===state.tool&&['poll','answers','cloud','timer'].includes(round.type));
@@ -522,6 +546,11 @@ function studentShell(){
  state.studentTab='activities';state.shareLoaded=false;state.workImage=null;
  app.innerHTML='<section class="surface student-main unified-student">'+
   '<div class="headrow"><div><p class="eyebrow">Student classroom</p><h1>You are in Room '+esc(state.room)+'</h1><p>Everything you need is here. Switch tools without leaving your classroom.</p></div><span class="pill">● Connected</span></div>'+
+  '<div class="student-engagement" id="student-engagement" aria-label="Your engagement score">'+
+   '<div class="engagement-label"><strong>Engagement score</strong><span id="engagement-context">Participation, not grades</span></div>'+
+   '<div class="engagement-value" id="engagement-score" aria-live="polite">0%</div>'+
+   '<div class="engagement-track"><div id="engagement-meter" class="engagement-fill" style="width:0%;background:hsl(0 74% 44%)"></div></div>'+
+   '<small id="engagement-details">0 of 0 question opportunities participated</small></div>'+
   '<nav class="student-tabs" role="tablist" aria-label="Student classroom tools">'+
   '<button type="button" role="tab" aria-selected="true" aria-controls="student-activities-panel" id="tab-activities" class="student-tab active" data-student-tab="activities"><span aria-hidden="true">▦</span><strong>Activities</strong></button>'+
   '<button type="button" role="tab" aria-selected="false" aria-controls="student-screen-panel" id="tab-screen" class="student-tab" data-student-tab="screen"><span aria-hidden="true">▣</span><strong>Screen Share</strong></button>'+
@@ -648,8 +677,36 @@ async function loadStudentWork(force=false){
  finally{state.workFetchBusy=false}
 }
 
+function updateEngagement(value){
+ const node=$('engagement-score');if(!node)return;
+ const percent=Math.max(0,Math.min(100,Number(value?.score)||0));
+ const completed=Number(value?.participated)||0,total=Number(value?.opportunities)||0;
+ node.textContent=percent+'%';
+ const shade='hsl('+Math.round(percent*1.2)+' 72% 39%)';
+ node.style.color=shade;
+ const fill=$('engagement-meter');
+ fill.style.width=percent+'%';fill.style.background=shade;
+ $('engagement-details').textContent=completed+' of '+total+' question opportunities participated';
+ $('engagement-context').textContent=total?'Participation, not answer accuracy':'Your score starts with the first question';
+ $('student-engagement').setAttribute('aria-label','Your session engagement score '+percent+' percent');
+}
+
 function renderStudent(snapshot){
+ updateEngagement(snapshot.engagement);
  const r=snapshot.active,area=$('student-work');
+ if(r?.type==='evaluation'){
+  if(state.lastStudentKey!=='evaluation:'+r.id||!evaluationStudent){
+   evaluationStudent?.destroy();evaluationStudent=null;
+   state.lastStudentKey='evaluation:'+r.id;
+   if(state.studentTab!=='activities')switchStudentTab('activities');
+   evaluationStudent=mountEvaluationStudent(area,{request,token:state.token,round:r,
+    getOffset:()=>state.clockOffset});
+  }
+  evaluationStudent.update(snapshot);
+  return;
+ }
+ if(evaluationStudent){evaluationStudent.destroy();evaluationStudent=null}
+
  if(r?.type==='whiteboard'){
   const key=r.id+':'+r.status;
   if(key!==state.lastStudentKey||!studentWhiteboard){
@@ -783,6 +840,8 @@ async function refresh(){
  }finally{state.busy=false}
 }
 function stopPolling(){
+ evaluationTeacher?.destroy();evaluationTeacher=null;
+ evaluationStudent?.destroy();evaluationStudent=null;evaluationStudentRound=null;
  teacherCloud?.destroy();teacherCloud=null;teacherCloudRound=null;
  displayCloud?.destroy();displayCloud=null;displayCloudRound=null;cloudReviewSignature=null;
  state.epoch++;if(state.pollTimer)clearTimeout(state.pollTimer);state.pollTimer=null}
