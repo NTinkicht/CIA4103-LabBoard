@@ -319,3 +319,20 @@ The lecturer workspace now shows a compact **Students** companion column directl
 - The roster scrolls independently of results on desktop and compresses to a horizontally scrollable row on tablet/mobile. Collapsing the tool menu still leaves the participation panel visible.
 
 The roster is based on **joined** members, not verified current presence or attendance. It is a participation/submission indicator, not an attendance register.
+
+
+## Evaluation: timed Jumbled Questions and MCQs
+
+The lecturer's left rail includes **Evaluation** with two tabs, **Jumbled Questions** (reordering 2–10 shuffled steps/phrases) and **MCQs** (2–6 choices, exactly one marked correct). Both tabs provide a saved question bank, question editor, duration setting (10–3600 seconds), one-click Launch, student participation roster and a live result list. Question banks are teacher-authenticated Netlify Blobs, persisted across classroom sessions; each type supports up to 100 saved questions. Loading an existing question for editing never requires retyping it.
+
+After launch the student sees a question with a countdown, clickable tiles or radio options, and a Submit button. The backend independently enforces each question's deadline, rejecting late edits even if a browser clock is inaccurate. Correct answers and the opaque jumbled answer order are **never included in the student/projector response** until both the deadline or explicit closure has passed **and** the lecturer clicks **Reveal correct answers**. The lecturer sees completed/pending students in the companion left roster; students see the revealed correct answer after release. The lecturer can then **Close activity** without closing the classroom. Existing three student tabs, screen sharing and other teaching tools remain available.
+
+### Engagement score
+
+The student screen carries a persistent **Engagement score** widget above the three tabs. Its 0–100% colored meter interpolates red at 0 through amber to green at 100. The transparent formula is:
+
+**Engagement = 100 × number of responded question opportunities / number of question opportunities available while the student was in the session**, rounded to the nearest integer.
+
+Included question types: **Live Poll, Live Answers, Word Cloud, Jumbled Questions and MCQs**. Each launched round counts as one opportunity, and submitting a response counts as participation **regardless of whether the answer is correct**. In pair response mode the pair's shared submission counts for each team member. The widget persists across all student tabs, activity closure and the remainder of the classroom session, and refreshes with classroom snapshots (usually every ~2.5 seconds for students). Students who join later are not penalized for completed rounds before they joined; a still-active question is available to them and counted.
+
+The score is a **participation metric, not academic grading, student ability or attendance**. A 0% score before the first question is displayed with "0 of 0" and an explanatory label. It is never shared with other students. The session rollup tracks up to 120 recent question rounds for bounded read performance; it is not a permanent student transcript. Lecturer response rosters and correctness details remain teacher-only.
