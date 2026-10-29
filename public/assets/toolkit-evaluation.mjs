@@ -145,7 +145,7 @@ export function mountEvaluationLecturer(root,{request,token,onChange,onFinish,ge
    $('eval-answers').innerHTML=records.length?records.map(a=>{
     const value=r.evalKind==='mcq'?r.options[a.value]:(Array.isArray(a.value)?a.value.map(id=>r.tiles.find(t=>t.id===id)?.text||'').join(' → '):'');
     const correct=mark?(r.evalKind==='mcq'?a.value===r.correctAnswer:
-      a.value?.every((id,i)=>id===String(i))):null;
+      a.value?.every((id,i)=>id===r.correctIds[i])):null;
     return '<article class="eval-answer-row"><strong>'+escape(a.name||'Student')+'</strong><span>'+
       (mark?(correct?'✓ Correct':'✕ Incorrect'):'✓ Submitted')+'</span><small>'+escape(value)+'</small></article>';
    }).join(''):'<p class="eval-empty">Waiting for the first answer.</p>';
