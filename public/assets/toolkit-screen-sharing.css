@@ -97,3 +97,12 @@ html.toolkit-screen-embedded #stream-empty{font-size:15px}
 .stream-random-result{font-size:11px;font-weight:800;color:#0d806a;margin:4px 0;line-height:1.45;overflow-wrap:anywhere}
 .stream-random-result:empty{display:none}
 .stream-random-hint{font-size:10px;line-height:1.4;color:#7790a7;margin:2px 0 8px}
+
+
+/* Collaborate owns the lecturer roster; do not duplicate the queue inside video. */
+.collaborate-external-roster .stream-workspace{display:block;margin-top:6px}
+.collaborate-external-roster .stream-sidebar{display:none!important}
+.collaborate-external-roster #screen-sharing-workspace{padding:5px}
+.collaborate-external-roster .stream-main-header{padding:10px 12px}
+.collaborate-external-roster .stream-video-stage{height:min(64vh,740px);min-height:380px}
+@media(max-width:700px){.collaborate-external-roster .stream-video-stage{min-height:280px;height:55vh}}
