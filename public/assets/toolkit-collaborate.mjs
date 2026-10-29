@@ -8,7 +8,7 @@ function randomOther(items,current){
  const values=new Uint32Array(1);crypto.getRandomValues(values);
  return candidates[values[0]%candidates.length];
 }
-export function mountCollaborate(root,{request,token,screenHost,getSnapshot,openBoard,mountBoard,stopRound,onRefresh,onTabChange,notify}){
+export function mountCollaborate(root,{request,token,screenHost,getSnapshot,openBoard,mountBoard,stopRound,onRefresh,onTabChange,initialTab='screen',notify}){
  let tab='screen',students=[],selectedId=null,connected=[],screenActive=null,templates=[],editing=null;
  let lastRosterKey='',lastDocKey='',savedKind='',loading=false;
  root.innerHTML='<section class="collab-root">'+
@@ -229,7 +229,7 @@ export function mountCollaborate(root,{request,token,screenHost,getSnapshot,open
  $('collab-doc-reload').onclick=loadDocuments;
  root.querySelectorAll('[data-collab-tab]').forEach(b=>b.onclick=()=>tabTo(b.dataset.collabTab));
  $('collab-screen-slot').appendChild(screenHost);
- tabTo('screen');
+ tabTo(initialTab);
  return {update,screenQueue,tab:()=>tab,destroy(){
   const parent=root.closest('.surface');
   // Never destroy the connected LiveKit iframe while switching teaching tools.
