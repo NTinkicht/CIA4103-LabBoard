@@ -28,7 +28,8 @@ async function mock(route){
  let payload={},status=200;
  if(data.action==='create')payload={code:'123456',teacherToken:teacher,displayToken:'display-token'};
  else if(data.action==='join')payload={code:'123456',token:'student-'+data.name.toLowerCase()};
- else if(data.action==='state')payload={code:'123456',roomOpen:true,active,serverTime:Date.now(),participants:2};
+ else if(data.action==='state')payload={code:'123456',roomOpen:true,active,serverTime:Date.now(),participants:2,
+   ...(role==='teacher'?{students:members.map(m=>({...m,participated:null}))}:{})};
  else if(data.action==='board'){
   if(data.operation==='activate'){
    active={id:'board-round-1',type:'whiteboard',status:'open',prompt:'Shared Whiteboard'};
