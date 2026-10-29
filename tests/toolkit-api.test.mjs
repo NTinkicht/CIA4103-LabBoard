@@ -792,3 +792,86 @@ test('session engagement tracks participation not correctness across rounds; lat
  assert.equal((await call(store,{action:'submit',token:late.token,roundId:evalRound,value:1,revision:0})).status,200);
  assert.deepEqual((await state(store,late.token)).body.engagement,{score:100,participated:1,opportunities:1});
 });
+
+
+test('text documents are reusable across sessions, teacher-owned and private to each student',async()=>{
+ const store=new FakeStore(),first=(await created(store)).body;
+ const a=(await join(store,first.code,'Alice')).body,b=(await join(store,first.code,'Bob')).body;
+ const template={title:'Week 09 reflection',questions:['Describe your implementation','What was challenging?']};
+ const save=await call(store,{action:'document-bank',operation:'save',token:first.teacherToken,item:template});
+ assert.equal(save.status,201);
+ assert.equal((await call(store,{action:'document-bank',operation:'list',token:a.token})).status,403);
+ assert.equal((await call(store,{action:'document-bank',operation:'save',token:b.token,item:template})).status,403);
+ const other=(await created(store)).body;
+ const bank=(await call(store,{action:'document-bank',operation:'list',token:other.teacherToken})).body.items;
+ assert.equal(bank.length,1);
+ assert.deepEqual(bank[0].questions,template.questions);
+ const started=await call(store,{action:'document-start',token:first.teacherToken,id:save.body.item.id});
+ assert.equal(started.status,200);
+ const id=started.body.active.id;
+ const start=(await state(store,a.token)).body;
+ assert.equal(start.active.type,'text-document');
+ assert.deepEqual(start.active.questions,template.questions);
+ assert.equal(start.answers,undefined);
+ assert.equal(start.engagement.opportunities,1);
+ assert.equal((await call(store,{action:'document-start',token:a.token,id:save.body.item.id})).status,403);
+ assert.equal((await call(store,{action:'submit',token:a.token,roundId:id,
+   value:['Implemented CREATE endpoint','Validation was hardest'],revision:0})).status,200);
+ const teacher=(await state(store,first.teacherToken)).body;
+ const alice=teacher.answers.find(x=>x.name==='Alice');
+ assert.deepEqual(alice.value,['Implemented CREATE endpoint','Validation was hardest']);
+ assert.equal(teacher.students.find(x=>x.name==='Alice').participated,true);
+ assert.equal(teacher.students.find(x=>x.name==='Bob').participated,false);
+ assert.equal((await state(store,a.token)).body.engagement.score,100);
+ assert.equal((await state(store,b.token)).body.mine,undefined);
+ assert.equal((await state(store,first.displayToken)).body.answers,undefined,
+  'Document responses must never reach projector without explicit release');
+ assert.equal((await call(store,{action:'control',token:first.teacherToken,
+   control:'finish',roundId:id})).status,200);
+ assert.equal((await state(store,a.token)).body.active,null);
+ assert.equal((await call(store,{action:'submit',token:a.token,roundId:id,
+   value:['too late',''],revision:1})).status,409);
+ assert.equal((await state(store,a.token)).body.engagement.score,100,
+  'Engagement credit remains after document closure');
+});
+test('text documents reject malformed templates and answers, preserve revision conflicts',async()=>{
+ const store=new FakeStore(),r=(await created(store)).body,student=(await join(store,r.code,'Student')).body;
+ for(const item of [{title:'Missing',questions:[]},{title:'X',questions:Array(9).fill('Question?')},
+   {title:'Test',questions:['']},{title:'Title',questions:['X'.repeat(261)]}]){
+  assert.equal((await call(store,{action:'document-bank',operation:'save',token:r.teacherToken,item})).status,400);
+ }
+ const doc=await call(store,{action:'document-bank',operation:'save',token:r.teacherToken,
+  item:{title:'Valid',questions:['Q1','Q2']}});
+ assert.equal(doc.status,201);
+ const id=doc.body.item.id;
+ const conflict=await call(store,{action:'document-bank',operation:'save',token:r.teacherToken,
+  id,revision:0,item:{title:'Changed',questions:['Q1']}});
+ assert.equal(conflict.status,409);
+ const launch=await call(store,{action:'document-start',token:r.teacherToken,id});
+ const rid=launch.body.active.id;
+ for(const value of [['',''],['X'.repeat(1201),'ok'],['one'],['x','y','z'],[true,'test']]){
+  assert.equal((await call(store,{action:'submit',token:student.token,roundId:rid,value,revision:0})).status,400);
+ }
+ const first=await call(store,{action:'submit',token:student.token,roundId:rid,value:['Answer',''],revision:0});
+ assert.equal(first.status,200);
+ assert.equal((await call(store,{action:'submit',token:student.token,roundId:rid,
+  value:['Late edit',''],revision:0})).status,409);
+ assert.equal((await call(store,{action:'submit',token:student.token,roundId:rid,
+  value:['Edited answer','Second answer'],revision:1})).status,200);
+ assert.equal((await state(store,r.teacherToken)).body.answers[0].revision,2);
+ assert.equal((await call(store,{action:'document-bank',operation:'delete',token:r.teacherToken,id})).status,200);
+ assert.deepEqual((await call(store,{action:'document-bank',operation:'list',token:r.teacherToken})).body.items,[]);
+});
+test('finish control ends the currently active whiteboard and cannot close a newer document',async()=>{
+ const store=new FakeStore(),r=(await created(store)).body,student=(await join(store,r.code,'A')).body;
+ const board=(await call(store,{action:'board',operation:'activate',token:r.teacherToken})).body.active;
+ const doc=(await call(store,{action:'document-bank',operation:'save',token:r.teacherToken,
+  item:{title:'Doc',questions:['Q']}})).body.item;
+ const active=(await call(store,{action:'document-start',token:r.teacherToken,id:doc.id})).body.active;
+ assert.equal((await call(store,{action:'control',token:r.teacherToken,
+  roundId:board.id,control:'finish'})).status,409);
+ assert.equal((await state(store,student.token)).body.active.id,active.id);
+ assert.equal((await call(store,{action:'control',token:r.teacherToken,
+  roundId:active.id,control:'finish'})).status,200);
+ assert.equal((await state(store,student.token)).body.active,null);
+});
