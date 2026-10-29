@@ -114,6 +114,10 @@ async function refresh(){
   $('presenter-note').textContent=approved?(approved.sharing?'Live application-window feed':'Waiting for the student to click Share application window'):'Approve a student from the queue to start presenting.';
   $('stream-stop-all').disabled=!activeId;
   renderPeople(items);updateViewer();
+  if(embedded&&new URLSearchParams(location.search).get('collaborate')==='1')
+    window.parent.postMessage({type:'toolkit:collab-queue',
+      items:items.map(p=>({identity:p.identity,name:p.name||'Student',presenting:p.presenting,sharing:p.sharing})),
+      active:activeId},location.origin);
   status('● CONNECTED · '+items.length+' student(s) · '+(activeId?'1 stream on screen':'No stream selected')+'. Checks every five seconds.');
  }catch(err){status('Could not update the waiting list: '+err.message,true);}
  finally{busy=false;}
@@ -145,6 +149,10 @@ async function pickRandomPresenter(){
   if(!response.ok)throw Error(data.error||'Random presenter selection failed');
   const name=data.selectedName||'Student';
   $('stream-random-result').textContent='🎲 '+name+' was selected to present.';
+  if(embedded&&new URLSearchParams(location.search).get('collaborate')==='1')
+   window.parent.postMessage({type:'toolkit:collab-queue',
+    items:lastStudents.map(p=>({identity:p.identity,name:p.name||'Student',presenting:p.presenting,sharing:p.sharing})),
+    active:data.selectedIdentity,selectedName:name},location.origin);
   status(name+' was randomly selected. If they are not already sharing, ask them to click Share application window.');
  }catch(error){
   $('stream-random-result').textContent='';
@@ -204,6 +212,16 @@ if(embedded){
   // through the iframe URL, a query string, the DOM or a third-party host.
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin||event.source!==window.parent)return;
+    if(new URLSearchParams(location.search).get('collaborate')==='1'&&room){
+      if(event.data?.type==='toolkit:collab-stop'){void switchTo(null);return}
+      if(event.data?.type==='toolkit:collab-random'){void pickRandomPresenter();return}
+      if(event.data?.type==='toolkit:collab-present'){
+       const target=lastStudents.find(p=>p.identity===event.data.identity);
+       if(target)void switchTo(target.identity);
+       else status('Student not connected to sharing queue.',true);
+       return;
+      }
+    }
     if(event.data?.type!=='toolkit:lecturer-session')return;
     if(typeof event.data.token!=='string'||event.data.token.length>2200)return;
     if(room||$('stream-connect').disabled)return;
