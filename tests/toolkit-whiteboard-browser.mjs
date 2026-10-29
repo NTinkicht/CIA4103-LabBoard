@@ -28,7 +28,8 @@ async function mock(route){
  let payload={},status=200;
  if(data.action==='create')payload={code:'123456',teacherToken:teacher,displayToken:'display-token'};
  else if(data.action==='join')payload={code:'123456',token:'student-'+data.name.toLowerCase()};
- else if(data.action==='state')payload={code:'123456',roomOpen:true,active,serverTime:Date.now(),participants:2};
+ else if(data.action==='state')payload={code:'123456',roomOpen:true,active,serverTime:Date.now(),participants:2,
+   ...(role==='teacher'?{students:members.map(m=>({...m,participated:null}))}:{})};
  else if(data.action==='board'){
   if(data.operation==='activate'){
    active={id:'board-round-1',type:'whiteboard',status:'open',prompt:'Shared Whiteboard'};
@@ -94,11 +95,12 @@ async function drag(p,selector){
 try{
  const t=await page();await t.locator('#open-teacher').click();await t.locator('#teacher-pin').fill('synthetic-pin');
  await t.locator('#create-submit').click();
- await t.locator('[data-tool="whiteboard"]').click();
- await t.locator('#wb-open').click();
+ await t.locator('[data-tool="collaborate"]').click();
+ await t.locator('#collab-tab-whiteboard').click();
+ await t.locator('#collab-open-board').click();
  await t.locator('#teacher-board-mount canvas').waitFor({timeout:8000});
- await t.locator('#wb-roster .wb-person').first().waitFor({timeout:8000});
- assert.equal(await t.locator('#wb-roster .wb-person').count(),2);
+ await t.locator('#collab-students .collab-person').first().waitFor({timeout:8000});
+ assert.equal(await t.locator('#collab-students .collab-person').count(),2);
  const a=await student('Anna'),b=await student('Bashir');
  assert.equal(await a.locator('.student-tabs [role="tab"]').count(),3);
  await a.locator('#wb-permission').waitFor({state:'attached'});
@@ -107,12 +109,12 @@ try{
  const before=board.strokes.length;
  await drag(a,'#student-board-mount canvas');
  assert.equal(board.strokes.length,before,'Nonselected student should not draw');
- await t.locator('#wb-roster .wb-person').filter({hasText:'Anna'}).click();
+ await t.locator('#collab-students .collab-person').filter({hasText:'Anna'}).click();
  await a.waitForFunction(()=>document.querySelector('#student-board-mount #wb-permission')?.textContent?.includes('You can write'),null,{timeout:7000});
  await drag(a,'#student-board-mount canvas');
  await a.waitForFunction(()=>document.querySelector('#wb-status')?.textContent?.includes('Stroke saved'),null,{timeout:8000});
  assert.equal(board.strokes.length,1);
- await t.locator('#wb-roster .wb-person').filter({hasText:'Bashir'}).click();
+ await t.locator('#collab-students .collab-person').filter({hasText:'Bashir'}).click();
  await a.waitForFunction(()=>document.querySelector('#student-board-mount #wb-permission')?.textContent?.includes('View only'),null,{timeout:7000});
  await b.waitForFunction(()=>document.querySelector('#student-board-mount #wb-permission')?.textContent?.includes('You can write'),null,{timeout:7000});
  await drag(b,'#student-board-mount canvas');
@@ -187,14 +189,15 @@ try{
  // The random button grants writing rights immediately and does not repeat
  // the same student while another is eligible.
  const priorWriter=board.writerId;
- await t.locator('#teacher-board-mount #wb-random').click();
- await t.waitForFunction(()=>document.querySelector('#wb-random-result')?.textContent?.includes('randomly selected'),null,{timeout:8000});
+ const nextName=members.find(m=>m.id!==priorWriter).name;
+ await t.locator('#collab-random').click();
+ await t.waitForFunction(name=>document.querySelector('#collab-selected')?.textContent?.includes(name),nextName,{timeout:8000});
  assert.notEqual(board.writerId,priorWriter);
  const selectedAfterFirst=board.writerId;
  const pickedName=members.find(m=>m.id===selectedAfterFirst).name;
- assert.match(await t.locator('#teacher-board-mount #wb-random-result').innerText(),new RegExp(pickedName));
- await t.locator('#teacher-board-mount #wb-random').click();
- await t.waitForFunction(expected=>document.querySelector('#teacher-board-mount #wb-random-result')?.textContent?.includes(expected),members.find(m=>m.id!==selectedAfterFirst).name,{timeout:8000});
+ assert.match(await t.locator('#collab-selected').innerText(),new RegExp(pickedName));
+ await t.locator('#collab-random').click();
+ await t.waitForFunction(expected=>document.querySelector('#collab-selected')?.textContent?.includes(expected),members.find(m=>m.id!==selectedAfterFirst).name,{timeout:8000});
  assert.notEqual(board.writerId,selectedAfterFirst);
  console.log('Whiteboard random writer picker and no-immediate-repeat passed');
 

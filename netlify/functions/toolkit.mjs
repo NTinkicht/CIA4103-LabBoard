@@ -5,6 +5,7 @@ import {validateElement,validateUpdate,validateMoved} from './whiteboard-element
 import {pickStudent} from '../lib/random-student.mjs';
 import {studentParticipation} from '../lib/toolkit-participation.mjs';
 import {validEvaluation,shuffledSteps,validateEvaluationSubmission,evaluationCorrect,studentEngagement} from '../lib/toolkit-evaluation.mjs';
+import {validateDocumentTemplate,validateDocumentAnswers} from '../lib/toolkit-text-document.mjs';
 
 const STORE='classroom-toolkit-v1';
 const HEAD={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -94,6 +95,7 @@ const publicRound=r=>{
  const ended=r.type==='evaluation'&&(r.status!=='open'||Date.now()>=r.endsAt);
  const result={id:r.id,type:r.type,prompt:r.prompt||'',options:r.options||[],unit:r.unit,
   status:ended?'closed':r.status,endsAt:r.endsAt||null,revealed:!!r.revealed};
+ if(r.type==='text-document')result.questions=r.questions||[];
  if(r.type==='evaluation'){
   result.evalKind=r.evalKind;result.title=r.title;result.tiles=r.tiles||[];
   result.duration=r.duration;
@@ -138,7 +140,10 @@ async function snapshot(store,room,claims){
   }
   if(claims.role==='student'){
     const joined=await get(store,key('member',claims.code,claims.id));
-    const rounds=(room.engagementRounds||[]).filter(r=>r.startedAt>=Number(joined?.joinedAt||Infinity)||r.id===room.active);
+    const rounds=(room.engagementRounds||[]).filter(r=>
+      (Number.isInteger(joined?.joinedEngagementSeq)&&Number.isInteger(r.seq)?
+        r.seq>=joined.joinedEngagementSeq:r.startedAt>=Number(joined?.joinedAt||Infinity))||
+      r.id===room.active||r.id===joined?.joinedActiveRoundId);
     const [individual,pair]=await Promise.all([
       get(store,key('engagement-credit',claims.code,claims.id)),
       claims.team?get(store,key('engagement-credit',claims.code,claims.team)):Promise.resolve(null)
@@ -184,7 +189,7 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(!pinOk(data.pin))return fail(403,'Lecturer authentication failed');
       for(let i=0;i<12;i++){
         const code=String(randomInt(100000,1000000));
-        const now=Date.now(),room={code,createdAt:now,expiresAt:now+4*3600000,active:null,ended:false};
+        const now=Date.now(),room={code,createdAt:now,expiresAt:now+4*3600000,active:null,ended:false,engagementSeq:0};
         const saved=await store.setJSON(key('room',code),room,{onlyIfNew:true});
         if(!saved.modified)continue;
         return reply({code,teacherToken:signed({role:'teacher',code,exp:room.expiresAt}),displayToken:signed({role:'display',code,exp:room.expiresAt})},201);
@@ -201,7 +206,7 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(!validText(name,60)||!validText(team,32))return fail(400,'Invalid name or team');
       if(!name)return fail(400,'Enter a display name');
       const id=randomUUID(),subject=team?'team-'+createHash('sha256').update(team.toLocaleLowerCase()).digest('hex').slice(0,24):'student-'+id;
-      await store.setJSON(key('member',code,id),{id,name,team,joinedAt:Date.now()});
+      await store.setJSON(key('member',code,id),{id,name,team,joinedAt:Date.now(),joinedEngagementSeq:room.engagementSeq||0,joinedActiveRoundId:room.active});
       return reply({code,token:signed({role:'student',code,id,name,team:team?subject:null,teamLabel:team,exp:room.expiresAt})},201);
     }
     const claims=verify(data.token);
@@ -438,6 +443,55 @@ export async function handleToolkit(request,storeProvider=getStore){
       return fail(400,'Unknown bookmark operation');
     }
 
+    if(data.action==='document-bank'){
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      const operation=data.operation||'list',prefix='saved-text-document/';
+      if(operation==='list'){
+        const items=(await entries(store,prefix,100)).filter(x=>!x.archived)
+          .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+        return reply({items});
+      }
+      if(operation==='save'){
+        const item=validateDocumentTemplate(data.item);
+        if(!item)return fail(400,'A document needs a title and 1–8 valid questions');
+        const id=data.id||randomUUID();
+        if(!/^[a-f0-9-]{36}$/i.test(id))return fail(400,'Invalid document ID');
+        const path=key('saved-text-document',id);
+        const old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+        const revision=Number(data.revision||0);
+        if(old?.data?.archived||(old?.data?.revision||0)!==revision)
+          return fail(409,'Document changed. Reload before saving');
+        if(!old&&(await store.list({prefix})).blobs.length>=100)
+          return fail(409,'Document library full (100 templates)');
+        const value={id,...item,revision:revision+1,archived:false,
+          createdAt:old?.data?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+        const saved=await store.setJSON(path,value,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
+        return saved.modified?reply({item:value},old?200:201):fail(409,'Document was edited concurrently');
+      }
+      if(operation==='delete'){
+        if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/i.test(data.id))return fail(400,'Invalid document ID');
+        const changed=await change(store,key('saved-text-document',data.id),v=>
+          v.archived?{error:'Document was deleted'}:{...v,archived:true,revision:v.revision+1,updatedAt:new Date().toISOString()});
+        return changed?.error?fail(409,changed.error):changed?reply({ok:true}):fail(404,'Document not found');
+      }
+      return fail(400,'Unknown document operation');
+    }
+    if(data.action==='document-start'){
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/i.test(data.id))return fail(400,'Choose a saved document');
+      const template=await get(store,key('saved-text-document',data.id));
+      if(!template||template.archived)return fail(404,'Saved document unavailable');
+      const now=Date.now(),id=randomUUID();
+      const round={id,type:'text-document',prompt:template.title,questions:[...template.questions],
+        unit:'individual',options:[],status:'open',createdAt:now,revealed:false,endsAt:null};
+      await store.setJSON(key('round',claims.code,id),round,{onlyIfNew:true});
+      const changed=await change(store,key('room',claims.code),r=>({
+        ...r,active:id,engagementRounds:[...(r.engagementRounds||[]),
+          {id,type:'text-document',unit:'individual',startedAt:now,seq:r.engagementSeq||0}].slice(-120),
+        engagementSeq:(r.engagementSeq||0)+1
+      }));
+      return changed?.error?fail(409,changed.error):reply({active:publicRound(round)});
+    }
     if(data.action==='evaluation-bank'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       const kind=data.kind;
@@ -495,7 +549,8 @@ export async function handleToolkit(request,storeProvider=getStore){
       await store.setJSON(key('round',claims.code,roundId),round,{onlyIfNew:true});
       const updated=await change(store,key('room',claims.code),r=>({
         ...r,active:roundId,engagementRounds:[...(r.engagementRounds||[]),
-          {id:roundId,type:'evaluation',unit:'individual',startedAt:now}].slice(-120)
+          {id:roundId,type:'evaluation',unit:'individual',startedAt:now,seq:r.engagementSeq||0}].slice(-120),
+        engagementSeq:(r.engagementSeq||0)+1
       }));
       return updated?.error?fail(409,updated.error):reply({active:publicRound(round)});
     }
@@ -558,9 +613,11 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(data.type==='cloud')
         await store.setJSON(key('cloud-fast',claims.code,id),{version:0,subjects:{},events:[]},{onlyIfNew:true});
       const updated=await change(store,key('room',claims.code),prev=>({
-        ...prev,active:id,engagementRounds:['poll','answers','cloud'].includes(data.type)?
-          [...(prev.engagementRounds||[]),{id,type:data.type,unit,startedAt:now}].slice(-120):
-          (prev.engagementRounds||[])
+        ...prev,active:id,
+        engagementRounds:['poll','answers','cloud'].includes(data.type)?
+          [...(prev.engagementRounds||[]),{id,type:data.type,unit,startedAt:now,seq:prev.engagementSeq||0}].slice(-120):
+          (prev.engagementRounds||[]),
+        engagementSeq:(prev.engagementSeq||0)+(['poll','answers','cloud'].includes(data.type)?1:0)
       }));
       if(updated?.error)return fail(409,updated.error);
       return reply({active:publicRound(round)});
@@ -605,7 +662,10 @@ export async function handleToolkit(request,storeProvider=getStore){
         (round.type==='evaluation'&&Date.now()>=round.endsAt))
         return fail(409,'Activity changed, or the submission timer has ended');
       let value=data.value;
-      if(round.type==='evaluation'){
+      if(round.type==='text-document'){
+        value=validateDocumentAnswers(round.questions,value);
+        if(value===null)return fail(400,'Answer at least one question. Maximum 1200 characters per answer');
+      }else if(round.type==='evaluation'){
         value=validateEvaluationSubmission(round,value);
         if(value===null)return fail(400,'Complete the evaluation answer before submitting');
       }else if(round.type==='poll'){
@@ -626,7 +686,7 @@ export async function handleToolkit(request,storeProvider=getStore){
       const answer={subject,value,revision:expected+1,submittedAt:new Date().toISOString(),name:round.unit==='pair'?'Pair '+claims.teamLabel:claims.name,hidden:old?.data?.hidden??(round.type==='answers')};
       const saved=await store.setJSON(path,answer,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
       if(!saved.modified)return fail(409,'Simultaneous edit. Refresh and retry');
-      if(['poll','answers','cloud','evaluation'].includes(round.type)){
+      if(['poll','answers','cloud','evaluation','text-document'].includes(round.type)){
         const recorded=await recordEngagementCredit(store,claims.code,subject,round.id);
         if(!recorded)console.warn('Engagement credit projection busy',claims.code,round.id);
       }

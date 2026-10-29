@@ -106,7 +106,7 @@ try{
   autoLiveLogin=JSON.parse(route.request().postData()||'{}');
   await route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Synthetic LiveKit intentionally offline for UI test'})});
  });
- await lecturer.locator('[data-tool="screen"]').click();
+ await lecturer.locator('[data-tool="collaborate"]').click();
  const screenFrame=lecturer.frameLocator('#teacher-screen-frame');
  await screenFrame.locator('#stream-teacher-root').waitFor({state:'visible',timeout:15000});
  await screenFrame.locator('#stream-pin').waitFor({state:'attached',timeout:10000});
@@ -116,13 +116,14 @@ try{
  assert.equal(autoLiveLogin?.pin,undefined,'The PIN must not be requested or leaked');
  assert.equal(await screenFrame.locator('#stream-video-stage').count(),0,'No incorrect screen stage ID');
  assert.equal(await screenFrame.locator('.stream-video-stage').count(),1,'Live screen viewer should be shown directly');
- assert.equal(await screenFrame.locator('.stream-sidebar').count(),1,'Student approval queue should be shown directly');
+ assert.equal(await screenFrame.locator('.stream-sidebar').isVisible(),false,'Collaborate has one student roster, not a duplicated queue');
+ assert.equal(await lecturer.locator('.collab-roster').isVisible(),true,'One shared student roster is shown beside collaboration');
  assert.equal(await lecturer.locator('#participation-panel').isVisible(),false,'Screen Sharing keeps its dedicated queue, not the participation panel');
  assert.equal(await screenFrame.locator('.lab-tabs, #board-view, #labs-view, #tab-labs, #tab-board').count(),0,'No legacy lab/dashboard sections inside Screen Sharing');
  assert.equal(await screenFrame.locator('h1').count(),0,'No duplicated Live classroom code board heading');
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false,'Whiteboard should not reappear below Screen Sharing');
  const screenBounds=await lecturer.locator('#teacher-screen-frame').boundingBox();
- assert.ok(screenBounds.width>820,'Embedded screen-sharing panel should be wide');
+ assert.ok(screenBounds.width>570,'Screen-sharing video stays wide beside the shared student roster');
  const area=await screenFrame.locator('.stream-video-stage').boundingBox();
  const statusBounds=await screenFrame.locator('#stream-status').boundingBox();
  assert.ok(area.height>=400,'Shared screen area should be tall and prioritized');
@@ -133,7 +134,7 @@ try{
  assert.equal(await lecturer.locator('#teacher-screen-host').isVisible(),false);
  assert.equal(await lecturer.locator('#teacher-slides-host').isVisible(),true);
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
- await lecturer.locator('[data-tool="screen"]').click();
+ await lecturer.locator('[data-tool="collaborate"]').click();
  assert.equal(await screenFrame.locator('body').evaluate(()=>window.__persistentToolkitScreenSession),1);
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
  console.log('Focused embedded screen sharing, sidebar and persistent screens tested at desktop width');
