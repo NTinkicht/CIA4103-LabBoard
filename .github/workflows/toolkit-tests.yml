@@ -31,6 +31,8 @@ jobs:
       - run: node --check public/assets/toolkit-cloud.mjs
       - run: node --check public/assets/toolkit-web-browser.mjs
       - run: node --check public/assets/toolkit-evaluation.mjs
+      - run: node --check public/assets/toolkit-collaborate.mjs
+      - run: node --check netlify/lib/toolkit-text-document.mjs
       - run: node --check netlify/lib/toolkit-evaluation.mjs
 
   browser:
@@ -53,3 +55,4 @@ jobs:
           node tests/toolkit-web-browser-browser.mjs
           node tests/toolkit-participation-browser.mjs
           node tests/toolkit-evaluation-browser.mjs
+          node tests/toolkit-collaborate-browser.mjs
