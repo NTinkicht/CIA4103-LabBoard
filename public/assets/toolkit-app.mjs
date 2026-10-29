@@ -90,7 +90,7 @@ function teacherShell(){
  btn('■ Stop current activity','danger','stop-current-activity','hidden')+'</div></div><div class="activity-view-tabs" id="activity-view-tabs" role="tablist" aria-label="Activity views" hidden>'+
   '<button type="button" id="activity-questions" role="tab" aria-controls="tool-config" aria-selected="true">Questions</button>'+
   '<button type="button" id="activity-results" role="tab" aria-controls="live-results-panel" aria-selected="false" disabled>Live Results</button>'+
- '</div><div id="tool-config" role="tabpanel" aria-labelledby="activity-questions"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-web-host" class="lecturer-embed" hidden><iframe id="teacher-web-frame" title="Saved website browser" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="live-results-panel" class="activity-results-view" role="tabpanel" aria-labelledby="activity-results" hidden><div class="results-head"><div><p class="eyebrow" id="results-kind">Live activity</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></div></section>'+notices()+'</div></div>';
+ '</div><div id="tool-config" role="tabpanel" aria-labelledby="activity-questions"></div><div id="teacher-collab-host" hidden><div id="collab-teacher-mount"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-web-host" class="lecturer-embed" hidden><iframe id="teacher-web-frame" title="Saved website browser" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="live-results-panel" class="activity-results-view" role="tabpanel" aria-labelledby="activity-results" hidden><div class="results-head"><div><p class="eyebrow" id="results-kind">Live activity</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></div></section>'+notices()+'</div></div>';
  const updateRail=collapsed=>{
   app.classList.toggle('rail-collapsed',collapsed);
   const toggle=$('rail-toggle');
@@ -237,12 +237,14 @@ function configTool(){
  app.classList.toggle('slides-focus',state.tool==='documents');
  app.classList.toggle('web-focus',state.tool==='web');
  updateParticipationVisibility();
- if(collaborateTeacher&&state.tool!=='collaborate'){
-  collaborateTeacher.destroy();collaborateTeacher=null;
- }
- if(teacherWhiteboard&&state.tool!=='collaborate'){teacherWhiteboard.destroy();teacherWhiteboard=null}
+ // Keep collaborator widgets and the actual LiveKit iframe mounted across
+ // every lecturer menu switch: re-parenting an iframe reloads the media session.
  const screenHost=$('teacher-screen-host'),slidesHost=$('teacher-slides-host'),webHost=$('teacher-web-host');
- if(screenHost)screenHost.hidden=state.tool!=='collaborate';
+ const collaborateHost=$('teacher-collab-host');
+ if(collaborateHost)collaborateHost.hidden=state.tool!=='collaborate';
+ if(screenHost)screenHost.hidden=state.tool!=='collaborate'||collaborateTeacher?.tab()!=='screen';
+ const config=$('tool-config');
+ if(config)config.hidden=state.tool==='collaborate';
  if(slidesHost)slidesHost.hidden=state.tool!=='documents';
  if(webHost)webHost.hidden=state.tool!=='web';
  syncActivityTabs();
@@ -251,11 +253,7 @@ function configTool(){
  const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',collaborate:'Screen Sharing, shared Whiteboard, and reusable question documents in one clean workspace.',web:'Browse lesson websites and save frequently used URLs for future classes.',evaluation:'Prepare timed Jumbled Questions and MCQs, then reveal answers after the timer ends.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='collaborate'){
-  if(collaborateTeacher){collaborateTeacher.destroy();collaborateTeacher=null}
-  if(teacherWhiteboard){teacherWhiteboard.destroy();teacherWhiteboard=null}
-  $('tool-config').innerHTML='<div id="collab-teacher-mount"></div>';
-  const frame=$('teacher-screen-frame');
-  if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/screen-sharing/?collaborate=1';
+  if(collaborateTeacher){if(state.snapshot)collaborateTeacher.update(state.snapshot);return}
   collaborateTeacher=mountCollaborate($('collab-teacher-mount'),{
    request,token:state.token,screenHost,
    getSnapshot:()=>state.snapshot,
@@ -266,6 +264,8 @@ function configTool(){
    onTabChange:id=>{state.collaborateTab=id},initialTab:state.collaborateTab,
    notify:announce
   });
+  const frame=$('teacher-screen-frame');
+  if(frame?.getAttribute('src')==='about:blank')frame.src='/toolkit/screen-sharing/?collaborate=1';
   if(state.snapshot)collaborateTeacher.update(state.snapshot);
   return;
  }
