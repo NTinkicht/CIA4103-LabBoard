@@ -29,6 +29,8 @@ root.innerHTML=`
 let room=null,pin='',toolkitToken=null,busy=false,changing=false,activeId=null,lastStudents=[];
 const embedded=window.parent!==window&&location.pathname.startsWith('/toolkit/screen-sharing/');
 if(embedded)document.documentElement.classList.add('toolkit-screen-embedded');
+if(embedded&&new URLSearchParams(location.search).get('collaborate')==='1')
+ document.documentElement.classList.add('collaborate-external-roster');
 const credentials=()=>toolkitToken?{toolkitToken}:{pin};
 const status=(msg,error=false)=>{$('stream-status').textContent=msg;$('stream-status').style.color=error?'#b74b36':'#087f78'};
 function syncSubscriptions(){
