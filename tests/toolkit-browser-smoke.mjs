@@ -106,7 +106,7 @@ try{
   autoLiveLogin=JSON.parse(route.request().postData()||'{}');
   await route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Synthetic LiveKit intentionally offline for UI test'})});
  });
- await lecturer.locator('[data-tool="screen"]').click();
+ await lecturer.locator('[data-tool="collaborate"]').click();
  const screenFrame=lecturer.frameLocator('#teacher-screen-frame');
  await screenFrame.locator('#stream-teacher-root').waitFor({state:'visible',timeout:15000});
  await screenFrame.locator('#stream-pin').waitFor({state:'attached',timeout:10000});
@@ -133,7 +133,7 @@ try{
  assert.equal(await lecturer.locator('#teacher-screen-host').isVisible(),false);
  assert.equal(await lecturer.locator('#teacher-slides-host').isVisible(),true);
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
- await lecturer.locator('[data-tool="screen"]').click();
+ await lecturer.locator('[data-tool="collaborate"]').click();
  assert.equal(await screenFrame.locator('body').evaluate(()=>window.__persistentToolkitScreenSession),1);
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
  console.log('Focused embedded screen sharing, sidebar and persistent screens tested at desktop width');
