@@ -189,8 +189,9 @@ try{
  // The random button grants writing rights immediately and does not repeat
  // the same student while another is eligible.
  const priorWriter=board.writerId;
+ const nextName=members.find(m=>m.id!==priorWriter).name;
  await t.locator('#collab-random').click();
- await t.waitForFunction(()=>document.querySelector('#collab-selected')?.textContent?.includes('can now write'),null,{timeout:8000});
+ await t.waitForFunction(name=>document.querySelector('#collab-selected')?.textContent?.includes(name),nextName,{timeout:8000});
  assert.notEqual(board.writerId,priorWriter);
  const selectedAfterFirst=board.writerId;
  const pickedName=members.find(m=>m.id===selectedAfterFirst).name;
