@@ -12,7 +12,7 @@ let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound
 let evaluationTeacher=null,evaluationStudent=null,evaluationStudentRound=null;
 let collaborateTeacher=null,documentStudent=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'jumbled'};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'jumbled',collaborateTab:'screen'};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -263,7 +263,7 @@ function configTool(){
    mountBoard:()=>mountTeacherWhiteboard(),
    stopRound:()=>finishActivity(),
    onRefresh:()=>refresh(),
-   onTabChange:()=>{},
+   onTabChange:id=>{state.collaborateTab=id},initialTab:state.collaborateTab,
    notify:announce
   });
   if(state.snapshot)collaborateTeacher.update(state.snapshot);
