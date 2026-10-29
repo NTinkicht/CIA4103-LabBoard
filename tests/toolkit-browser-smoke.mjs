@@ -117,7 +117,7 @@ try{
  assert.equal(await screenFrame.locator('#stream-video-stage').count(),0,'No incorrect screen stage ID');
  assert.equal(await screenFrame.locator('.stream-video-stage').count(),1,'Live screen viewer should be shown directly');
  assert.equal(await screenFrame.locator('.stream-sidebar').isVisible(),false,'Collaborate has one student roster, not a duplicated queue');
- assert.equal(await lecturer.locator('#collab-roster-note').count(),0,'No unused legacy roster widget');
+ assert.equal(await lecturer.locator('.collab-roster').isVisible(),true,'One shared student roster is shown beside collaboration');
  assert.equal(await lecturer.locator('#participation-panel').isVisible(),false,'Screen Sharing keeps its dedicated queue, not the participation panel');
  assert.equal(await screenFrame.locator('.lab-tabs, #board-view, #labs-view, #tab-labs, #tab-board').count(),0,'No legacy lab/dashboard sections inside Screen Sharing');
  assert.equal(await screenFrame.locator('h1').count(),0,'No duplicated Live classroom code board heading');
