@@ -130,7 +130,7 @@ try{
  await teacher.locator('#rail-toggle').click();
  assert.equal(await teacher.locator('#participation-panel').isVisible(),true);
  await teacher.locator('#rail-toggle').click();
- for(const type of ['web','whiteboard','screen']){
+ for(const type of ['web','collaborate']){
   await teacher.locator('[data-tool="'+type+'"]').click();
   assert.equal(await teacher.locator('#participation-panel').isVisible(),false,
     type+' must retain its own specialized interface');
