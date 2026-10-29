@@ -85,7 +85,10 @@ const publicRound=r=>{
   result.duration=r.duration;
   // Neither the correct option nor ordered sequence is released until the
   // lecturer explicitly reveals AND the timer is over (or round is closed).
-  if(ended&&r.revealed)result.correctAnswer=r.evalKind==='mcq'?r.correct:r.steps;
+  if(ended&&r.revealed){
+   result.correctAnswer=r.evalKind==='mcq'?r.correct:r.steps;
+   if(r.evalKind==='jumbled')result.correctIds=r.correctOrder;
+  }
  }
  return result;
 };
@@ -467,9 +470,10 @@ export async function handleToolkit(request,storeProvider=getStore){
       if(!Number.isInteger(duration)||duration<10||duration>3600)
         return fail(400,'Duration must be 10–3600 seconds');
       const now=Date.now(),roundId=randomUUID();
+      const sequence=kind==='jumbled'?shuffledSteps(saved.steps):null;
       const round={id:roundId,type:'evaluation',evalKind:kind,title:saved.title,
         prompt:saved.prompt,options:kind==='mcq'?saved.options:[],
-        steps:kind==='jumbled'?saved.steps:[],tiles:kind==='jumbled'?shuffledSteps(saved.steps):[],
+        steps:kind==='jumbled'?saved.steps:[],tiles:sequence?.tiles||[],correctOrder:sequence?.correctOrder||[],
         correct:kind==='mcq'?saved.correct:null,unit:'individual',
         status:'open',createdAt:now,duration,endsAt:now+duration*1000,revealed:false};
       await store.setJSON(key('round',claims.code,roundId),round,{onlyIfNew:true});
