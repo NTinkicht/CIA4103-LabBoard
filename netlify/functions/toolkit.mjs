@@ -124,7 +124,7 @@ async function snapshot(store,room,claims){
   }
   if(claims.role==='student'){
     const joined=await get(store,key('member',claims.code,claims.id));
-    const rounds=(room.engagementRounds||[]).filter(r=>r.startedAt>=Number(joined?.joinedAt||Infinity));
+    const rounds=(room.engagementRounds||[]).filter(r=>r.startedAt>=Number(joined?.joinedAt||Infinity)||r.id===room.active);
     const responses=await Promise.all(rounds.map(async r=>{
       const subject=r.unit==='pair'?claims.team:claims.id;
       return subject?get(store,key('response',claims.code,r.id,subject)):null;
