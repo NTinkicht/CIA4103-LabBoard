@@ -8,7 +8,7 @@ function randomOther(items,current){
  const values=new Uint32Array(1);crypto.getRandomValues(values);
  return candidates[values[0]%candidates.length];
 }
-export function mountCollaborate(root,{request,token,screenHost,getSnapshot,openBoard,mountBoard,stopRound,onRefresh,onTabChange,initialTab='screen',notify}){
+export function mountCollaborate(root,{request,token,screenHost,getSnapshot,openBoard,mountBoard,unmountBoard,stopRound,onRefresh,onTabChange,initialTab='screen',notify}){
  let tab='screen',students=[],selectedId=null,connected=[],screenActive=null,templates=[],editing=null;
  let lastRosterKey='',lastDocKey='',savedKind='',loading=false;
  root.innerHTML='<section class="collab-root">'+
@@ -206,7 +206,8 @@ export function mountCollaborate(root,{request,token,screenHost,getSnapshot,open
   $('collab-open-board').disabled=active?.type==='whiteboard';
   $('collab-stop-board').disabled=active?.type!=='whiteboard';
   $('collab-stop-board').hidden=active?.type!=='whiteboard';
-  if(tab==='whiteboard'&&active?.type==='whiteboard')mountBoard();
+  if(active?.type!=='whiteboard'){unmountBoard();$('teacher-board-mount').replaceChildren()}
+  else if(tab==='whiteboard')mountBoard();
   updateRoster();if(tab==='document')updateDocument();
  }
  function screenQueue(data){
