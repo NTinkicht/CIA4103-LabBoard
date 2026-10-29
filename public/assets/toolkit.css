@@ -603,3 +603,103 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .student-engagement{margin:10px 0;padding:11px}
 }
 @media(prefers-reduced-motion:reduce){.engagement-fill{transition:none}}
+
+
+/* Collaborate: one clean three-tab workspace and consistent student selector. */
+#stop-current-activity[hidden]{display:none!important}
+.teacher-global-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.teacher-global-controls button{font-size:11px;padding:9px 11px;border-radius:9px}
+.collab-root{min-width:0}
+.collab-tabs{display:flex;gap:5px;padding:5px;background:#f1f5fb;border:1px solid #dce6ef;
+ border-radius:12px;margin:10px 0 15px}
+.collab-tabs button{flex:1;min-width:0;font-size:12px;font-weight:800;border:0;
+ border-radius:9px;color:#496782;padding:12px 8px;background:transparent}
+.collab-tabs button[aria-selected="true"]{color:#175f9f;background:#fff;box-shadow:0 2px 10px #15385219}
+.collab-layout{display:grid;grid-template-columns:minmax(165px,215px) minmax(0,1fr);gap:13px;align-items:start}
+.collab-roster{position:sticky;top:12px;display:flex;flex-direction:column;background:#fff;
+ border:1px solid #dce7f0;border-radius:13px;max-height:calc(100dvh - 160px);
+ min-height:280px;overflow:hidden;padding:12px 9px}
+.collab-side-title{display:flex;align-items:center;justify-content:space-between;gap:7px}
+.collab-side-title h3{font-size:15px}
+.collab-side-title .pill{font-size:11px;padding:4px 7px}
+.collab-roster p.small{margin:7px 0;font-size:11px;line-height:1.5}
+.collab-random{min-height:39px;background:#e9f3fc;color:#145d95;border:1px solid #c7dfef;
+ border-radius:9px;padding:9px 6px;font-size:11px;font-weight:850;margin:6px 0 10px}
+.collab-random:hover:not(:disabled){background:#dceefc}
+.collab-list{display:flex;flex-direction:column;gap:6px;overflow-y:auto;overscroll-behavior:contain;
+ padding:2px;flex:1;min-height:0}
+.collab-person{min-width:0;width:100%;display:flex;align-items:center;gap:7px;text-align:left;
+ border:1px solid #e0e8f0;border-radius:10px;background:#fff;padding:9px 7px}
+.collab-person.chosen{border-color:#67b69c;background:#ecf9f3}
+.collab-avatar{display:grid;place-items:center;flex:0 0 27px;width:27px;height:27px;
+ background:#e6f2fc;color:#246a99;border-radius:8px;font-size:12px;font-weight:900}
+.collab-person-name{display:flex;flex-direction:column;min-width:0;flex:1;gap:3px}
+.collab-person-name strong,.collab-person-name small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.collab-person-name strong{font-size:11px;color:#2c4d69}
+.collab-person-name small{font-size:10px;color:#778c9f}
+.collab-person-state{font-size:15px;color:#c3cfda}
+.collab-person-state.on{color:#19a274}
+.collab-selection{border-top:1px solid #e7eef5;padding:9px 3px 1px;margin-top:9px;
+ font-size:11px;line-height:1.5;color:#527590;overflow-wrap:anywhere}
+.collab-main{min-width:0}
+.collab-tab-panel[hidden],.collab-doc-prepare[hidden],#collab-doc-live[hidden],
+#collab-stop-document[hidden],#collab-stop-board[hidden]{display:none!important}
+.collab-stage-head{display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:11px;
+ margin-bottom:10px;padding:3px 0 12px;border-bottom:1px solid #e6edf5}
+.collab-stage-head strong{font-size:15px;color:#254761}
+.collab-stage-head p{font-size:11px;line-height:1.5;margin:4px 0 0}
+.collab-stage-head button{border-radius:9px;font-size:11px;min-height:36px;padding:8px 10px}
+.collab-stage-actions,.collab-buttons{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.collab-buttons button{border-radius:9px;padding:8px 11px;min-height:34px;font-size:11px}
+.collab-root #teacher-screen-host{margin:0;border:0;border-radius:10px;overflow:hidden}
+.collab-root #teacher-screen-frame{width:100%;height:clamp(500px,66dvh,850px);min-height:500px}
+.collab-root .wb-body.teacher{grid-template-columns:minmax(0,1fr)}
+.collab-root .wb-sidebar{display:none}
+.collab-root .wb-topbar{display:none}
+.collab-root .wb-tools{margin-top:0}
+.collab-root .wb-main{padding:7px}
+.collab-doc-form{display:flex;flex-direction:column;gap:8px;padding:14px;
+ background:#f9fbfe;border:1px solid #e0e9f2;border-radius:13px}
+.collab-doc-form label{font-size:12px;font-weight:800;color:#496780}
+.collab-doc-form input,.collab-doc-form textarea{width:100%;min-width:0;font-size:13px;color:#2b4a64;
+ border-radius:9px;border:1px solid #cbdbe9;background:#fff;padding:10px 11px;line-height:1.5}
+.collab-doc-form textarea{resize:vertical}
+.collab-doc-bank-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:17px 0 10px}
+.collab-doc-bank-head h3{font-size:15px}
+.collab-doc-bank{display:flex;flex-direction:column;gap:8px;max-height:370px;overflow-y:auto}
+.collab-saved-document{padding:10px 12px;border:1px solid #dfe8f1;border-radius:10px;
+ display:flex;justify-content:space-between;align-items:center;gap:9px;flex-wrap:wrap;background:#fff}
+.collab-saved-document strong{display:block;font-size:12px;color:#32526d}
+.collab-saved-document small{font-size:10px;display:block;margin-top:3px}
+.collab-doc-status{font-size:13px;color:#205f92;background:#ecf6fe;border:1px solid #cfe5f7;
+ padding:11px 13px;border-radius:10px;font-weight:800;margin-bottom:12px}
+.collab-doc-answer-blocks{display:flex;flex-direction:column;gap:10px}
+.collab-doc-answer{background:#fff;border:1px solid #dce7f0;border-radius:12px;padding:13px}
+.collab-doc-answer h3{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#6c879b}
+.collab-doc-answer p{font-size:13px;color:#385b77;font-weight:700;margin:7px 0}
+.collab-answer-text{min-height:70px;padding:12px;border:1px solid #d6e3ef;border-radius:9px;
+ font-size:13px;line-height:1.6;color:#26465e;background:#f9fcff;white-space:pre-wrap;overflow-wrap:anywhere}
+.doc-student{display:flex;flex-direction:column;gap:12px}
+.doc-student h2{font-size:24px}
+.doc-student p{font-size:13px}
+.doc-student-question{display:flex;flex-direction:column;gap:7px;margin-bottom:16px}
+.doc-student-question label{font-size:14px;font-weight:700;color:#2c4e69}
+.doc-student-question label strong{color:#176da6}
+.doc-student-question textarea{width:100%;border:1px solid #bdcfe0;border-radius:10px;
+ padding:13px;min-height:96px;font:14px/1.5 inherit;resize:vertical}
+.doc-student button{border-radius:9px;padding:10px 15px}
+#student-document-status{font-size:12px;color:#14784f;font-weight:700}
+@media(max-width:1200px){
+ .collab-layout{grid-template-columns:minmax(150px,175px) minmax(0,1fr);gap:8px}
+ .collab-roster{padding:9px 6px}
+}
+@media(max-width:720px){
+ .collab-layout{grid-template-columns:minmax(0,1fr)}
+ .collab-roster{position:static;max-height:210px;min-height:0;padding:9px}
+ .collab-list{flex-direction:row;overflow-x:auto;overflow-y:hidden;min-height:0}
+ .collab-person{flex:0 0 160px;max-width:190px}
+ .collab-tabs button{font-size:11px;padding:10px 5px}
+ .collab-root #teacher-screen-frame{min-height:440px;height:68vh}
+ .collab-roster p.small{font-size:10px}
+ .doc-student h2{font-size:21px}
+}
