@@ -738,3 +738,10 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 .lesson-shared-controls{display:flex;align-items:center;flex-wrap:wrap;gap:9px;border-top:1px solid #e4edf4;padding-top:11px}
 .lesson-shared-controls select{flex:1;min-width:180px}
 .lesson-shared-controls button{font-size:12px;padding:10px 12px}
+
+.resource-index{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px;margin-top:16px}
+.resource-group{border:1px solid #dbe8f2;border-radius:12px;background:#f9fbfe;padding:13px;min-width:0}
+.resource-group-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.resource-group-head h3{font-size:14px;color:#245575;margin-right:auto}
+.resource-group-head button{font-size:11px;padding:7px 9px}
+.resource-group ul{margin:10px 0 0;padding-left:20px;font-size:12px;line-height:1.7;color:#38556d;overflow-wrap:anywhere}
