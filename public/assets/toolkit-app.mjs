@@ -3,6 +3,7 @@ import {createLiveCloud} from './toolkit-cloud.mjs';
 import {mountEvaluationLecturer,mountEvaluationStudent} from './toolkit-evaluation.mjs';
 import {mountCollaborate,mountTextDocumentStudent} from './toolkit-collaborate.mjs';
 import {TOOL_GROUPS,groupForTool,preferredTabForGroup,routeForTab,tabsForGroup} from './toolkit-navigation.mjs';
+import {PHASES,LESSON_TOOLS,normalizeLesson} from './toolkit-lesson-flow.mjs';
 const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
@@ -13,7 +14,9 @@ let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound
 let evaluationTeacher=null,evaluationStudent=null,evaluationStudentRound=null;
 let collaborateTeacher=null,documentStudent=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',group:'interact',currentTab:'poll',rememberedTabs:{interact:'poll',collaborate:'screen',assess:'mcq',present:'documents'},activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'mcq',collaborateTab:'screen'};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',group:'interact',currentTab:'poll',rememberedTabs:{interact:'poll',collaborate:'screen',assess:'mcq',present:'documents'},activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'mcq',collaborateTab:'screen',teachingMode:'free',lesson:null,lessonPhase:0};
+function savedLesson(){try{return normalizeLesson(JSON.parse(localStorage.getItem('classroom-toolkit-lesson')||'{}'))}catch{return normalizeLesson()}}
+function saveLesson(){try{localStorage.setItem('classroom-toolkit-lesson',JSON.stringify(state.lesson))}catch{announce('Could not save lesson to this browser.',true)}}
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -77,6 +80,7 @@ function shell(){
  startPolling();
 }
 function teacherShell(){
+ state.teachingMode='free';state.lesson=savedLesson();state.lessonPhase=0;
  app.classList.add('lecturer-layout');
  const railPref=(()=>{try{return localStorage.getItem('classroom-toolkit-rail-collapsed')==='true'}catch{return false}})();
  app.classList.toggle('rail-collapsed',railPref);
@@ -86,7 +90,7 @@ function teacherShell(){
   '<div id="participation-summary" class="participation-summary" role="status" aria-live="polite">Waiting for students…</div>'+
   '<div id="participation-list" class="participation-list" role="list"></div>'+
   '<p id="participation-footnote" class="participation-footnote">Students who joined this classroom</p>'+
- '</aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Interact</h1><p id="tool-description"></p></div><div class="teacher-global-controls"><span class="pill blue">All courses</span>'+
+ '</aside><div class="mainstack"><section class="lesson-mode-bar" aria-label="Teaching mode"><strong>Teaching mode</strong><button type="button" id="mode-free" class="secondary" aria-pressed="true">Free Mode</button><button type="button" id="mode-5es" class="secondary" aria-pressed="false">Structured 5Es</button></section><section id="lesson-panel" class="lesson-panel" hidden></section><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Interact</h1><p id="tool-description"></p></div><div class="teacher-global-controls"><span class="pill blue">All courses</span>'+
  btn('◷ Timer','secondary','toolbar-timer','type="button" aria-label="Open Timer"')+'<strong id="toolbar-timer-clock" class="toolbar-timer-clock" data-end-time="" hidden></strong>'+btn('■ Stop current activity','danger','stop-current-activity','hidden')+'</div></div><nav class="teacher-group-tabs" id="teacher-group-tabs" role="tablist" aria-label="Tools in selected group"></nav><div class="activity-view-tabs" id="activity-view-tabs" role="tablist" aria-label="Activity views" hidden>'+
   '<button type="button" id="activity-questions" role="tab" aria-controls="tool-config" aria-selected="true">Questions</button>'+
   '<button type="button" id="activity-results" role="tab" aria-controls="live-results-panel" aria-selected="false" disabled>Live Results</button>'+
@@ -118,6 +122,8 @@ function teacherShell(){
  $('stop-current-activity').onclick=finishActivity;
  document.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>openTeacherTab(preferredTabForGroup(b.dataset.group,state.rememberedTabs)));
  $('toolbar-timer').onclick=()=>openTeacherTimer();
+ $('mode-free').onclick=()=>setTeachingMode('free');
+ $('mode-5es').onclick=()=>setTeachingMode('5es');
  const webFrame=$('teacher-web-frame');
  webFrame?.addEventListener('load',()=>{
   if(state.role==='teacher'&&state.token&&webFrame.contentWindow)
@@ -138,6 +144,33 @@ function teacherShell(){
  void loadSavedQuestions('poll');
  void loadSavedQuestions('answers');
  void loadSavedQuestions('cloud');
+}
+function setTeachingMode(mode){
+ state.teachingMode=mode==='5es'?'5es':'free';
+ $('mode-free').setAttribute('aria-pressed',String(state.teachingMode==='free'));
+ $('mode-5es').setAttribute('aria-pressed',String(state.teachingMode==='5es'));
+ renderLessonPanel();
+}
+function openLessonPhase(index){
+ state.lessonPhase=Math.max(0,Math.min(PHASES.length-1,index));
+ const tool=state.lesson.phases[state.lessonPhase].tool;
+ openTeacherTab(tool);
+ renderLessonPanel();
+}
+function renderLessonPanel(){
+ const panel=$('lesson-panel');if(!panel)return;
+ panel.hidden=state.teachingMode!=='5es';if(panel.hidden)return;
+ const lesson=state.lesson;
+ panel.innerHTML='<div class="lesson-heading"><label for="lesson-title">Lesson title</label><input id="lesson-title" maxlength="120" value="'+esc(lesson.title)+'"><span class="small">Saved in this lecturer browser</span></div>'+
+ '<nav class="lesson-phases" aria-label="5Es lesson phases">'+PHASES.map((phase,i)=>'<button type="button" class="'+(i===state.lessonPhase?'active':'')+'" data-phase="'+i+'" aria-current="'+(i===state.lessonPhase?'step':'false')+'">'+(i+1)+'. '+phase+'</button>').join('')+'</nav>'+
+ '<div class="lesson-editor"><strong>'+PHASES[state.lessonPhase]+'</strong><label for="lesson-duration">Minutes</label><input id="lesson-duration" type="number" min="1" max="120" value="'+lesson.phases[state.lessonPhase].duration+'"><label for="lesson-tool">Activity</label><select id="lesson-tool">'+LESSON_TOOLS.map(t=>'<option value="'+t+'" '+(t===lesson.phases[state.lessonPhase].tool?'selected':'')+'>'+esc(NAMES[t]||t)+'</option>').join('')+'</select><label for="lesson-notes">Lecturer notes</label><textarea id="lesson-notes" rows="2" maxlength="2000">'+esc(lesson.phases[state.lessonPhase].notes)+'</textarea></div>'+
+ '<div class="buttons"><button type="button" class="secondary" id="lesson-previous" '+(state.lessonPhase===0?'disabled':'')+'>← Previous phase</button><button type="button" class="primary" id="lesson-open-tool">Open selected activity</button><button type="button" class="secondary" id="lesson-next" '+(state.lessonPhase===4?'disabled':'')+'>Next phase →</button></div>';
+ const persist=()=>{lesson.title=$('lesson-title').value.slice(0,120)||'Untitled lesson';const phase=lesson.phases[state.lessonPhase];phase.duration=Math.max(1,Math.min(120,Math.round(Number($('lesson-duration').value)||15)));phase.tool=$('lesson-tool').value;phase.notes=$('lesson-notes').value.slice(0,2000);saveLesson()};
+ for(const id of ['lesson-title','lesson-duration','lesson-tool','lesson-notes'])$(id).addEventListener('change',persist);
+ panel.querySelectorAll('[data-phase]').forEach(button=>button.onclick=()=>{persist();openLessonPhase(Number(button.dataset.phase))});
+ $('lesson-previous').onclick=()=>{persist();openLessonPhase(state.lessonPhase-1)};
+ $('lesson-next').onclick=()=>{persist();openLessonPhase(state.lessonPhase+1)};
+ $('lesson-open-tool').onclick=()=>{persist();openLessonPhase(state.lessonPhase)};
 }
 function syncTeacherNavigation(){
  const group=TOOL_GROUPS.find(item=>item.id===state.group);
