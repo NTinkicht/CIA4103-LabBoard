@@ -6,7 +6,7 @@ test('four stable groups include every existing lecturer tool exactly once',()=>
  assert.deepEqual(TOOL_GROUPS.map(group=>group.id),['interact','collaborate','assess','present']);
  assert.deepEqual(TOOL_GROUPS.map(group=>group.label),['Interact','Collaborate','Assess','Present']);
  const all=TOOL_GROUPS.flatMap(group=>group.tabs.map(tab=>tab.id));
- assert.deepEqual(all,['poll','answers','cloud','screen','whiteboard','document','work','mcq','jumbled','documents','web']);
+ assert.deepEqual(all,['poll','answers','cloud','screen','whiteboard','document','work','mcq','jumbled','documents','web','library']);
  assert.equal(new Set(all).size,all.length);
  assert.equal(TOOL_GROUPS.every(group=>group.icon&&group.tabs.every(tab=>tab.label)),true);
  assert.equal(Object.isFrozen(TOOL_GROUPS),true);
@@ -43,7 +43,7 @@ test('each group restores a valid previous tab or uses its default',()=>{
 });
 
 test('tabs route to the existing tool controllers rather than duplicate activities',()=>{
- for(const tool of ['poll','answers','cloud','documents','web']){
+ for(const tool of ['poll','answers','cloud','documents','web','library']){
   assert.deepEqual(routeForTab(tool),{group:groupForTool(tool),tool});
  }
  for(const tool of ['screen','whiteboard','document']){
