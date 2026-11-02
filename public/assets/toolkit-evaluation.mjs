@@ -177,7 +177,7 @@ export function mountEvaluationLecturer(root,{request,token,onChange,onFinish,ge
  $('eval-close').onclick=onFinish;
  void loadBank();
  timer=setInterval(tick,400);
- return {update,kind:()=>kind,destroy(){clearInterval(timer);root.replaceChildren()}};
+ return {update,kind:()=>kind,selectKind:tab,destroy(){clearInterval(timer);root.replaceChildren()}};
 }
 export function mountEvaluationStudent(root,{request,token,round,getOffset}){
  let answer=[],submitted=false,loading=false,current=round,timer=null,revision=0;

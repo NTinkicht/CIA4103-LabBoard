@@ -4,6 +4,9 @@ on:
     paths:
       - 'netlify/functions/toolkit.mjs'
       - 'public/assets/toolkit-app.mjs'
+      - 'public/assets/toolkit-navigation.mjs'
+      - 'public/assets/toolkit-collaborate.mjs'
+      - 'public/assets/toolkit-evaluation.mjs'
       - 'public/assets/toolkit.css'
       - 'public/toolkit/**'
       - 'tests/**'
@@ -23,7 +26,9 @@ jobs:
           node-version: '22'
       - run: npm install --no-audit --no-fund
       - run: npm test
+      - run: npm run test:navigation-coverage
       - run: node --check public/assets/toolkit-app.mjs
+      - run: node --check public/assets/toolkit-navigation.mjs
       - run: node --check netlify/functions/toolkit.mjs
       - run: node --check netlify/functions/whiteboard-elements.mjs
       - run: node --check public/assets/toolkit-presenter.mjs
@@ -48,11 +53,4 @@ jobs:
       - name: Browser PPTX and fullscreen smoke test
         run: |
           echo "Chrome: $(command -v google-chrome || true)"
-          node tests/toolkit-browser-smoke.mjs
-          node tests/toolkit-whiteboard-browser.mjs
-          node tests/toolkit-cloud-browser.mjs
-          node tests/toolkit-activity-tabs-browser.mjs
-          node tests/toolkit-web-browser-browser.mjs
-          node tests/toolkit-participation-browser.mjs
-          node tests/toolkit-evaluation-browser.mjs
-          node tests/toolkit-collaborate-browser.mjs
+          npm run test:browser

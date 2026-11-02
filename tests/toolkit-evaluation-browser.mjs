@@ -91,8 +91,9 @@ try{
  await teacher.locator('#open-teacher').click();
  await teacher.locator('#teacher-pin').fill('synthetic-test-pin');
  await teacher.locator('#create-submit').click();
- await teacher.locator('[data-tool="evaluation"]').click();
- await teacher.locator('#eval-jumbled-tab').waitFor({state:'visible',timeout:10000});
+ await teacher.locator('[data-group="assess"]').click();
+ await teacher.locator('[data-tool="jumbled"]').click();
+ await teacher.locator('#eval-jumbled-tab').waitFor({state:'attached',timeout:10000});
  assert.equal(await teacher.locator('#participation-panel').isVisible(),true);
  await student.locator('#open-student').click();
  await student.locator('#room-code').fill('333333');
@@ -127,8 +128,8 @@ try{
  await teacher.locator('#eval-close').click();
  await until(student,()=>document.querySelector('.student-activities-home')!==null);
  await until(teacher,()=>document.querySelector('#eval-prepare')?.hidden===false);
- await teacher.locator('#eval-mcq-tab').click();
- assert.equal(await teacher.locator('#eval-mcq-tab').getAttribute('aria-selected'),'true');
+ await teacher.locator('[data-tool="mcq"]').click();
+ assert.equal(await teacher.locator('[data-tool="mcq"]').getAttribute('aria-selected'),'true');
  await teacher.locator('#eval-title').fill('Security MCQ');
  await teacher.locator('#eval-prompt').fill('Choose access policy');
  await teacher.locator('#eval-items').fill('Least privilege\nFull access\nAnonymous access');

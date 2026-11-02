@@ -58,6 +58,7 @@ try{
  await lecturer.locator('#open-teacher').click();
  await lecturer.locator('#teacher-pin').fill('synthetic-private-pin');
  await lecturer.locator('#create-submit').click();
+ await lecturer.locator('[data-group="present"]').click();
  await lecturer.locator('[data-tool="web"]').click();
  const iframe=lecturer.frameLocator('#teacher-web-frame');
  await iframe.locator('#web-address').waitFor({state:'visible',timeout:12000});

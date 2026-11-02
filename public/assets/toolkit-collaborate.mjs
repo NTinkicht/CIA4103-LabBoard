@@ -231,7 +231,7 @@ export function mountCollaborate(root,{request,token,screenHost,getSnapshot,open
  root.querySelectorAll('[data-collab-tab]').forEach(b=>b.onclick=()=>tabTo(b.dataset.collabTab));
  $('collab-screen-slot').appendChild(screenHost);
  tabTo(initialTab);
- return {update,screenQueue,tab:()=>tab,destroy(){
+ return {update,screenQueue,tab:()=>tab,selectTab:tabTo,destroy(){
   const parent=root.closest('.surface');
   // Never destroy the connected LiveKit iframe while switching teaching tools.
   if(parent&&screenHost){parent.appendChild(screenHost);screenHost.hidden=true}

@@ -2,6 +2,7 @@ import {mountWhiteboard} from './toolkit-whiteboard.mjs';
 import {createLiveCloud} from './toolkit-cloud.mjs';
 import {mountEvaluationLecturer,mountEvaluationStudent} from './toolkit-evaluation.mjs';
 import {mountCollaborate,mountTextDocumentStudent} from './toolkit-collaborate.mjs';
+import {TOOL_GROUPS,groupForTool,preferredTabForGroup,routeForTab,tabsForGroup} from './toolkit-navigation.mjs';
 const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
@@ -12,7 +13,7 @@ let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound
 let evaluationTeacher=null,evaluationStudent=null,evaluationStudentRound=null;
 let collaborateTeacher=null,documentStudent=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'jumbled',collaborateTab:'screen'};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',group:'interact',currentTab:'poll',rememberedTabs:{interact:'poll',collaborate:'screen',assess:'mcq',present:'documents'},activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'mcq',collaborateTab:'screen'};
 let toastTimer=null;
 function connected(healthy,label){
   conn.className='connection '+(healthy===true?'good':healthy===false?'bad':'');
@@ -79,15 +80,14 @@ function teacherShell(){
  app.classList.add('lecturer-layout');
  const railPref=(()=>{try{return localStorage.getItem('classroom-toolkit-rail-collapsed')==='true'}catch{return false}})();
  app.classList.toggle('rail-collapsed',railPref);
- const tabs=[['poll','▥','Live Poll'],['answers','▤','Live Answers'],['cloud','☁','Word Cloud'],['timer','◷','Timer'],['collaborate','▣','Collaborate'],['work','▤','Work & Problems'],['documents','▧','Files & Slides'],['web','◎','Web Browser'],['evaluation','◈','Evaluation']];
- app.innerHTML='<div class="workspace"><aside class="rail"><div class="rail-top"><p class="rail-title">Interactive tools</p><button type="button" class="rail-toggle" id="rail-toggle" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="tool-nav" title="Collapse sidebar">☰</button></div><nav aria-label="Teaching tools" id="tool-nav">'+tabs.map(([id,icon,text])=>'<button class="tool-link" type="button" data-tool="'+id+'" title="'+text+'" aria-label="'+text+'"><span class="tool-icon" aria-hidden="true">'+icon+'</span><span class="tool-text">'+text+'</span></button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><aside id="participation-panel" class="participation-panel" aria-label="Student participation" hidden>'+
+ app.innerHTML='<div class="workspace"><aside class="rail"><div class="rail-top"><p class="rail-title">Teaching tools</p><button type="button" class="rail-toggle" id="rail-toggle" aria-label="Collapse sidebar" aria-expanded="true" aria-controls="tool-nav" title="Collapse sidebar">☰</button></div><nav aria-label="Teaching tool groups" id="tool-nav">'+TOOL_GROUPS.map(group=>'<button class="tool-link" type="button" data-group="'+group.id+'" title="'+group.label+'" aria-label="'+group.label+'"><span class="tool-icon" aria-hidden="true">'+group.icon+'</span><span class="tool-text">'+group.label+'</span></button>').join('')+'</nav><div class="rail-divider"></div><div class="rail-code"><p class="eyebrow">Classroom code</p><strong>'+esc(state.room)+'</strong><p class="small">One link for every tool</p></div><div class="rail-actions">'+btn('↗ Copy student link','secondary','copy-link')+btn('▣ Copy projector link','secondary','copy-projector')+btn('End room','danger','end-room')+'</div></aside><aside id="participation-panel" class="participation-panel" aria-label="Student participation" hidden>'+
   '<div class="participation-head"><div><p class="eyebrow">Classroom roster</p><h2>Students</h2></div><strong id="participation-total" class="participation-total">0</strong></div>'+
   '<p id="participation-context" class="participation-context">Joined students</p>'+
   '<div id="participation-summary" class="participation-summary" role="status" aria-live="polite">Waiting for students…</div>'+
   '<div id="participation-list" class="participation-list" role="list"></div>'+
   '<p id="participation-footnote" class="participation-footnote">Students who joined this classroom</p>'+
- '</aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Live Poll</h1><p id="tool-description"></p></div><div class="teacher-global-controls"><span class="pill blue">All courses</span>'+
- btn('■ Stop current activity','danger','stop-current-activity','hidden')+'</div></div><div class="activity-view-tabs" id="activity-view-tabs" role="tablist" aria-label="Activity views" hidden>'+
+ '</aside><div class="mainstack"><section class="surface"><div class="headrow"><div><p class="eyebrow">Teaching workspace</p><h1 id="tool-title">Interact</h1><p id="tool-description"></p></div><div class="teacher-global-controls"><span class="pill blue">All courses</span>'+
+ btn('◷ Timer','secondary','toolbar-timer','type="button" aria-label="Open Timer"')+'<strong id="toolbar-timer-clock" class="toolbar-timer-clock" data-end-time="" hidden></strong>'+btn('■ Stop current activity','danger','stop-current-activity','hidden')+'</div></div><nav class="teacher-group-tabs" id="teacher-group-tabs" role="tablist" aria-label="Tools in selected group"></nav><div class="activity-view-tabs" id="activity-view-tabs" role="tablist" aria-label="Activity views" hidden>'+
   '<button type="button" id="activity-questions" role="tab" aria-controls="tool-config" aria-selected="true">Questions</button>'+
   '<button type="button" id="activity-results" role="tab" aria-controls="live-results-panel" aria-selected="false" disabled>Live Results</button>'+
  '</div><div id="tool-config" role="tabpanel" aria-labelledby="activity-questions"></div><div id="teacher-collab-host" hidden><div id="collab-teacher-mount"></div><div id="teacher-screen-host" class="lecturer-embed" hidden><iframe id="teacher-screen-frame" title="Lecturer screen sharing and student approval queue" loading="eager" allowfullscreen src="about:blank"></iframe></div></div><div id="teacher-slides-host" class="lecturer-embed" hidden><iframe id="document-frame" title="PowerPoint and PDF viewer" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="teacher-web-host" class="lecturer-embed" hidden><iframe id="teacher-web-frame" title="Saved website browser" loading="eager" allowfullscreen src="about:blank"></iframe></div><div id="live-results-panel" class="activity-results-view" role="tabpanel" aria-labelledby="activity-results" hidden><div class="results-head"><div><p class="eyebrow" id="results-kind">Live activity</p><h2 id="current-label">Responses</h2></div><div class="metric-pair"><div><div class="metric" id="participants-count">—</div><div class="metric-label">Students joined</div></div><span class="pill grey" id="round-status">No activity</span></div></div><div id="live-results" class="live-area">'+noResults('Start an activity to see live results.')+'</div><div id="round-actions" class="buttons"></div></div></section>'+notices()+'</div></div>';
@@ -104,16 +104,20 @@ function teacherShell(){
  };
  updateRail(railPref);
  $('rail-toggle').addEventListener('click',()=>updateRail(!app.classList.contains('rail-collapsed')));
+ $('teacher-group-tabs').addEventListener('keydown',event=>{
+  const tabs=tabsForGroup(state.group).map(tab=>tab.id);
+  const current=tabs.indexOf(state.currentTab);
+  if(current<0||!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+  const next=event.key==='Home'?tabs[0]:event.key==='End'?tabs.at(-1):
+    tabs[(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length];
+  event.preventDefault();openTeacherTab(next);
+  $('teacher-group-tabs').querySelector('[data-tool="'+next+'"]')?.focus();
+ });
  $('activity-questions').onclick=()=>setActivityView('questions');
  $('activity-results').onclick=()=>setActivityView('results');
  $('stop-current-activity').onclick=finishActivity;
- document.querySelectorAll('[data-tool]').forEach(b=>b.onclick=()=>{
-  state.tool=b.dataset.tool;
-  state.activityView=state.snapshot?.active?.type===state.tool&&
-    ['poll','answers','cloud'].includes(state.tool)?'results':'questions';
-  configTool();
-  if(state.snapshot)renderTeacher(state.snapshot);
- });
+ document.querySelectorAll('[data-group]').forEach(b=>b.onclick=()=>openTeacherTab(preferredTabForGroup(b.dataset.group,state.rememberedTabs)));
+ $('toolbar-timer').onclick=()=>openTeacherTimer();
  const webFrame=$('teacher-web-frame');
  webFrame?.addEventListener('load',()=>{
   if(state.role==='teacher'&&state.token&&webFrame.contentWindow)
@@ -134,6 +138,44 @@ function teacherShell(){
  void loadSavedQuestions('poll');
  void loadSavedQuestions('answers');
  void loadSavedQuestions('cloud');
+}
+function syncTeacherNavigation(){
+ const group=TOOL_GROUPS.find(item=>item.id===state.group);
+ document.querySelectorAll('[data-group]').forEach(button=>{
+  const active=button.dataset.group===state.group;
+  button.classList.toggle('active',active);
+  button.setAttribute('aria-current',active?'page':'false');
+ });
+ const bar=$('teacher-group-tabs');
+ if(!bar)return;
+ bar.hidden=!group;
+ if(!group){bar.replaceChildren();return}
+ bar.innerHTML=tabsForGroup(group.id).map(tab=>'<button type="button" role="tab" data-tool="'+tab.id+'" aria-selected="'+String(tab.id===state.currentTab)+'" aria-label="'+tab.label+'" tabindex="'+(tab.id===state.currentTab?'0':'-1')+'" class="'+(tab.id===state.currentTab?'active':'')+'">'+tab.label+'</button>').join('');
+ bar.querySelectorAll('[data-tool]').forEach(button=>button.onclick=()=>openTeacherTab(button.dataset.tool));
+}
+function openTeacherTab(tab){
+ const route=routeForTab(tab);
+ if(!route)return;
+ const changed=state.tool!==route.tool;
+ state.group=route.group;state.currentTab=tab;state.rememberedTabs[route.group]=tab;
+ if(route.group==='collaborate'&&route.tool==='collaborate')state.collaborateTab=tab;
+ if(route.group==='assess')state.evalKind=tab;
+ state.tool=route.tool;
+ if(changed){
+  state.activityView=state.snapshot?.active?.type===state.tool&&
+    ['poll','answers','cloud'].includes(state.tool)?'results':'questions';
+  configTool();
+ }else syncTeacherNavigation();
+ if(state.tool==='collaborate')collaborateTeacher?.selectTab(state.collaborateTab);
+ if(state.tool==='evaluation')evaluationTeacher?.selectKind(state.evalKind);
+ if(state.snapshot)renderTeacher(state.snapshot);
+}
+function openTeacherTimer(){
+ if(state.tool!=='timer'){
+  state.tool='timer';state.group=null;state.currentTab='timer';state.activityView='questions';
+  configTool();
+ }
+ if(state.snapshot)renderTeacher(state.snapshot);
 }
 const RESPONSE_TOOLS=['poll','answers','cloud'];
 function setActivityView(view){
@@ -249,8 +291,8 @@ function configTool(){
  if(webHost)webHost.hidden=state.tool!=='web';
  syncActivityTabs();
  if(config)config.hidden=state.tool==='collaborate';
- document.querySelectorAll('[data-tool]').forEach(b=>{const on=b.dataset.tool===state.tool;b.classList.toggle('active',on);b.setAttribute('aria-current',on?'page':'false')});
- $('tool-title').textContent=NAMES[state.tool];
+ syncTeacherNavigation();
+ $('tool-title').textContent=TOOL_GROUPS.find(group=>group.id===state.group)?.label||NAMES[state.tool];
  const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',collaborate:'Screen Sharing, shared Whiteboard, and reusable question documents in one clean workspace.',web:'Browse lesson websites and save frequently used URLs for future classes.',evaluation:'Prepare timed Jumbled Questions and MCQs, then reveal answers after the timer ends.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='collaborate'){
@@ -293,6 +335,7 @@ function configTool(){
     if(needsRefresh)void refresh();
    }
   });
+  evaluationTeacher.selectKind(state.evalKind);
   if(state.snapshot)evaluationTeacher.update(state.snapshot);
   return;
  }
@@ -518,6 +561,13 @@ function renderTeacherCloud(snapshot){
 }
 
 function renderTeacher(snapshot){
+ const timer=snapshot.active?.type==='timer'?snapshot.active:null;
+ const clock=$('toolbar-timer-clock');
+ if(clock){
+  clock.hidden=!timer;
+  if(timer){clock.dataset.endTime=String(timer.endsAt);syncClock()}
+  else clock.removeAttribute('data-end-time');
+ }
  const stop=$('stop-current-activity');
  if(stop){stop.hidden=!snapshot.active;stop.textContent=snapshot.active?
   '■ Stop '+(NAMES[snapshot.active.type]||snapshot.active.prompt||'activity'):'■ Stop current activity';}

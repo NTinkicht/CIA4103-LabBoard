@@ -1,5 +1,30 @@
 # CIA4103 Smart Classroom Board
 
+## Classroom Toolkit — lecturer navigation
+
+The course-agnostic Classroom Toolkit is available at `/toolkit/` on the associated
+Netlify site. The lecturer workspace groups the existing tools into four menus:
+
+| Menu | Tabs |
+| --- | --- |
+| Interact | Live Poll, Live Answers, Word Cloud |
+| Collaborate | Screen Sharing, Whiteboard, Collaborative Worksheet, Student Work |
+| Assess | MCQs, Jumbled Questions |
+| Present | Files & Slides, Web Resources |
+
+Timer is always available from the lecturer toolbar. The current Timer uses the
+existing single-active-activity classroom engine; it remains visible while
+navigating to other tools, but launching another live activity replaces that
+timer. Existing screen-sharing, saved content, student submission and student
+three-tab behavior remain unchanged. The structured 5Es lesson mode is a planned
+optional layer and is not part of this navigation release.
+
+Run `npm test` for the full Node regression suite and
+`npm run test:navigation-coverage` to enforce at least 95% line, branch, and
+function coverage of the new navigation model. The GitHub workflow also runs
+the Chromium UI regression suite, including grouped menus, media persistence,
+timer navigation and the unchanged student experience.
+
 An educational, non-commercial classroom discussion board for ASP.NET Core, C#, Razor, and other programming labs. Built for student demonstrations and lecturer-led formative assessment.
 
 **Student website:** https://cia4103.netlify.app/  

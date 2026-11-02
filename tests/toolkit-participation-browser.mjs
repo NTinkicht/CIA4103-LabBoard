@@ -116,12 +116,14 @@ try{
  // Students who submit work are counted, without confusing the answer roster.
  workItems=[{id:'work-1',studentId:'id-alice',name:'Alice',kind:'solution',
    submittedAt:new Date().toISOString(),note:'Done',code:'',topic:'Exercise',hasImage:false}];
+ await teacher.locator('[data-group="collaborate"]').click();
  await teacher.locator('[data-tool="work"]').click();
  await teacher.waitForFunction(()=>document.querySelector('#participation-summary')?.textContent?.includes('1 of 2'),null,{timeout:10000});
  assert.ok((await statusOf(teacher,'Alice')).includes('participated'));
  assert.ok((await statusOf(teacher,'Bob')).includes('not-participated'));
  for(const type of ['timer','documents']){
-  await teacher.locator('[data-tool="'+type+'"]').click();
+  if(type==='timer')await teacher.locator('#toolbar-timer').click();
+  else {await teacher.locator('[data-group="present"]').click();await teacher.locator('[data-tool="documents"]').click()}
   assert.equal(await teacher.locator('#participation-panel').isVisible(),true);
   assert.match(await teacher.locator('#participation-summary').innerText(),/not tracked/i);
   assert.ok((await statusOf(teacher,'Alice')).includes('untracked'));
@@ -131,7 +133,8 @@ try{
  assert.equal(await teacher.locator('#participation-panel').isVisible(),true);
  await teacher.locator('#rail-toggle').click();
  for(const type of ['web','collaborate']){
-  await teacher.locator('[data-tool="'+type+'"]').click();
+  if(type==='web'){await teacher.locator('[data-group="present"]').click();await teacher.locator('[data-tool="web"]').click()}
+  else {await teacher.locator('[data-group="collaborate"]').click();await teacher.locator('[data-tool="screen"]').click()}
   assert.equal(await teacher.locator('#participation-panel').isVisible(),false,
     type+' must retain its own specialized interface');
  }

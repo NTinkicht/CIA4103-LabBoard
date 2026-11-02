@@ -91,15 +91,15 @@ try{
  await teacher.locator('#open-teacher').click();
  await teacher.locator('#teacher-pin').fill('synthetic-pin');
  await teacher.locator('#create-submit').click();
- await teacher.locator('[data-tool="collaborate"]').click();
- await teacher.locator('#collab-tab-screen').waitFor({state:'visible'});
- assert.equal(await teacher.locator('[data-tool="whiteboard"],[data-tool="screen"]').count(),0);
+ await teacher.locator('[data-group="collaborate"]').click();
+ await teacher.locator('[data-tool="screen"]').waitFor({state:'visible'});
+ assert.equal(await teacher.locator('#tool-nav .tool-link').count(),4);
  assert.equal(await teacher.locator('#collab-students .collab-person').count(),2);
- assert.equal(await teacher.locator('#collab-tab-screen').getAttribute('aria-selected'),'true');
+ assert.equal(await teacher.locator('[data-tool="screen"]').getAttribute('aria-selected'),'true');
  const iframe=teacher.frameLocator('#teacher-screen-frame');
  await iframe.locator('#stream-teacher-root').waitFor({state:'visible',timeout:13000});
  await iframe.locator('body').evaluate(()=>{window.__persistedScreen=42});
- await teacher.locator('#collab-tab-whiteboard').click();
+ await teacher.locator('[data-tool="whiteboard"]').click();
  await teacher.locator('#collab-open-board').click();
  await teacher.locator('#teacher-board-mount canvas').waitFor({state:'visible',timeout:10000});
  await teacher.locator('#collab-students .collab-person').filter({hasText:'Alice'}).click();
@@ -108,13 +108,13 @@ try{
  await teacher.locator('#collab-random').click();
  await wait(teacher,()=>document.querySelector('#collab-selected')?.textContent?.includes('can now write'));
  assert.equal(board.writerId,members[1].id);
- await teacher.locator('#collab-tab-screen').click();
+ await teacher.locator('[data-tool="screen"]').click();
  assert.equal(await iframe.locator('body').evaluate(()=>window.__persistedScreen),42);
  await teacher.locator('#collab-stop-screen').click(); // stop can be invoked even with no stream
  await teacher.locator('#stop-current-activity').click();
  await wait(teacher,()=>document.querySelector('#stop-current-activity')?.hidden===true);
  assert.equal(active,null);
- await teacher.locator('#collab-tab-document').click();
+ await teacher.locator('[data-tool="document"]').click();
  await teacher.locator('#collab-doc-title').fill('Reflect on BookStore');
  await teacher.locator('#collab-doc-questions').fill('What did you implement?\nWhat failed first?');
  await teacher.locator('#collab-doc-save').click();
@@ -139,8 +139,8 @@ try{
  await teacher.locator('#collab-stop-document').click();
  await wait(student,()=>document.querySelector('.student-activities-home')!==null);
  await wait(teacher,()=>document.querySelector('#collab-doc-prepare')?.hidden===false);
- await teacher.locator('[data-tool="documents"]').click();
- await teacher.locator('[data-tool="collaborate"]').click();
+ await teacher.locator('[data-group="present"]').click();
+ await teacher.locator('[data-group="collaborate"]').click();
  assert.equal(await iframe.locator('body').evaluate(()=>window.__persistedScreen),42,
   'Connected screen iframe must persist across global menu changes');
  assert.equal(await teacher.locator('.collab-roster').isVisible(),true);
