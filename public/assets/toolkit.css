@@ -734,3 +734,7 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  .collab-roster p.small{font-size:10px}
  .doc-student h2{font-size:21px}
 }
+
+.lesson-shared-controls{display:flex;align-items:center;flex-wrap:wrap;gap:9px;border-top:1px solid #e4edf4;padding-top:11px}
+.lesson-shared-controls select{flex:1;min-width:180px}
+.lesson-shared-controls button{font-size:12px;padding:10px 12px}
