@@ -444,6 +444,21 @@ export async function handleToolkit(request,storeProvider=getStore){
       return fail(400,'Unknown bookmark operation');
     }
 
+    if(data.action==='resource-index'){
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      const sources=[
+        ['poll','saved-poll/'],['answers','saved-answers/'],['cloud','saved-cloud/'],
+        ['mcq','saved-evaluation-mcq/'],['jumbled','saved-evaluation-jumbled/'],
+        ['document','saved-text-document/'],['web','saved-web-link/'],['lesson','saved-5es-lesson/']
+      ];
+      const groups=await Promise.all(sources.map(async([kind,prefix])=>{
+        const records=(await entries(store,prefix,100)).filter(item=>!item.archived);
+        return {kind,count:records.length,items:records.map(item=>({
+          id:item.id,title:item.title,updatedAt:item.updatedAt||item.createdAt||null
+        }))};
+      }));
+      return reply({groups});
+    }
     if(data.action==='lesson-bank'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       const operation=data.operation||'list',prefix='saved-5es-lesson/';
