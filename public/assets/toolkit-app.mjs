@@ -157,10 +157,14 @@ async function loadLessonLibrary(){
  catch(error){announce('Could not load shared lessons: '+error.message,true)}
 }
 async function saveSharedLesson(){
+ const lesson=state.lesson,id=state.lessonId,revision=state.lessonRevision;
  const button=$('lesson-save-shared');if(button)button.disabled=true;
  try{
-  const data=await request('lesson-bank',{token:state.token,operation:'save',item:state.lesson,...(state.lessonId?{id:state.lessonId,revision:state.lessonRevision}:{})});
-  state.lessonId=data.item.id;state.lessonRevision=data.item.revision;
+  const data=await request('lesson-bank',{token:state.token,operation:'save',item:lesson,...(id?{id,revision}:{})});
+  // Never attach plan A's response metadata to a newly selected plan B.
+  if(state.lesson===lesson&&state.lessonId===id&&state.lessonRevision===revision){
+   state.lessonId=data.item.id;state.lessonRevision=data.item.revision;
+  }
   announce('Lesson saved to your shared library');await loadLessonLibrary();
  }catch(error){announce('Lesson not saved: '+error.message,true);if(button)button.disabled=false}
 }
