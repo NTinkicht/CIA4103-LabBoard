@@ -17,7 +17,8 @@ export const TOOL_GROUPS = Object.freeze([
   ])}),
   Object.freeze({id:'present',label:'Present',icon:'▧',tabs:Object.freeze([
     Object.freeze({id:'documents',label:'Files & Slides'}),
-    Object.freeze({id:'web',label:'Web Resources'})
+    Object.freeze({id:'web',label:'Web Resources'}),
+    Object.freeze({id:'library',label:'My Library'})
   ])})
 ]);
 
