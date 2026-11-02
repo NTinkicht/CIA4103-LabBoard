@@ -1,6 +1,15 @@
 // Embed inside Classroom Toolkit without changing the legacy standalone screen-share behavior.
 if(new URLSearchParams(location.search).get('embed')==='1')document.documentElement.classList.add('toolkit-embedded');
 const $=id=>document.getElementById(id);
+const embedded=new URLSearchParams(location.search).get('embed')==='1';
+let toolkitRoomCode=null;
+if(embedded){
+ window.addEventListener('message',event=>{
+  if(event.origin!==location.origin||event.source!==window.parent)return;
+  if(event.data?.type==='toolkit:student-room'&&/^[0-9]{6}$/.test(event.data.code))toolkitRoomCode=event.data.code;
+ });
+ window.parent.postMessage({type:'toolkit:student-screen-ready'},location.origin);
+}
 let room=null,capture=null,published=null,publication=null,leaving=false,approved=false,connecting=false,onAir=false;
 let upstreamSyncing=false,upstreamPending=false;
 try{
@@ -106,12 +115,13 @@ $('start').addEventListener('click',async()=>{
  if(room||connecting)return;
  const name=$('name').value.trim();
  if(!name){status('Enter your name to join the waiting list.',true);$('name').focus();return;}
+ if(embedded&&!toolkitRoomCode){status('Classroom connection is not ready. Return to the classroom and try again.',true);return;}
  if(!window.LivekitClient){status('LiveKit did not load. Check the network and reload.',true);return;}
  connecting=true;controls();status('Joining the classroom waiting list…');
  try{
   const response=await fetch('/api/live-token',{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({role:'student',name})
+   body:JSON.stringify({role:'student',name,...(embedded?{code:toolkitRoomCode}:{})})
   });
   const data=await response.json();if(!response.ok)throw Error(data.error||'Could not join waiting room.');
   room=new LivekitClient.Room({adaptiveStream:true});
