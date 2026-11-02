@@ -5,8 +5,8 @@ const kinds=['jumbled','mcq'];
 const label={jumbled:'Jumbled Questions',mcq:'MCQs'};
 const clock=(end,offset)=>{const left=Math.max(0,Math.ceil((end-Date.now()-offset)/1000));return Math.floor(left/60).toString().padStart(2,'0')+':'+String(left%60).padStart(2,'0')};
 function row(title,text,buttons=''){return '<article class="eval-saved-row"><div class="eval-saved-info"><strong>'+escape(title)+'</strong><small>'+escape(text)+'</small></div><div class="eval-saved-actions">'+buttons+'</div></article>'}
-export function mountEvaluationLecturer(root,{request,token,onChange,onFinish,getOffset}){
- let kind='jumbled',banks={jumbled:[],mcq:[]},editing=null,current=null,duration={jumbled:60,mcq:60},loading=false,signature='',timer=null;
+export function mountEvaluationLecturer(root,{request,token,onChange,onFinish,getOffset,initialKind='jumbled'}){
+ let kind=kinds.includes(initialKind)?initialKind:'jumbled',banks={jumbled:[],mcq:[]},editing=null,current=null,duration={jumbled:60,mcq:60},loading=false,signature='',timer=null;
  root.innerHTML='<section class="eval-teacher">'+
  '<nav class="eval-tabs" role="tablist" aria-label="Evaluation question types">'+
  '<button id="eval-jumbled-tab" role="tab" aria-selected="true" type="button">Jumbled Questions</button>'+
@@ -37,6 +37,13 @@ export function mountEvaluationLecturer(root,{request,token,onChange,onFinish,ge
  '<div id="eval-correct-result" class="eval-correct-result" hidden></div></section>'+
  '</section>';
  const $=id=>root.querySelector('#'+id);
+ if(kind==='mcq'){
+  $('eval-items-label').textContent='Answer options — one choice per line';
+  $('eval-items').placeholder='Option A\nOption B\nOption C\nOption D';
+  $('eval-correct-wrap').hidden=false;
+  $('eval-jumbled-tab').setAttribute('aria-selected','false');
+  $('eval-mcq-tab').setAttribute('aria-selected','true');
+ }
  const notice=(msg,bad=false)=>{const n=$('eval-message')||document.createElement('div');n.id='eval-message';n.className='eval-message'+(bad?' error':'');n.textContent=msg;if(!n.parentElement)root.prepend(n)};
  const durationValue=()=>Number($('eval-duration').value);
  function tab(next){
@@ -53,9 +60,11 @@ export function mountEvaluationLecturer(root,{request,token,onChange,onFinish,ge
   onChange(kind);
  }
  async function loadBank(){
-  try{const data=await request('evaluation-bank',{token,operation:'list',kind});
-   banks[kind]=data.items||[];renderBank();
-  }catch(err){notice(err.message,true)}
+  const requestedKind=kind;
+  try{const data=await request('evaluation-bank',{token,operation:'list',kind:requestedKind});
+   banks[requestedKind]=data.items||[];
+   if(requestedKind===kind)renderBank();
+  }catch(err){if(requestedKind===kind)notice(err.message,true)}
  }
  function renderBank(){
   const list=$('eval-bank');

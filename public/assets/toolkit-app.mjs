@@ -328,14 +328,13 @@ function configTool(){
  if(state.tool==='evaluation'){
   $('tool-config').innerHTML='<div id="teacher-evaluation"></div>';
   evaluationTeacher=mountEvaluationLecturer($('teacher-evaluation'),{
-   request,token:state.token,onFinish:finishActivity,getOffset:()=>state.clockOffset,
+   request,token:state.token,initialKind:state.evalKind,onFinish:finishActivity,getOffset:()=>state.clockOffset,
    onChange:(kind,needsRefresh)=>{
     state.evalKind=kind;state.participationSignature=null;
     if(state.snapshot)renderParticipationRoster(state.snapshot);
     if(needsRefresh)void refresh();
    }
   });
-  evaluationTeacher.selectKind(state.evalKind);
   if(state.snapshot)evaluationTeacher.update(state.snapshot);
   return;
  }

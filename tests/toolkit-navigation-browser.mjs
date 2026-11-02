@@ -18,13 +18,20 @@ const server=createServer(async(req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const base='http://127.0.0.1:'+server.address().port+'/toolkit/';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',args:['--no-sandbox']});
-let active=null;let id=0;const errors=[];
+let active=null;let id=0;const errors=[];const bankRequests=[];
 async function handle(route){
  const body=JSON.parse(route.request().postData()||'{}');
  let response={ok:true};
  if(body.action==='create')response={code:'123456',teacherToken:'test-teacher',displayToken:'test-projector'};
  else if(body.action==='join')response={code:'123456',token:'test-student'};
  else if(body.action==='state')response={code:'123456',roomOpen:true,active,participants:0,students:[],answers:[],serverTime:Date.now(),results:{votes:[],total:0,words:[]}};
+ else if(body.action==='evaluation-bank'&&body.operation==='list'){
+  bankRequests.push(body.kind);
+  if(body.kind==='jumbled')await new Promise(resolve=>setTimeout(resolve,200));
+  response={items:[body.kind==='mcq'?
+   {id:'mcq-only',title:'MCQ only',prompt:'Choose an answer',options:['A','B'],correct:0}:
+   {id:'jumbled-only',title:'Jumbled only',prompt:'Order the steps',steps:['A','B']} ]};
+ }
  else if(['library','evaluation-bank','document-bank','work','web-links'].includes(body.action))response={items:[],polls:[]};
  else if(body.action==='start'){
   active={id:'round-'+(++id),type:body.type,prompt:body.prompt||'',options:body.options||[],status:'open',revealed:false,
@@ -86,8 +93,16 @@ try{
  assert.equal(await teacher.locator('#teacher-group-tabs [role="tab"]').count(),2);
  assert.equal(await teacher.locator('.eval-tabs').isVisible(),false);
  assert.equal(await teacher.locator('#eval-items-label').innerText(),'Answer options — one choice per line');
+ await teacher.locator('#eval-bank').getByText('MCQ only').waitFor();
+ assert.ok(bankRequests.length>0&&bankRequests.every(kind=>kind==='mcq'),
+  'Initial Assess mount must never request the unselected Jumbled bank');
  await teacher.locator('[data-tool="jumbled"]').click();
  assert.equal(await teacher.locator('#eval-items-label').innerText(),'Correct order — one step per line');
+ await teacher.locator('[data-tool="mcq"]').click();
+ await teacher.waitForTimeout(300);
+ assert.match(await teacher.locator('#eval-bank').innerText(),/MCQ only/,'Stale Jumbled response cannot replace the MCQ bank');
+ assert.doesNotMatch(await teacher.locator('#eval-bank').innerText(),/Jumbled only/);
+ assert.equal(await teacher.locator('#eval-mcq-tab').getAttribute('aria-selected'),'true');
  await teacher.locator('[data-group="present"]').click();
  assert.equal(await teacher.locator('#teacher-group-tabs [role="tab"]').count(),2);
  await teacher.locator('#document-frame').waitFor({state:'visible'});
