@@ -8,7 +8,7 @@ const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',collaborate:'Collaborate',documents:'Files & Slides',web:'Web Browser',work:'Work & Problems',whiteboard:'Whiteboard',evaluation:'Evaluation'};
+const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',collaborate:'Collaborate',documents:'Files & Slides',web:'Web Browser',work:'Work & Problems',whiteboard:'Whiteboard',evaluation:'Evaluation',library:'My Library'};
 let teacherWhiteboard=null,studentWhiteboard=null,displayWhiteboard=null,lastDisplayBoardId=null;
 let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound=null,cloudReviewSignature=null;
 let evaluationTeacher=null,evaluationStudent=null,evaluationStudentRound=null;
@@ -353,7 +353,7 @@ function configTool(){
  if(config)config.hidden=state.tool==='collaborate';
  syncTeacherNavigation();
  $('tool-title').textContent=TOOL_GROUPS.find(group=>group.id===state.group)?.label||NAMES[state.tool];
- const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',collaborate:'Screen Sharing, shared Whiteboard, and reusable question documents in one clean workspace.',web:'Browse lesson websites and save frequently used URLs for future classes.',evaluation:'Prepare timed Jumbled Questions and MCQs, then reveal answers after the timer ends.'};
+ const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',collaborate:'Screen Sharing, shared Whiteboard, and reusable question documents in one clean workspace.',web:'Browse lesson websites and save frequently used URLs for future classes.',evaluation:'Prepare timed Jumbled Questions and MCQs, then reveal answers after the timer ends.',library:'Browse all saved teaching resources in one place.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='collaborate'){
   if(collaborateTeacher){if(state.snapshot)collaborateTeacher.update(state.snapshot);return}
@@ -398,6 +398,12 @@ function configTool(){
   if(state.snapshot)evaluationTeacher.update(state.snapshot);
   return;
  }
+ if(state.tool==='library'){
+  $('tool-config').innerHTML='<div class="tool-feature"><div><strong>My Library</strong><p>Saved resources from every classroom, grouped by type. Open a bank to edit or launch its items.</p></div></div><div class="buttons">'+btn('↻ Refresh library','secondary','resource-refresh')+'</div><div id="resource-index" class="resource-index">'+loading('Loading your resources…')+'</div>';
+  $('resource-refresh').onclick=()=>void loadResourceIndex();
+  void loadResourceIndex();
+  return;
+ }
  if(state.tool==='work'){
   $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Student solutions & problems</strong><p>Students share code, notes or screenshots without leaving their classroom. Their submissions are private to your room.</p></div><span aria-hidden="true" style="font-size:34px">▤</span></div><div class="buttons">'+btn('↻ Refresh student work','secondary','work-reload')+'</div><div id="teacher-work-list" class="teacher-work-list">'+loading('Loading student submissions…')+'</div>';
   $('work-reload').onclick=()=>loadStudentWork(true);
@@ -428,6 +434,19 @@ function configTool(){
  if(state.tool==='poll'){
   renderSavedQuestions();
  }
+}
+async function loadResourceIndex(){
+ const box=$('resource-index');if(!box)return;
+ try{
+  const response=await request('resource-index',{token:state.token});
+  if(state.tool!=='library'||!box.isConnected)return;
+  const labels={poll:'Polls',answers:'Live Answers',cloud:'Word Clouds',mcq:'MCQs',jumbled:'Jumbled Questions',document:'Collaborative Worksheets',web:'Web Resources',lesson:'5Es Lesson Plans'};
+  box.innerHTML=(response.groups||[]).map(group=>'<section class="resource-group"><div class="resource-group-head"><h3>'+esc(labels[group.kind]||group.kind)+'</h3><span class="pill grey">'+Number(group.count||0)+' saved</span><button type="button" class="secondary" data-resource-bank="'+esc(group.kind)+'">Open bank</button></div><ul>'+group.items.slice(0,20).map(item=>'<li>'+esc(item.title)+'</li>').join('')+'</ul>'+(group.items.length>20?'<p class="small">Showing first 20 of '+group.items.length+' resources</p>':'')+'</section>').join('');
+  box.querySelectorAll('[data-resource-bank]').forEach(button=>button.onclick=()=>{
+   if(button.dataset.resourceBank==='lesson'){setTeachingMode('5es');return}
+   openTeacherTab(button.dataset.resourceBank);
+  });
+ }catch(error){if(box.isConnected)box.textContent='Could not load library: '+error.message}
 }
 function addOption(){
  const parent=$('poll-options');if(!parent)return;

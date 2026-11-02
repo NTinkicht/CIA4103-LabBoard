@@ -904,3 +904,16 @@ test('lesson bank rejects malformed, oversized and untrusted phase content',asyn
   assert.equal((await call(store,{action:'lesson-bank',token:room.teacherToken,operation:'save',item})).status,400);
  }
 });
+
+test('resource overview aggregates saved banks for lecturers without leaking to students',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body,student=(await join(store,room.code,'Student')).body;
+ assert.equal((await call(store,{action:'resource-index',token:student.token})).status,403);
+ await call(store,{action:'library',token:room.teacherToken,kind:'poll',operation:'save',
+  item:{title:'A saved poll',prompt:'Choose',options:['Yes','No'],unit:'individual'}});
+ const index=await call(store,{action:'resource-index',token:room.teacherToken});
+ assert.equal(index.status,200);
+ assert.equal(index.body.groups.find(x=>x.kind==='poll').count,1);
+ assert.equal(index.body.groups.find(x=>x.kind==='poll').items[0].title,'A saved poll');
+ assert.equal(index.body.groups.find(x=>x.kind==='lesson').count,0);
+ assert.equal(index.body.groups.some(x=>x.items.some(y=>'correct' in y||'questions' in y)),false);
+});
