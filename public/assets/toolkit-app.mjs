@@ -8,7 +8,7 @@ const API='/.netlify/functions/toolkit';
 const app=document.getElementById('app'),roomChip=document.getElementById('top-room'),conn=document.getElementById('connection');
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',collaborate:'Collaborate',documents:'Files & Slides',web:'Web Browser',work:'Work & Problems',whiteboard:'Whiteboard',evaluation:'Evaluation',library:'My Library'};
+const NAMES={poll:'Live Poll',answers:'Live Answers',cloud:'Word Cloud',timer:'Timer',screen:'Screen Sharing',collaborate:'Collaborate',documents:'Files & Slides',web:'Web Browser',work:'Work & Problems',whiteboard:'Whiteboard',evaluation:'Evaluation',library:'My Library',report:'Session Report'};
 let teacherWhiteboard=null,studentWhiteboard=null,displayWhiteboard=null,lastDisplayBoardId=null;
 let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound=null,cloudReviewSignature=null;
 let evaluationTeacher=null,evaluationStudent=null,evaluationStudentRound=null;
@@ -353,7 +353,7 @@ function configTool(){
  if(config)config.hidden=state.tool==='collaborate';
  syncTeacherNavigation();
  $('tool-title').textContent=TOOL_GROUPS.find(group=>group.id===state.group)?.label||NAMES[state.tool];
- const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',collaborate:'Screen Sharing, shared Whiteboard, and reusable question documents in one clean workspace.',web:'Browse lesson websites and save frequently used URLs for future classes.',evaluation:'Prepare timed Jumbled Questions and MCQs, then reveal answers after the timer ends.',library:'Browse all saved teaching resources in one place.'};
+ const description={poll:'Instant voting with a beautiful real-time results chart.',answers:'Collect short written answers without leaving your presentation.',cloud:'Turn classroom keywords into a live, frequency-weighted word cloud.',timer:'A focused countdown that stays in sync across devices.',screen:'Let a student show their work, with your existing approval and standby controls.',documents:'Open your PowerPoint or PDF locally, navigate slides, and present fullscreen.',work:'Review submitted student solutions, problems and screenshots inside this classroom.',whiteboard:'Draw together with the class and choose a student from the roster to write.',collaborate:'Screen Sharing, shared Whiteboard, and reusable question documents in one clean workspace.',web:'Browse lesson websites and save frequently used URLs for future classes.',evaluation:'Prepare timed Jumbled Questions and MCQs, then reveal answers after the timer ends.',library:'Browse all saved teaching resources in one place.',report:'Review participation from this classroom and export a CSV summary.'};
  $('tool-description').textContent=description[state.tool];
  if(state.tool==='collaborate'){
   if(collaborateTeacher){if(state.snapshot)collaborateTeacher.update(state.snapshot);return}
@@ -398,6 +398,10 @@ function configTool(){
   if(state.snapshot)evaluationTeacher.update(state.snapshot);
   return;
  }
+ if(state.tool==='report'){
+  $('tool-config').innerHTML='<div class="tool-feature"><div><strong>Session participation report</strong><p>Counts reflect completed activities available after each student joined; this is formative engagement, not a grade.</p></div></div><div class="buttons">'+btn('↻ Refresh report','secondary','report-refresh')+btn('↓ Export CSV','primary','report-export','disabled')+'</div><div id="session-report" class="session-report">'+loading('Preparing report…')+'</div>';
+  $('report-refresh').onclick=()=>void loadSessionReport();void loadSessionReport();return;
+ }
  if(state.tool==='library'){
   $('tool-config').innerHTML='<div class="tool-feature"><div><strong>My Library</strong><p>Saved resources from every classroom, grouped by type. Open a bank to edit or launch its items.</p></div></div><div class="buttons">'+btn('↻ Refresh library','secondary','resource-refresh')+'</div><div id="resource-index" class="resource-index">'+loading('Loading your resources…')+'</div>';
   $('resource-refresh').onclick=()=>void loadResourceIndex();
@@ -434,6 +438,35 @@ function configTool(){
  if(state.tool==='poll'){
   renderSavedQuestions();
  }
+}
+let latestSessionReport=null;
+function csvCell(value){
+ const raw=String(value??'');
+ const safe=/^[=+@-]/.test(raw)?"'"+raw:raw;
+ return '"'+safe.replace(/"/g,'""')+'"';
+}
+function exportSessionReport(report){
+ const columns=['Student','Pair','Eligible activities','Participated','Engagement %'];
+ const lines=[columns,...report.students.map(s=>[s.name,s.team,s.eligible,s.participated,s.rate??'N/A'])];
+ const csv='\uFEFF'+lines.map(row=>row.map(csvCell).join(',')).join('\r\n');
+ const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+ const link=document.createElement('a');link.href=url;link.download='classroom-'+report.code+'-engagement.csv';document.body.append(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+async function loadSessionReport(){
+ const box=$('session-report');if(!box)return;
+ try{
+  const report=await request('session-report',{token:state.token});if(!box.isConnected||state.tool!=='report')return;
+  latestSessionReport=report;
+  const average=report.students.filter(s=>s.rate!==null);
+  const mean=average.length?Math.round(average.reduce((sum,s)=>sum+s.rate,0)/average.length):null;
+  box.innerHTML='<div class="report-metrics"><div><strong>'+report.students.length+'</strong><span>Students</span></div><div><strong>'+report.activities.length+'</strong><span>Activities</span></div><div><strong>'+(mean===null?'—':mean+'%')+'</strong><span>Mean engagement</span></div></div>'+
+   '<div class="report-table-wrap"><table><thead><tr><th>Student</th><th>Pair</th><th>Eligible</th><th>Participated</th><th>Engagement</th></tr></thead><tbody>'+
+   report.students.map(s=>'<tr><td>'+esc(s.name)+'</td><td>'+esc(s.team||'—')+'</td><td>'+s.eligible+'</td><td>'+s.participated+'</td><td>'+(s.rate===null?'—':s.rate+'%')+'</td></tr>').join('')+
+   '</tbody></table></div>';
+  $('report-export').disabled=false;
+  $('report-export').onclick=()=>exportSessionReport(latestSessionReport);
+ }catch(error){if(box.isConnected)box.textContent='Could not load session report: '+error.message}
 }
 async function loadResourceIndex(){
  const box=$('resource-index');if(!box)return;
