@@ -18,13 +18,17 @@ const server=createServer(async(req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const base='http://127.0.0.1:'+server.address().port+'/toolkit/';
 const browser=await chromium.launch({headless:true,executablePath:process.env.CHROME_BIN||'/usr/bin/google-chrome',args:['--no-sandbox']});
-let active=null;let id=0;const errors=[];const bankRequests=[];
+let active=null;let id=0;let savedLesson=null;const errors=[];const bankRequests=[];
 async function handle(route){
  const body=JSON.parse(route.request().postData()||'{}');
  let response={ok:true};
  if(body.action==='create')response={code:'123456',teacherToken:'test-teacher',displayToken:'test-projector'};
  else if(body.action==='join')response={code:'123456',token:'test-student'};
  else if(body.action==='state')response={code:'123456',roomOpen:true,active,participants:0,students:[],answers:[],serverTime:Date.now(),results:{votes:[],total:0,words:[]}};
+ else if(body.action==='lesson-bank'){
+  if(body.operation==='save'){savedLesson={...body.item,id:'11111111-1111-4111-8111-111111111111',revision:(savedLesson?.revision||0)+1};response={item:savedLesson}}
+  else response={items:savedLesson?[savedLesson]:[]};
+ }
  else if(body.action==='evaluation-bank'&&body.operation==='list'){
   bankRequests.push(body.kind);
   if(body.kind==='jumbled')await new Promise(resolve=>setTimeout(resolve,200));
@@ -63,6 +67,11 @@ try{
  assert.match(await teacher.locator('.lesson-editor strong').innerText(),/Explore/);
  await teacher.locator('#mode-free').click();
  assert.equal(await teacher.locator('#lesson-panel').isVisible(),false);
+ await teacher.locator('#mode-5es').click();
+ await teacher.locator('#lesson-save-shared').click();
+ await teacher.locator('#lesson-library option').last().waitFor({state:'attached'});
+ assert.equal(savedLesson.title,'CREATE Book lesson');
+ await teacher.locator('#mode-free').click();
  assert.equal(await teacher.locator('#mode-free').getAttribute('aria-pressed'),'true');
  assert.equal(await teacher.locator('#lesson-title').count(),1,'Planner remains mounted but hidden in Free Mode');
  assert.deepEqual(await teacher.locator('#tool-nav [data-group]').evaluateAll(nodes=>nodes.map(el=>el.textContent.trim())),
