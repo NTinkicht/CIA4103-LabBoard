@@ -26,7 +26,7 @@ async function handle(route){
  else if(body.action==='join')response={code:'123456',token:'test-student'};
  else if(body.action==='state')response={code:'123456',roomOpen:true,active,participants:0,students:[],answers:[],serverTime:Date.now(),results:{votes:[],total:0,words:[]}};
  else if(body.action==='lesson-bank'){
-  if(body.operation==='save'){savedLesson={...body.item,id:'11111111-1111-4111-8111-111111111111',revision:(savedLesson?.revision||0)+1};response={item:savedLesson}}
+  if(body.operation==='save'){savedLesson={...body.item,id:'11111111-1111-4111-8111-111111111111',revision:(savedLesson?.revision||0)+1};response={item:savedLesson};if(body.item.title==='Race plan')await new Promise(resolve=>setTimeout(resolve,150))}
   else response={items:savedLesson?[savedLesson]:[]};
  }
  else if(body.action==='evaluation-bank'&&body.operation==='list'){
@@ -71,6 +71,12 @@ try{
  await teacher.locator('#lesson-save-shared').click();
  await teacher.locator('#lesson-library option').last().waitFor({state:'attached'});
  assert.equal(savedLesson.title,'CREATE Book lesson');
+ await teacher.locator('#lesson-title').fill('Race plan');
+ await teacher.locator('#lesson-save-shared').click();
+ await teacher.locator('#lesson-new').click();
+ await teacher.waitForTimeout(250);
+ assert.equal(await teacher.locator('#lesson-title').inputValue(),'Untitled lesson','Late save must not replace a new plan');
+ assert.equal(await teacher.locator('#lesson-library').inputValue(),'','Late save must not attach the previous plan ID');
  await teacher.locator('#mode-free').click();
  assert.equal(await teacher.locator('#mode-free').getAttribute('aria-pressed'),'true');
  assert.equal(await teacher.locator('#lesson-title').count(),1,'Planner remains mounted but hidden in Free Mode');
