@@ -25,6 +25,7 @@ async function handle(route){
  if(body.action==='create')response={code:'123456',teacherToken:'test-teacher',displayToken:'test-projector'};
  else if(body.action==='join')response={code:'123456',token:'test-student'};
  else if(body.action==='state')response={code:'123456',roomOpen:true,active,participants:0,students:[],answers:[],serverTime:Date.now(),results:{votes:[],total:0,words:[]}};
+ else if(body.action==='resource-index')response={groups:[{kind:'poll',count:1,items:[{id:'test',title:'Sample poll'}]},{kind:'lesson',count:0,items:[]}]};
  else if(body.action==='lesson-bank'){
   if(body.operation==='save'){savedLesson={...body.item,id:'11111111-1111-4111-8111-111111111111',revision:(savedLesson?.revision||0)+1};response={item:savedLesson};if(body.item.title==='Race plan')await new Promise(resolve=>setTimeout(resolve,150))}
   else response={items:savedLesson?[savedLesson]:[]};
@@ -134,7 +135,7 @@ try{
  assert.doesNotMatch(await teacher.locator('#eval-bank').innerText(),/Jumbled only/);
  assert.equal(await teacher.locator('#eval-mcq-tab').getAttribute('aria-selected'),'true');
  await teacher.locator('[data-group="present"]').click();
- assert.equal(await teacher.locator('#teacher-group-tabs [role="tab"]').count(),2);
+ assert.equal(await teacher.locator('#teacher-group-tabs [role="tab"]').count(),3);
  await teacher.locator('#document-frame').waitFor({state:'visible'});
  await teacher.locator('[data-tool="web"]').click();
  const web=teacher.frameLocator('#teacher-web-frame');
@@ -144,6 +145,10 @@ try{
  await teacher.locator('[data-tool="web"]').click();
  assert.equal(await web.locator('body').evaluate(()=>window.__keepWeb),17,'Saved browser remains mounted');
 
+ await teacher.locator('[data-tool="library"]').click();
+ await teacher.locator('#resource-index').getByText('Sample poll').waitFor();
+ await teacher.locator('[data-resource-bank="poll"]').click();
+ assert.equal(await teacher.locator('[data-tool="poll"]').getAttribute('aria-selected'),'true');
  await teacher.locator('#toolbar-timer').click();
  assert.equal(await teacher.locator('#teacher-group-tabs').isVisible(),false);
  await teacher.locator('#duration').selectOption('60');
