@@ -3,6 +3,9 @@ on:
   pull_request:
     paths:
       - 'netlify/functions/toolkit.mjs'
+      - 'netlify/functions/live-*.mjs'
+      - 'netlify/lib/live-auth.mjs'
+      - 'public/assets/live-*.mjs'
       - 'public/assets/toolkit-app.mjs'
       - 'public/assets/toolkit-navigation.mjs'
       - 'public/assets/toolkit-collaborate.mjs'
@@ -30,6 +33,12 @@ jobs:
       - run: node --check public/assets/toolkit-app.mjs
       - run: node --check public/assets/toolkit-navigation.mjs
       - run: node --check netlify/functions/toolkit.mjs
+      - run: node --check netlify/functions/live-token.mjs
+      - run: node --check netlify/functions/live-control.mjs
+      - run: node --check netlify/functions/live-participants.mjs
+      - run: node --check netlify/lib/live-auth.mjs
+      - run: node --check public/assets/live-student.mjs
+      - run: node --check public/assets/live-teacher.mjs
       - run: node --check netlify/functions/whiteboard-elements.mjs
       - run: node --check public/assets/toolkit-presenter.mjs
       - run: node --check public/assets/toolkit-whiteboard.mjs
