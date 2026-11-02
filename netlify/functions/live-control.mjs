@@ -1,7 +1,7 @@
 import {randomUUID} from 'node:crypto';
 import {getStore} from '@netlify/blobs';
 import {RoomServiceClient,TrackSource} from 'livekit-server-sdk';
-import {ROOM,configured,lecturerAuthorized,teacherAuthorized} from '../lib/live-auth.mjs';
+import {ROOM,configured,lecturerAuthorized,teacherAuthorized,lecturerScreenRoom} from '../lib/live-auth.mjs';
 import {pickStudent} from '../lib/random-student.mjs';
 
 // One lecturer action at a time. The distributed lease serializes approvals
@@ -16,18 +16,18 @@ function service(){
 function meta(p){
  try{return JSON.parse(p.metadata||'{}')}catch{return{}}
 }
-export async function acquire(store,now=Date.now(),id=randomUUID()){
- const existing=await store.getWithMetadata(LOCK,{type:'json',consistency:'strong'});
+export async function acquire(store,now=Date.now(),id=randomUUID(),lockKey=LOCK){
+ const existing=await store.getWithMetadata(lockKey,{type:'json',consistency:'strong'});
  const lease={owner:id,expires:now+25000};
  if(existing?.data?.owner&&existing.data.expires>now)return null;
  const options=existing?{onlyIfMatch:existing.etag}:{onlyIfNew:true};
- const result=await store.setJSON(LOCK,lease,options);
+ const result=await store.setJSON(lockKey,lease,options);
  if(!result.modified||!result.etag)return null;
- return {owner:id,etag:result.etag};
+ return {owner:id,etag:result.etag,lockKey};
 }
 export async function release(store,lease){
  if(!lease)return;
- try{await store.setJSON(LOCK,{owner:null,expires:0},{onlyIfMatch:lease.etag});}
+ try{await store.setJSON(lease.lockKey||LOCK,{owner:null,expires:0},{onlyIfMatch:lease.etag});}
  catch(err){console.error('Classroom control lease release failed',err?.name||'error');}
 }
 // A lecturer switches the displayed screen, NOT a student's browser capture.
@@ -40,8 +40,8 @@ export function randomScreenParticipant(participants,choose){
  const current=eligible.find(p=>['active','approved'].includes(meta(p).status))?.identity||null;
  return pickStudent(eligible,current,p=>p.identity,choose);
 }
-export async function switchPresenter(api,identity){
- let people=await api.listParticipants(ROOM);
+export async function switchPresenter(api,identity,roomName=ROOM){
+ let people=await api.listParticipants(roomName);
  const students=people.filter(p=>meta(p).role==='student');
  const target=identity?students.find(p=>p.identity===identity):null;
  if(identity&&!target)return {error:'This student has disconnected. Refresh the list.',status:404};
@@ -49,14 +49,14 @@ export async function switchPresenter(api,identity){
  for(const student of students){
   if(student.identity===identity)continue;
   if(['active','approved'].includes(meta(student).status)){
-   await api.updateParticipant(ROOM,student.identity,{
+   await api.updateParticipant(roomName,student.identity,{
     metadata:JSON.stringify({role:'student',status:student.permission?.canPublish?'standby':'waiting'})
    });
   }
  }
  if(target){
   const existingPermission=Boolean(target.permission?.canPublish);
-  await api.updateParticipant(ROOM,identity,{
+  await api.updateParticipant(roomName,identity,{
    ...(existingPermission?{}:{permission:{
     canPublish:true,canSubscribe:false,canPublishData:false,
     canPublishSources:[TrackSource.SCREEN_SHARE]
@@ -64,14 +64,14 @@ export async function switchPresenter(api,identity){
    metadata:JSON.stringify({role:'student',status:'active'})
   });
  }
- people=await api.listParticipants(ROOM);
+ people=await api.listParticipants(roomName);
  const refreshed=people.filter(p=>meta(p).role==='student');
  const selected=refreshed.filter(p=>['active','approved'].includes(meta(p).status));
  if(selected.length!==(identity?1:0)||
    identity&&(!selected[0]||selected[0].identity!==identity||!selected[0].permission?.canPublish)){
   // Fail closed for what is shown, but preserve student's running window capture.
   for(const student of selected){
-   await api.updateParticipant(ROOM,student.identity,{
+   await api.updateParticipant(roomName,student.identity,{
     metadata:JSON.stringify({role:'student',status:student.permission?.canPublish?'standby':'waiting'})
    });
   }
@@ -89,12 +89,14 @@ export default async function handler(req){
   data=JSON.parse(body);
  }catch{return respond({error:'Invalid request'},400)}
  if(!await lecturerAuthorized(data))return respond({error:'Lecturer authorization failed'},403);
+ const roomName=lecturerScreenRoom(data);
+ if(!roomName)return respond({error:'Invalid classroom room'},403);
  if(!['approve','stop','random'].includes(data.action))return respond({error:'Unknown action'},400);
  if(data.action==='approve'&&(!/^student-[a-f0-9-]{36}$/.test(data.identity||'')))return respond({error:'Invalid student'},400);
  let lease,store;
  try{
   store=getStore({name:'cia4103-screen-control',consistency:'strong'});
-  lease=await acquire(store);
+  lease=await acquire(store,Date.now(),randomUUID(),LOCK+'/'+roomName);
   if(!lease)return respond({error:'A lecturer action is already in progress. Please retry in a moment.'},409);
   // Stop means hide the selected screen; students may remain in standby.
   const api=service();
@@ -103,13 +105,13 @@ export default async function handler(req){
   if(data.action==='random'){
     // Only connected LiveKit students are eligible; other classroom members
     // must first join the sharing queue from their own browser.
-    const participants=await api.listParticipants(ROOM);
+    const participants=await api.listParticipants(roomName);
     const winner=randomScreenParticipant(participants);
     if(!winner)return respond({error:'No students are connected to Screen Sharing yet. Ask students to open Screen Share and join the queue.'},409);
     targetId=winner.identity;
     chosenName=winner.name||'Student';
   }
-  const result=await switchPresenter(api,targetId);
+  const result=await switchPresenter(api,targetId,roomName);
   return result.error?respond({error:result.error},result.status):
     respond({...result,...(data.action==='random'?{selectedName:chosenName,selectedIdentity:targetId}:{})});
  }catch(err){
