@@ -761,6 +761,9 @@ function studentShell(){
   document.querySelectorAll('[data-work-kind]').forEach(x=>{const active=x.dataset.workKind===state.workKind;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active))});
  }));
  $('embedded-screen-share').addEventListener('load',()=>{
+  if(state.role==='student'&&state.room){
+   $('embedded-screen-share').contentWindow?.postMessage({type:'toolkit:student-room',code:state.room},location.origin);
+  }
   try{const field=$('embedded-screen-share').contentDocument?.getElementById('name');
    if(field&&!field.value)field.value=state.studentName||'';
   }catch{/* Keep sharing usable if embedding policy changes */}

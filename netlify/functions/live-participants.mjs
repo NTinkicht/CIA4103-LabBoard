@@ -1,5 +1,5 @@
 import {RoomServiceClient} from 'livekit-server-sdk';
-import {ROOM,configured,lecturerAuthorized,teacherAuthorized} from '../lib/live-auth.mjs';
+import {ROOM,configured,lecturerAuthorized,teacherAuthorized,lecturerScreenRoom} from '../lib/live-auth.mjs';
 const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
 const res=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
 export default async function handler(req){
@@ -8,9 +8,11 @@ export default async function handler(req){
  try{
   const raw=await req.text();if(raw.length>2500)return res({error:'Invalid request'},400);
   const auth=JSON.parse(raw);if(!await lecturerAuthorized(auth))return res({error:'Lecturer access denied'},403);
+  const roomName=lecturerScreenRoom(auth);
+  if(!roomName)return res({error:'Invalid classroom room'},403);
   const host=process.env.LIVEKIT_URL.replace(/^wss:\/\//,'https://');
   const api=new RoomServiceClient(host,process.env.LIVEKIT_API_KEY,process.env.LIVEKIT_API_SECRET);
-  let people=[];try{people=await api.listParticipants(ROOM);}catch(e){if(/not found|does not exist|404/i.test(String(e)))return res({streams:[]});throw e;}
+  let people=[];try{people=await api.listParticipants(roomName);}catch(e){if(/not found|does not exist|404/i.test(String(e)))return res({streams:[]});throw e;}
   const streams=people.flatMap(p=>{
    let metadata={};try{metadata=JSON.parse(p.metadata||'{}');}catch{}
    return metadata.role==='student'?[{
