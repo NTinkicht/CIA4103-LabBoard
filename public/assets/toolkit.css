@@ -364,6 +364,20 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 
 /* Per-tool activity pages: Questions and Live Results occupy the same workspace.
    Result mode hides preparation controls rather than forcing the lecturer to scroll. */
+.teacher-group-tabs{display:flex;gap:7px;margin:16px 0 20px;padding:6px;border-radius:13px;
+ background:#f0f5fa;border:1px solid #dae6f0;overflow-x:auto;scrollbar-width:thin}
+.teacher-group-tabs[hidden]{display:none!important}
+.teacher-group-tabs button{min-height:44px;padding:10px 16px;border-radius:9px;white-space:nowrap;
+ background:transparent;color:#55738d;font-size:13px;font-weight:800;flex:1 0 auto}
+.teacher-group-tabs button.active,.teacher-group-tabs button[aria-selected="true"]{
+ background:white;color:#175f9d;box-shadow:0 2px 10px #24476d18}
+.teacher-group-tabs button:hover:not(.active){background:#e5eff8}
+/* The grouped tab strip owns navigation; existing inner tab controllers remain mounted. */
+.lecturer-layout .collab-tabs,.lecturer-layout .eval-tabs{display:none!important}
+.toolbar-timer-clock{border-radius:10px;border:1px solid #bcd9ec;background:#e8f4ff;
+ color:#155d92;font:800 15px/1.2 ui-monospace,SFMono-Regular,Consolas,monospace;
+ font-variant-numeric:tabular-nums;padding:12px 10px;white-space:nowrap}
+.toolbar-timer-clock[hidden]{display:none!important}
 .activity-view-tabs{display:flex;align-items:center;gap:6px;padding:5px;margin:15px 0 19px;
  width:max-content;max-width:100%;border:1px solid #dce8f3;border-radius:12px;background:#f1f5fa}
 .activity-view-tabs[hidden],.activity-results-view[hidden],#tool-config[hidden]{display:none!important}
@@ -374,7 +388,7 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 .activity-view-tabs button:disabled{opacity:.48;cursor:not-allowed}
 .activity-view-tabs button:not(:disabled):hover:not(.active){background:#e6eef7}
 .activity-results-focus .mainstack>.surface:first-child{padding-top:17px}
-.activity-results-focus .mainstack>.surface:first-child>.headrow{display:none}
+.activity-results-focus .mainstack>.surface:first-child>.headrow{padding-bottom:3px}
 .activity-results-focus .activity-view-tabs{margin:0 0 16px}
 .activity-results-view{min-width:0;min-height:360px}
 .activity-results-view .results-head{margin:0 0 17px;gap:15px;padding:0 0 13px;
@@ -609,6 +623,7 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
 #stop-current-activity[hidden]{display:none!important}
 .teacher-global-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .teacher-global-controls button{font-size:11px;padding:9px 11px;border-radius:9px}
+@media(max-width:590px){.teacher-group-tabs{margin:12px 0 16px}.teacher-group-tabs button{padding:10px 12px;font-size:12px}.toolbar-timer-clock{font-size:13px;padding:9px}}
 .collab-root{min-width:0}
 .collab-tabs{display:flex;gap:5px;padding:5px;background:#f1f5fb;border:1px solid #dce6ef;
  border-radius:12px;margin:10px 0 15px}

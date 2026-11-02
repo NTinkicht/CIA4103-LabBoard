@@ -65,7 +65,7 @@ try{
  assert.equal(await lecturer.locator('#save-question').count(),1,'Live Answers must offer Save');
  await lecturer.locator('[data-tool="poll"]').click();
  assert.equal(await lecturer.locator('#save-question').count(),1,'Poll must offer Save');
- await lecturer.locator('[data-tool="documents"]').click();
+ await lecturer.locator('[data-group="present"]').click();
  const frame=lecturer.frameLocator('#document-frame');
  await frame.locator('#upload').waitFor({state:'attached',timeout:10000});
  assert.match(await frame.locator('h1').first().innerText(),/Present your slides/);
@@ -90,7 +90,7 @@ try{
  console.log('Wide Files & Slides frame:',Math.round(docsFrameBounds.width),'Sidebar width:',Math.round(railBounds.width));
  await lecturer.locator('#rail-toggle').click();
  assert.equal(await lecturer.locator('#rail-toggle').getAttribute('aria-expanded'),'false');
- assert.equal(await lecturer.locator('.tool-link').first().getAttribute('aria-label'),'Live Poll');
+ assert.equal(await lecturer.locator('.tool-link').first().getAttribute('aria-label'),'Interact');
  const collapsedRail=await lecturer.locator('.rail').boundingBox();
  const expandedSlides=await lecturer.locator('#document-frame').boundingBox();
  assert.ok(collapsedRail.width<=80,'Collapsed rail should be icon-only and narrow');
@@ -106,7 +106,7 @@ try{
   autoLiveLogin=JSON.parse(route.request().postData()||'{}');
   await route.fulfill({status:502,contentType:'application/json',body:JSON.stringify({error:'Synthetic LiveKit intentionally offline for UI test'})});
  });
- await lecturer.locator('[data-tool="collaborate"]').click();
+ await lecturer.locator('[data-group="collaborate"]').click();
  const screenFrame=lecturer.frameLocator('#teacher-screen-frame');
  await screenFrame.locator('#stream-teacher-root').waitFor({state:'visible',timeout:15000});
  await screenFrame.locator('#stream-pin').waitFor({state:'attached',timeout:10000});
@@ -130,11 +130,11 @@ try{
  assert.ok(statusBounds.height<=45,'Connection status should be compact');
  // The teacher's ongoing LiveKit iframe is never recreated while changing tools.
  await screenFrame.locator('body').evaluate(()=>{window.__persistentToolkitScreenSession=1});
- await lecturer.locator('[data-tool="documents"]').click();
+ await lecturer.locator('[data-group="present"]').click();
  assert.equal(await lecturer.locator('#teacher-screen-host').isVisible(),false);
  assert.equal(await lecturer.locator('#teacher-slides-host').isVisible(),true);
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
- await lecturer.locator('[data-tool="collaborate"]').click();
+ await lecturer.locator('[data-group="collaborate"]').click();
  assert.equal(await screenFrame.locator('body').evaluate(()=>window.__persistentToolkitScreenSession),1);
  assert.equal(await lecturer.locator('#live-results-panel').isVisible(),false);
  console.log('Focused embedded screen sharing, sidebar and persistent screens tested at desktop width');

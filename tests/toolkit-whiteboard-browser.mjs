@@ -95,8 +95,8 @@ async function drag(p,selector){
 try{
  const t=await page();await t.locator('#open-teacher').click();await t.locator('#teacher-pin').fill('synthetic-pin');
  await t.locator('#create-submit').click();
- await t.locator('[data-tool="collaborate"]').click();
- await t.locator('#collab-tab-whiteboard').click();
+ await t.locator('[data-group="collaborate"]').click();
+ await t.locator('[data-tool="whiteboard"]').click();
  await t.locator('#collab-open-board').click();
  await t.locator('#teacher-board-mount canvas').waitFor({timeout:8000});
  await t.locator('#collab-students .collab-person').first().waitFor({timeout:8000});

@@ -12,6 +12,9 @@
     "livekit-server-sdk": "2.19.1"
   },
   "scripts": {
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "test:navigation-coverage": "node --experimental-test-coverage --test-coverage-include=public/assets/toolkit-navigation.mjs --test-coverage-lines=95 --test-coverage-branches=95 --test-coverage-functions=95 --test tests/toolkit-navigation.test.mjs",
+    "test:browser": "node tests/toolkit-browser-smoke.mjs && npm run test:browser:offline",
+    "test:browser:offline": "node tests/toolkit-whiteboard-browser.mjs && node tests/toolkit-cloud-browser.mjs && node tests/toolkit-activity-tabs-browser.mjs && node tests/toolkit-web-browser-browser.mjs && node tests/toolkit-participation-browser.mjs && node tests/toolkit-evaluation-browser.mjs && node tests/toolkit-collaborate-browser.mjs && node tests/toolkit-navigation-browser.mjs"
   }
 }
