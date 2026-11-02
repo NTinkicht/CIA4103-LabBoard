@@ -14,7 +14,7 @@ let teacherCloud=null,displayCloud=null,teacherCloudRound=null,displayCloudRound
 let evaluationTeacher=null,evaluationStudent=null,evaluationStudentRound=null;
 let collaborateTeacher=null,documentStudent=null;
 const ICONS={poll:'▥',answers:'▤',cloud:'☁',timer:'◷',screen:'▣',documents:'▧'};
-const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',group:'interact',currentTab:'poll',rememberedTabs:{interact:'poll',collaborate:'screen',assess:'mcq',present:'documents'},activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'mcq',collaborateTab:'screen',teachingMode:'free',lesson:null,lessonPhase:0};
+const state={role:null,token:null,displayToken:null,room:null,studentTab:'activities',studentName:'',workImage:null,workItems:[],workKind:'problem',shareLoaded:false,workLastFetch:0,workFetchBusy:false,workSignature:null,tool:'poll',group:'interact',currentTab:'poll',rememberedTabs:{interact:'poll',collaborate:'screen',assess:'mcq',present:'documents'},activityView:'questions',snapshot:null,lastStudentKey:null,pollTimer:null,busy:false,epoch:0,clockOffset:0,errors:0,savedPolls:[],savedQuestionSets:{poll:[],cloud:[],answers:[]},editingPollId:null,editingRevision:0,participationSignature:null,evalKind:'mcq',collaborateTab:'screen',teachingMode:'free',lesson:null,lessonPhase:0,lessonId:null,lessonRevision:0,lessonLibrary:[]};
 function savedLesson(){try{return normalizeLesson(JSON.parse(localStorage.getItem('classroom-toolkit-lesson')||'{}'))}catch{return normalizeLesson()}}
 function saveLesson(){try{localStorage.setItem('classroom-toolkit-lesson',JSON.stringify(state.lesson))}catch{announce('Could not save lesson to this browser.',true)}}
 let toastTimer=null;
@@ -80,7 +80,7 @@ function shell(){
  startPolling();
 }
 function teacherShell(){
- state.teachingMode='free';state.lesson=savedLesson();state.lessonPhase=0;
+ state.teachingMode='free';state.lesson=savedLesson();state.lessonPhase=0;state.lessonId=null;state.lessonRevision=0;state.lessonLibrary=[];
  app.classList.add('lecturer-layout');
  const railPref=(()=>{try{return localStorage.getItem('classroom-toolkit-rail-collapsed')==='true'}catch{return false}})();
  app.classList.toggle('rail-collapsed',railPref);
@@ -150,6 +150,19 @@ function setTeachingMode(mode){
  $('mode-free').setAttribute('aria-pressed',String(state.teachingMode==='free'));
  $('mode-5es').setAttribute('aria-pressed',String(state.teachingMode==='5es'));
  renderLessonPanel();
+ if(state.teachingMode==='5es')void loadLessonLibrary();
+}
+async function loadLessonLibrary(){
+ try{const data=await request('lesson-bank',{token:state.token,operation:'list'});state.lessonLibrary=data.items||[];renderLessonPanel()}
+ catch(error){announce('Could not load shared lessons: '+error.message,true)}
+}
+async function saveSharedLesson(){
+ const button=$('lesson-save-shared');if(button)button.disabled=true;
+ try{
+  const data=await request('lesson-bank',{token:state.token,operation:'save',item:state.lesson,...(state.lessonId?{id:state.lessonId,revision:state.lessonRevision}:{})});
+  state.lessonId=data.item.id;state.lessonRevision=data.item.revision;
+  announce('Lesson saved to your shared library');await loadLessonLibrary();
+ }catch(error){announce('Lesson not saved: '+error.message,true);if(button)button.disabled=false}
 }
 function openLessonPhase(index){
  state.lessonPhase=Math.max(0,Math.min(PHASES.length-1,index));
@@ -162,9 +175,13 @@ function renderLessonPanel(){
  panel.hidden=state.teachingMode!=='5es';if(panel.hidden)return;
  const lesson=state.lesson;
  panel.innerHTML='<div class="lesson-heading"><label for="lesson-title">Lesson title</label><input id="lesson-title" maxlength="120" value="'+esc(lesson.title)+'"><span class="small">Saved in this lecturer browser</span></div>'+
+ '<div class="lesson-shared-controls"><label for="lesson-library">Shared lessons</label><select id="lesson-library"><option value="">Choose a saved lesson</option>'+state.lessonLibrary.map(item=>'<option value="'+esc(item.id)+'" '+(item.id===state.lessonId?'selected':'')+'>'+esc(item.title)+'</option>').join('')+'</select><button type="button" class="secondary" id="lesson-new">New plan</button><button type="button" class="primary" id="lesson-save-shared">Save shared plan</button></div>'+ 
  '<nav class="lesson-phases" aria-label="5Es lesson phases">'+PHASES.map((phase,i)=>'<button type="button" class="'+(i===state.lessonPhase?'active':'')+'" data-phase="'+i+'" aria-current="'+(i===state.lessonPhase?'step':'false')+'">'+(i+1)+'. '+phase+'</button>').join('')+'</nav>'+
  '<div class="lesson-editor"><strong>'+PHASES[state.lessonPhase]+'</strong><label for="lesson-duration">Minutes</label><input id="lesson-duration" type="number" min="1" max="120" value="'+lesson.phases[state.lessonPhase].duration+'"><label for="lesson-tool">Activity</label><select id="lesson-tool">'+LESSON_TOOLS.map(t=>'<option value="'+t+'" '+(t===lesson.phases[state.lessonPhase].tool?'selected':'')+'>'+esc(NAMES[t]||t)+'</option>').join('')+'</select><label for="lesson-notes">Lecturer notes</label><textarea id="lesson-notes" rows="2" maxlength="2000">'+esc(lesson.phases[state.lessonPhase].notes)+'</textarea></div>'+
  '<div class="buttons"><button type="button" class="secondary" id="lesson-previous" '+(state.lessonPhase===0?'disabled':'')+'>← Previous phase</button><button type="button" class="primary" id="lesson-open-tool">Open selected activity</button><button type="button" class="secondary" id="lesson-next" '+(state.lessonPhase===4?'disabled':'')+'>Next phase →</button></div>';
+ $('lesson-library').onchange=()=>{const item=state.lessonLibrary.find(value=>value.id===$('lesson-library').value);if(!item)return;state.lesson=normalizeLesson(item);state.lessonId=item.id;state.lessonRevision=item.revision;state.lessonPhase=0;saveLesson();renderLessonPanel()};
+ $('lesson-new').onclick=()=>{state.lesson=normalizeLesson();state.lessonId=null;state.lessonRevision=0;state.lessonPhase=0;saveLesson();renderLessonPanel()};
+ $('lesson-save-shared').onclick=()=>{persist();void saveSharedLesson()};
  const persist=()=>{lesson.title=$('lesson-title').value.slice(0,120)||'Untitled lesson';const phase=lesson.phases[state.lessonPhase];phase.duration=Math.max(1,Math.min(120,Math.round(Number($('lesson-duration').value)||15)));phase.tool=$('lesson-tool').value;phase.notes=$('lesson-notes').value.slice(0,2000);saveLesson()};
  for(const id of ['lesson-title','lesson-duration','lesson-tool','lesson-notes'])$(id).addEventListener('input',persist);
  panel.querySelectorAll('[data-phase]').forEach(button=>button.onclick=()=>{persist();openLessonPhase(Number(button.dataset.phase))});
