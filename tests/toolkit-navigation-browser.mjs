@@ -50,6 +50,21 @@ try{
  await teacher.locator('#teacher-pin').fill('test-only-pin');
  await teacher.locator('#create-submit').click();
  await teacher.locator('#teacher-group-tabs [role="tab"]').first().waitFor({state:'visible'});
+ assert.equal(await teacher.locator('#mode-free').getAttribute('aria-pressed'),'true','Free Mode must be the default');
+ await teacher.locator('#mode-5es').click();
+ assert.equal(await teacher.locator('#lesson-panel').isVisible(),true);
+ assert.equal(await teacher.locator('.lesson-phases button').count(),5);
+ await teacher.locator('#lesson-title').fill('CREATE Book lesson');
+ assert.equal(await teacher.evaluate(()=>JSON.parse(localStorage.getItem('classroom-toolkit-lesson')).title),'CREATE Book lesson','Text edits save before blur');
+ await teacher.locator('#lesson-tool').selectOption('answers');
+ await teacher.locator('#lesson-open-tool').click();
+ assert.equal(await teacher.locator('[data-tool="answers"]').getAttribute('aria-selected'),'true','Selected 5Es tool is open');
+ await teacher.locator('#lesson-next').click();
+ assert.match(await teacher.locator('.lesson-editor strong').innerText(),/Explore/);
+ await teacher.locator('#mode-free').click();
+ assert.equal(await teacher.locator('#lesson-panel').isVisible(),false);
+ assert.equal(await teacher.locator('#mode-free').getAttribute('aria-pressed'),'true');
+ assert.equal(await teacher.locator('#lesson-title').count(),1,'Planner remains mounted but hidden in Free Mode');
  assert.deepEqual(await teacher.locator('#tool-nav [data-group]').evaluateAll(nodes=>nodes.map(el=>el.textContent.trim())),
   ['▥Interact','▣Collaborate','◈Assess','▧Present']);
  assert.equal(await teacher.locator('#teacher-group-tabs [role="tab"]').count(),3);

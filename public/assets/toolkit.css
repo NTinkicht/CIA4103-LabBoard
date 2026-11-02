@@ -704,6 +704,22 @@ footer{text-align:center;font-size:11px;color:#91a0b0;padding:20px}.sr-only{posi
  padding:13px;min-height:96px;font:14px/1.5 inherit;resize:vertical}
 .doc-student button{border-radius:9px;padding:10px 15px}
 #student-document-status{font-size:12px;color:#14784f;font-weight:700}
+.lesson-mode-bar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;padding:12px 17px;background:#fff;border:1px solid #dce7f0;border-radius:13px;margin-bottom:12px}
+.lesson-mode-bar strong{margin-right:10px;font-size:13px;color:#35556d}
+.lesson-mode-bar button[aria-pressed="true"]{background:#145d8e;color:#fff;border-color:#145d8e}
+.lesson-panel{background:#fff;border:1px solid #dce7f0;border-radius:13px;margin-bottom:12px;padding:16px;display:grid;gap:14px}
+.lesson-panel[hidden]{display:none}
+.lesson-heading{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.lesson-heading input{flex:1;min-width:190px}
+.lesson-panel label{font-size:12px;font-weight:700;color:#365a75}
+.lesson-panel input,.lesson-panel select,.lesson-panel textarea{padding:9px 10px;border:1px solid #cbdbe9;border-radius:9px;background:#fff;color:#23465f}
+.lesson-phases{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.lesson-phases button{min-width:0;font-size:12px;padding:10px 5px;border:1px solid #d5e3ee;border-radius:9px;background:#f5f9fc;color:#305575}
+.lesson-phases button.active{background:#e3f3f7;border-color:#0a7385;color:#085b69;font-weight:800}
+.lesson-editor{display:grid;grid-template-columns:auto minmax(65px,100px) auto minmax(130px,1fr);align-items:center;gap:9px}
+.lesson-editor strong{grid-column:1/-1;color:#245875}
+.lesson-editor label[for="lesson-notes"],.lesson-editor textarea{grid-column:1/-1}
+@media(max-width:720px){.lesson-phases{grid-template-columns:repeat(2,minmax(0,1fr))}.lesson-editor{grid-template-columns:1fr 2fr}.lesson-editor strong,.lesson-editor label[for="lesson-notes"],.lesson-editor textarea{grid-column:1/-1}}
 @media(max-width:1200px){
  .collab-layout{grid-template-columns:minmax(150px,175px) minmax(0,1fr);gap:8px}
  .collab-roster{padding:9px 6px}
