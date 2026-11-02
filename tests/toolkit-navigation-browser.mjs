@@ -55,10 +55,10 @@ try{
  assert.equal(await teacher.locator('#lesson-panel').isVisible(),true);
  assert.equal(await teacher.locator('.lesson-phases button').count(),5);
  await teacher.locator('#lesson-title').fill('CREATE Book lesson');
- await teacher.locator('#lesson-title').dispatchEvent('change');
+ assert.equal(await teacher.evaluate(()=>JSON.parse(localStorage.getItem('classroom-toolkit-lesson')).title),'CREATE Book lesson','Text edits save before blur');
  await teacher.locator('#lesson-tool').selectOption('answers');
  await teacher.locator('#lesson-open-tool').click();
- assert.equal(await teacher.locator('#tool-title').innerText(),'Live Answers');
+ assert.equal(await teacher.locator('[data-tool="answers"]').getAttribute('aria-selected'),'true','Selected 5Es tool is open');
  await teacher.locator('#lesson-next').click();
  assert.match(await teacher.locator('.lesson-editor strong').innerText(),/Explore/);
  await teacher.locator('#mode-free').click();
