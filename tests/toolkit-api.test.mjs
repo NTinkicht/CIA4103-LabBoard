@@ -934,7 +934,17 @@ test('session report respects late joiners, submission credit and lecturer priva
  const earlyRow=report.body.students.find(s=>s.name==='Early');
  const lateRow=report.body.students.find(s=>s.name==='Late');
  assert.deepEqual([earlyRow.eligible,earlyRow.participated,earlyRow.rate],[2,1,50]);
- assert.deepEqual([lateRow.eligible,lateRow.participated,lateRow.rate],[1,1,100]);
+ assert.deepEqual([lateRow.eligible,lateRow.participated,lateRow.rate],[2,1,50]);
  assert.equal(JSON.stringify(report.body).includes('studentToken'),false);
  assert.equal(report.body.activities.every(a=>!('studentIds' in a)),true);
+});
+
+test('joining during an active poll credits that poll when answered',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const active=(await start(store,room.teacherToken,'poll',{prompt:'Open',options:['Yes','No']})).body.active;
+ const student=(await join(store,room.code,'During poll')).body;
+ await call(store,{action:'submit',token:student.token,roundId:active.id,value:0,revision:0});
+ const report=(await call(store,{action:'session-report',token:room.teacherToken})).body;
+ assert.deepEqual([report.students[0].eligible,report.students[0].participated,report.students[0].rate],[1,1,100]);
+ assert.equal(report.activities[0].eligible,1);
 });
