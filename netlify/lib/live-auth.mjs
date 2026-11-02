@@ -44,3 +44,25 @@ export async function lecturerAuthorized(data,storeProvider=getStore,env=process
   return false;
  }
 }
+
+
+// A Toolkit room uses its own LiveKit namespace. The legacy standalone
+// dashboard deliberately retains its original shared room.
+export const screenRoomName=code=>`cia4103-toolkit-${code}-screen-shares`;
+export function lecturerScreenRoom(data){
+ if(typeof data?.toolkitToken!=='string')return ROOM;
+ try{
+  const claims=JSON.parse(Buffer.from(data.toolkitToken.split('.')[0],'base64url').toString('utf8'));
+  return /^[0-9]{6}$/.test(claims.code)?screenRoomName(claims.code):null;
+ }catch{return null}
+}
+export async function studentScreenRoom(data,storeProvider=getStore,now=Date.now()){
+ if(data?.code===undefined)return ROOM; // Standalone /live/ compatibility.
+ if(!/^[0-9]{6}$/.test(data.code))return null;
+ try{
+  const room=await storeProvider({name:'classroom-toolkit-v1',consistency:'strong'})
+   .get('room/'+data.code,{type:'json',consistency:'strong'});
+  return room&&room.code===data.code&&!room.ended&&Number.isFinite(room.expiresAt)&&room.expiresAt>now
+   ?screenRoomName(data.code):null;
+ }catch{return null}
+}
