@@ -6,6 +6,7 @@ import {pickStudent} from '../lib/random-student.mjs';
 import {studentParticipation} from '../lib/toolkit-participation.mjs';
 import {validEvaluation,shuffledSteps,validateEvaluationSubmission,evaluationCorrect,studentEngagement} from '../lib/toolkit-evaluation.mjs';
 import {validateDocumentTemplate,validateDocumentAnswers} from '../lib/toolkit-text-document.mjs';
+import {validLesson} from '../../public/assets/toolkit-lesson-flow.mjs';
 
 const STORE='classroom-toolkit-v1';
 const HEAD={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'};
@@ -443,6 +444,40 @@ export async function handleToolkit(request,storeProvider=getStore){
       return fail(400,'Unknown bookmark operation');
     }
 
+    if(data.action==='lesson-bank'){
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      const operation=data.operation||'list',prefix='saved-5es-lesson/';
+      if(operation==='list'){
+        const items=(await entries(store,prefix,100)).filter(item=>!item.archived)
+          .sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+        return reply({items});
+      }
+      if(operation==='save'){
+        const lesson=validLesson(data.item);
+        if(!lesson)return fail(400,'Invalid five-phase lesson');
+        const id=data.id||randomUUID();
+        if(typeof id!=='string'||!/^[a-f0-9-]{36}$/i.test(id))return fail(400,'Invalid lesson ID');
+        const path=key('saved-5es-lesson',id);
+        const old=await store.getWithMetadata(path,{type:'json',consistency:'strong'});
+        const revision=Number(data.revision||0);
+        if(!Number.isInteger(revision)||revision<0||
+           (old?.data?.revision||0)!==revision||old?.data?.archived)
+          return fail(409,'Lesson changed. Reload before saving');
+        if(!old&&(await store.list({prefix})).blobs.length>=100)
+          return fail(409,'Lesson library full (100 plans)');
+        const item={id,...lesson,revision:revision+1,archived:false,
+          createdAt:old?.data?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString()};
+        const saved=await store.setJSON(path,item,old?{onlyIfMatch:old.etag}:{onlyIfNew:true});
+        return saved.modified?reply({item},old?200:201):fail(409,'Lesson was edited concurrently');
+      }
+      if(operation==='delete'){
+        if(typeof data.id!=='string'||!/^[a-f0-9-]{36}$/i.test(data.id))return fail(400,'Invalid lesson ID');
+        const changed=await change(store,key('saved-5es-lesson',data.id),item=>
+          item.archived?{error:'Lesson was deleted'}:{...item,archived:true,revision:item.revision+1,updatedAt:new Date().toISOString()});
+        return changed?.error?fail(409,changed.error):changed?reply({ok:true}):fail(404,'Lesson not found');
+      }
+      return fail(400,'Unknown lesson operation');
+    }
     if(data.action==='document-bank'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       const operation=data.operation||'list',prefix='saved-text-document/';
