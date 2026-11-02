@@ -917,3 +917,24 @@ test('resource overview aggregates saved banks for lecturers without leaking to 
  assert.equal(index.body.groups.find(x=>x.kind==='lesson').count,0);
  assert.equal(index.body.groups.some(x=>x.items.some(y=>'correct' in y||'questions' in y)),false);
 });
+
+test('session report respects late joiners, submission credit and lecturer privacy',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const early=(await join(store,room.code,'Early')).body;
+ const first=(await start(store,room.teacherToken,'poll',{prompt:'First',options:['Yes','No']})).body.active;
+ await call(store,{action:'submit',token:early.token,roundId:first.id,value:0,revision:0});
+ const late=(await join(store,room.code,'Late')).body;
+ const second=(await start(store,room.teacherToken,'poll',{prompt:'Second',options:['Yes','No']})).body.active;
+ await call(store,{action:'submit',token:late.token,roundId:second.id,value:1,revision:0});
+ assert.equal((await call(store,{action:'session-report',token:late.token})).status,403);
+ assert.equal((await call(store,{action:'session-report',token:room.displayToken})).status,403);
+ const report=await call(store,{action:'session-report',token:room.teacherToken});
+ assert.equal(report.status,200);
+ assert.equal(report.body.activities.length,2);
+ const earlyRow=report.body.students.find(s=>s.name==='Early');
+ const lateRow=report.body.students.find(s=>s.name==='Late');
+ assert.deepEqual([earlyRow.eligible,earlyRow.participated,earlyRow.rate],[2,1,50]);
+ assert.deepEqual([lateRow.eligible,lateRow.participated,lateRow.rate],[1,1,100]);
+ assert.equal(JSON.stringify(report.body).includes('studentToken'),false);
+ assert.equal(report.body.activities.every(a=>!('studentIds' in a)),true);
+});
