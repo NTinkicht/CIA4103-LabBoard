@@ -153,7 +153,12 @@ function setTeachingMode(mode){
  if(state.teachingMode==='5es')void loadLessonLibrary();
 }
 async function loadLessonLibrary(){
- try{const data=await request('lesson-bank',{token:state.token,operation:'list'});state.lessonLibrary=data.items||[];renderLessonPanel()}
+ try{const data=await request('lesson-bank',{token:state.token,operation:'list'});state.lessonLibrary=data.items||[];
+  // Refresh only the selector: recreating the whole planner here can discard focused edits.
+  const select=$('lesson-library');
+  if(select)select.innerHTML='<option value="">Choose a saved lesson</option>'+state.lessonLibrary.map(item=>'<option value="'+esc(item.id)+'" '+(item.id===state.lessonId?'selected':'')+'>'+esc(item.title)+'</option>').join('');
+  else renderLessonPanel()
+ }
  catch(error){announce('Could not load shared lessons: '+error.message,true)}
 }
 async function saveSharedLesson(){
