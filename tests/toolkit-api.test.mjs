@@ -875,3 +875,32 @@ test('finish control ends the currently active whiteboard and cannot close a new
   roundId:active.id,control:'finish'})).status,200);
  assert.equal((await state(store,student.token)).body.active,null);
 });
+
+test('shared 5Es lessons persist across rooms and reject unauthorized or stale edits',async()=>{
+ const store=new FakeStore(),first=(await created(store)).body,second=(await created(store)).body;
+ const student=(await join(store,first.code,'Student')).body;
+ const phaseNames=['Engage','Explore','Explain','Extend','Evaluate'];
+ const lesson={title:'CREATE operation',phases:phaseNames.map((name,i)=>({name,duration:10+i,tool:i===0?'cloud':'answers',notes:'Phase '+name}))};
+ const forbidden=await call(store,{action:'lesson-bank',token:student.token,operation:'list'});
+ assert.equal(forbidden.status,403);
+ const saved=await call(store,{action:'lesson-bank',token:first.teacherToken,operation:'save',item:lesson});
+ assert.equal(saved.status,201);
+ assert.equal(saved.body.item.revision,1);
+ const list=await call(store,{action:'lesson-bank',token:second.teacherToken,operation:'list'});
+ assert.equal(list.body.items.length,1);
+ assert.equal(list.body.items[0].title,'CREATE operation');
+ const id=saved.body.item.id;
+ assert.equal((await call(store,{action:'lesson-bank',token:second.teacherToken,operation:'save',id,revision:0,item:lesson})).status,409);
+ const updated=await call(store,{action:'lesson-bank',token:second.teacherToken,operation:'save',id,revision:1,item:{...lesson,title:'Revised lesson'}});
+ assert.equal(updated.status,200);
+ assert.equal(updated.body.item.revision,2);
+ assert.equal((await call(store,{action:'lesson-bank',token:second.teacherToken,operation:'delete',id})).status,200);
+ assert.equal((await call(store,{action:'lesson-bank',token:first.teacherToken,operation:'list'})).body.items.length,0);
+});
+test('lesson bank rejects malformed, oversized and untrusted phase content',async()=>{
+ const store=new FakeStore(),room=(await created(store)).body;
+ const lesson={title:'Valid',phases:['Engage','Explore','Explain','Extend','Evaluate'].map(name=>({name,duration:15,tool:'poll',notes:''}))};
+ for(const item of [{...lesson,phases:lesson.phases.slice(0,4)},{...lesson,phases:lesson.phases.map((p,i)=>i? p:{...p,tool:'unknown'})},{...lesson,title:'x'.repeat(121)}]){
+  assert.equal((await call(store,{action:'lesson-bank',token:room.teacherToken,operation:'save',item})).status,400);
+ }
+});
