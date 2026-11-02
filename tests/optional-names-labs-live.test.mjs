@@ -61,7 +61,8 @@ test('student live screen sharing requires a name but no activity field',()=>{
  assert.match(studentPage,/id="name"[^>]*required/);
  assert.doesNotMatch(studentPage,/id="part"/);
  assert.doesNotMatch(studentModule,/\$\('part'\)/);
- assert.match(studentModule,/body:JSON\.stringify\(\{role:'student',name\}\)/);
+ assert.match(studentModule,/body:JSON\.stringify\(\{role:'student',name/);
+ assert.match(studentModule,/code:toolkitRoomCode/);
  assert.doesNotMatch(liveToken,/data\.part/);
  assert.doesNotMatch(liveToken,/allowedPart\(data\.part\)/);
 });
