@@ -1,6 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
-import {ROOM,configured,lecturerAuthorized,teacherAuthorized,publicName} from '../lib/live-auth.mjs';
+import {ROOM,configured,lecturerAuthorized,teacherAuthorized,publicName,lecturerScreenRoom,studentScreenRoom} from '../lib/live-auth.mjs';
 const headers={'Cache-Control':'no-store','Content-Type':'application/json; charset=utf-8','X-Content-Type-Options':'nosniff'};
 const res=(x,status=200)=>new Response(JSON.stringify(x),{status,headers});
 export default async function handler(req){
@@ -14,6 +14,8 @@ export default async function handler(req){
   const isTeacher=data.role==='teacher';
   if(isTeacher&&!await lecturerAuthorized(data))return res({error:'Lecturer session has expired or is unauthorized'},403);
   if(!isTeacher&&(typeof data.name!=='string'||!publicName(data.name).trim()))return res({error:'Enter your name before sharing.'},400);
+  const roomName=isTeacher?lecturerScreenRoom(data):await studentScreenRoom(data);
+  if(!roomName)return res({error:'Classroom screen-sharing room is invalid or has ended. Rejoin the classroom.'},403);
   // Verify that the configured API key, secret, and URL actually work for
   // the lecturer before issuing room tokens. Merely having env vars is not
   // sufficient to establish valid LiveKit authentication.
@@ -38,7 +40,7 @@ export default async function handler(req){
   });
   // SDK expects numeric protobuf enum values, not the client-side 'screen_share' string.
   // Students enter a waiting lobby with NO publish or subscribe permissions. Only the lecturer can authorize one screen at a time through live-control.
-  token.addGrant({roomJoin:true,room:ROOM,canPublish:false,canPublishSources:isTeacher?[]:[TrackSource.SCREEN_SHARE],canSubscribe:isTeacher,canPublishData:false});
+  token.addGrant({roomJoin:true,room:roomName,canPublish:false,canPublishSources:isTeacher?[]:[TrackSource.SCREEN_SHARE],canSubscribe:isTeacher,canPublishData:false});
   return res({url:process.env.LIVEKIT_URL,token:await token.toJwt(),identity,display});
   }catch(e){
   const description=String(e?.message||'');
