@@ -444,6 +444,34 @@ export async function handleToolkit(request,storeProvider=getStore){
       return fail(400,'Unknown bookmark operation');
     }
 
+    if(data.action==='session-report'){
+      if(claims.role!=='teacher')return fail(403,'Lecturer only');
+      const members=await entries(store,key('member',claims.code)+'/',250);
+      const rounds=(room.engagementRounds||[]).slice(-120);
+      const activity=await Promise.all(rounds.map(async meta=>{
+        const round=await get(store,key('round',claims.code,meta.id));
+        if(!round||!['poll','answers','cloud','evaluation','text-document'].includes(round.type))return null;
+        const responses=await entries(store,key('response',claims.code,meta.id)+'/',250);
+        const statuses=studentParticipation(members,round,responses);
+        return {id:meta.id,type:round.type,title:round.title||round.prompt||round.type,
+          startedAt:meta.startedAt,seq:meta.seq,participated:statuses.filter(x=>x.participated).length,
+          eligible:members.filter(m=>!Number.isInteger(m.joinedEngagementSeq)||
+            !Number.isInteger(meta.seq)||meta.seq>=m.joinedEngagementSeq).length,
+          studentIds:statuses.filter(x=>x.participated).map(x=>x.id)};
+      }));
+      const activities=activity.filter(Boolean);
+      const students=members.filter(m=>typeof m.id==='string'&&typeof m.name==='string').map(member=>{
+        const eligible=activities.filter(a=>!Number.isInteger(member.joinedEngagementSeq)||
+          !Number.isInteger(a.seq)||a.seq>=member.joinedEngagementSeq);
+        const completed=eligible.filter(a=>a.studentIds.includes(member.id)).length;
+        return {id:member.id,name:member.name,team:member.team||'',
+          eligible:eligible.length,participated:completed,
+          rate:eligible.length?Math.round(100*completed/eligible.length):null};
+      }).sort((a,b)=>a.name.localeCompare(b.name));
+      return reply({code:claims.code,createdAt:room.createdAt,
+        generatedAt:new Date().toISOString(),students,
+        activities:activities.map(({studentIds,...activity})=>activity)});
+    }
     if(data.action==='resource-index'){
       if(claims.role!=='teacher')return fail(403,'Lecturer only');
       const sources=[
