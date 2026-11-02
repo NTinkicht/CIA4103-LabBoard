@@ -150,6 +150,7 @@ try{
  await teacher.locator('#resource-index').getByText('Sample poll').waitFor();
  await teacher.locator('[data-resource-bank="poll"]').click();
  assert.equal(await teacher.locator('[data-tool="poll"]').getAttribute('aria-selected'),'true');
+ await teacher.locator('[data-group="present"]').click();
  await teacher.locator('[data-tool="report"]').click();
  await teacher.locator('#session-report').getByText('50%').first().waitFor();
  assert.equal(await teacher.locator('#report-export').isEnabled(),true);
