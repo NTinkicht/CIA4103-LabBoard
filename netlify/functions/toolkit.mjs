@@ -456,13 +456,13 @@ export async function handleToolkit(request,storeProvider=getStore){
         return {id:meta.id,type:round.type,title:round.title||round.prompt||round.type,
           startedAt:meta.startedAt,seq:meta.seq,participated:statuses.filter(x=>x.participated).length,
           eligible:members.filter(m=>!Number.isInteger(m.joinedEngagementSeq)||
-            !Number.isInteger(meta.seq)||meta.seq>=m.joinedEngagementSeq).length,
+            !Number.isInteger(meta.seq)||meta.seq>=m.joinedEngagementSeq||meta.id===m.joinedActiveRoundId).length,
           studentIds:statuses.filter(x=>x.participated).map(x=>x.id)};
       }));
       const activities=activity.filter(Boolean);
       const students=members.filter(m=>typeof m.id==='string'&&typeof m.name==='string').map(member=>{
         const eligible=activities.filter(a=>!Number.isInteger(member.joinedEngagementSeq)||
-          !Number.isInteger(a.seq)||a.seq>=member.joinedEngagementSeq);
+          !Number.isInteger(a.seq)||a.seq>=member.joinedEngagementSeq||a.id===member.joinedActiveRoundId);
         const completed=eligible.filter(a=>a.studentIds.includes(member.id)).length;
         return {id:member.id,name:member.name,team:member.team||'',
           eligible:eligible.length,participated:completed,
