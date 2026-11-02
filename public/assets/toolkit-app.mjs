@@ -171,7 +171,8 @@ async function saveSharedLesson(){
    state.lessonId=data.item.id;state.lessonRevision=data.item.revision;
   }
   announce('Lesson saved to your shared library');await loadLessonLibrary();
- }catch(error){announce('Lesson not saved: '+error.message,true);if(button)button.disabled=false}
+ }catch(error){announce('Lesson not saved: '+error.message,true)}
+ finally{if(button?.isConnected)button.disabled=false}
 }
 function openLessonPhase(index){
  state.lessonPhase=Math.max(0,Math.min(PHASES.length-1,index));
